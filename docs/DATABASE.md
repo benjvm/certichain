@@ -3,9 +3,9 @@
 La primera migración, `initial_schema`, define cuatro tablas: `profiles`,
 `institutions`, `institution_members` y `certificates`. Los campos y tablas
 adicionales descritos más abajo son propuestas para incrementos futuros, no
-parte del esquema inicial. Esta migración habilita RLS sin políticas: los roles
-`anon` y `authenticated` no pueden acceder a esas tablas hasta la migración de
-políticas.
+parte del esquema inicial. La primera migración habilitó RLS; la segunda,
+`rls_policies`, define las políticas para `authenticated`. `anon` no tiene
+acceso directo a ninguna de las cuatro tablas.
 Los certificados conservan referencias obligatorias; por ello se impide borrar
 un perfil o institución que tenga certificados asociados. Esta decisión también
 puede impedir borrar un usuario de `auth.users`, porque su perfil se eliminaría
@@ -157,18 +157,38 @@ erDiagram
 - Unique `blockchain_records(chain_id, transaction_hash)`.
 - `verification_events(certificate_id, created_at desc)` si se activa historial.
 
-## RLS resumida
+## RLS vigente
 
-- `profiles`: cada usuario lee y actualiza el suyo; exposición adicional mediante vistas/control backend.
-- `institutions`: lectura pública solo de campos seguros; cambios administrativos restringidos.
-- `institution_members`: miembros leen su institución; solo owner/admin gestiona miembros.
-- `certificates`: estudiante lee los suyos; miembros leen los de su institución; creación/revocación solo mediante operación segura.
-- `blockchain_records`: lectura relacionada autorizada; escritura exclusiva del backend.
-- Verificación pública: usar una función/vista que devuelva un DTO mínimo, no `SELECT` público sobre `certificates`.
+La identidad se obtiene de `auth.uid()`. El rol global `platform_admin` permite
+las operaciones administrativas expresamente indicadas abajo. `holder` e
+`institution_admin` no confieren por sí solos permisos sobre instituciones:
+estos dependen de `institution_members.role` (`owner`, `admin` o `issuer`).
 
-La migración inicial habilita RLS sin políticas. Las políticas y sus pruebas de
-permisos se incorporarán en una migración posterior antes de exponer datos a
-clientes.
+| Tabla | Lectura | Escritura desde `authenticated` |
+|---|---|---|
+| `profiles` | Perfil propio o cualquier perfil para `platform_admin` | Actualización propia sin cambiar `role`; `platform_admin` puede actualizar perfiles. Sin INSERT ni DELETE de cliente. |
+| `institutions` | Miembros y `platform_admin` | INSERT/DELETE solo `platform_admin`; UPDATE `owner`, `admin` o `platform_admin`. Solo `platform_admin` cambia `verification_status`. |
+| `institution_members` | Fila propia; todas las filas de la institución para `owner`/`admin`; todas para `platform_admin` | INSERT/UPDATE/DELETE solo `owner` de esa institución o `platform_admin`. |
+| `certificates` | Titular, cualquier miembro de la institución emisora o `platform_admin` | INSERT por `owner`/`admin`/`issuer` de la institución con `issued_by = auth.uid()`, o por `platform_admin`. UPDATE por `owner`/`admin` solo para revocar, o por `platform_admin`. Sin DELETE de cliente. |
+
+Las funciones `certichain_private.is_platform_admin`,
+`is_institution_member` y `has_institution_role` consultan únicamente el estado
+de autorización del usuario actual. Son `SECURITY DEFINER`, usan un
+`search_path` vacío y evitan recursión RLS. El esquema no está expuesto por la
+API; solo `authenticated` puede ejecutarlas. Los triggers de `profiles` e
+`institutions` impiden cambiar roles globales o estados de verificación sin
+ser `platform_admin`. El trigger de `certificates` limita a los administradores
+institucionales a la transición `active → revoked`, conserva todos los demás
+campos y fija `revoked_at` con la hora de la base de datos.
+
+No hay acceso directo para `anon`; la verificación pública requiere una futura
+interfaz restringida. Tampoco hay una política de INSERT para perfiles: su
+aprovisionamiento inicial y la asignación del primer `platform_admin` requieren
+un flujo confiable. La migración no garantiza que permanezca al menos un
+`owner` por institución; se necesita una regla transaccional de negocio para
+evitar borrar o degradar al último. La emisión directa autorizada por RLS no
+valida aún el archivo ni su hash: antes de producción, ese flujo debe pasar por
+el backend confiable descrito en `docs/ARCHITECTURE.md`.
 
 ## Seeds
 
