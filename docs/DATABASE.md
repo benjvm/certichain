@@ -1,5 +1,17 @@
 # Modelo de datos y migraciones
 
+La primera migración, `initial_schema`, define cuatro tablas: `profiles`,
+`institutions`, `institution_members` y `certificates`. Los campos y tablas
+adicionales descritos más abajo son propuestas para incrementos futuros, no
+parte del esquema inicial. Esta migración habilita RLS sin políticas: los roles
+`anon` y `authenticated` no pueden acceder a esas tablas hasta la migración de
+políticas.
+Los certificados conservan referencias obligatorias; por ello se impide borrar
+un perfil o institución que tenga certificados asociados. Esta decisión también
+puede impedir borrar un usuario de `auth.users`, porque su perfil se eliminaría
+en cascada. Una futura política de eliminación o anonimización debe resolver
+explícitamente ese caso sin perder el historial.
+
 ## Fuente de verdad
 
 El esquema se define exclusivamente en `supabase/migrations/`. El panel visual sirve para inspección, nunca para realizar cambios no versionados.
@@ -154,7 +166,9 @@ erDiagram
 - `blockchain_records`: lectura relacionada autorizada; escritura exclusiva del backend.
 - Verificación pública: usar una función/vista que devuelva un DTO mínimo, no `SELECT` público sobre `certificates`.
 
-Cada migración debe incluir RLS y políticas de las tablas nuevas en el mismo incremento, además de pruebas de permisos.
+La migración inicial habilita RLS sin políticas. Las políticas y sus pruebas de
+permisos se incorporarán en una migración posterior antes de exponer datos a
+clientes.
 
 ## Seeds
 
