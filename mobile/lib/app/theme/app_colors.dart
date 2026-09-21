@@ -1,9 +1,25 @@
 import 'package:flutter/material.dart';
 
 abstract final class AppColors {
-  static const Color primary = Color(0xFF2457C5);
-  static const Color background = Color(0xFFF7F8FC);
-  static const Color surface = Colors.white;
-  static const Color textPrimary = Color(0xFF172033);
-  static const Color error = Color(0xFFBA1A1A);
+  static const brandPrimary = Color(0xFF4F5FFF);
+  static const brandPrimaryDark = Color(0xFF3947E8);
+  static const brandPrimaryLight = Color(0xFFEEF0FF);
+  static const brandSecondary = Color(0xFF7657FF);
+  static const success = Color(0xFF16B364);
+  static const successLight = Color(0xFFECFDF3);
+  static const error = Color(0xFFF04438);
+  static const errorLight = Color(0xFFFEF3F2);
+  static const warning = Color(0xFFF79009);
+  static const info = Color(0xFF2E90FA);
+  static const background = Color(0xFFF8F9FC);
+  static const surface = Color(0xFFFFFFFF);
+  static const border = Color(0xFFE4E7EC);
+  static const textPrimary = Color(0xFF101828);
+  static const textSecondary = Color(0xFF667085);
+  static const textTertiary = Color(0xFF98A2B3);
+  static const disabled = Color(0xFFD0D5DD);
+  static const studentAccent = brandPrimary;
+  static const institutionAccent = brandSecondary;
+  static const institutionLight = Color(0xFFF3F0FF);
+  static const verifierAccent = success;
 }

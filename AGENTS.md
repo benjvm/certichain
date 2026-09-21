@@ -25,6 +25,7 @@ CertiChain permite emitir y verificar certificados académicos o profesionales. 
 - Centralizar rutas, configuración, errores y temas compartidos.
 - No incorporar dependencias nuevas sin explicar necesidad, mantenimiento y alternativa estándar.
 - Nunca incluir secretos ni una clave privada blockchain en la app.
+- Ejecuta comandos de Flutter que necesiten funcionar de manera confiable a través de `sandbox_permissions: "require_escalated"`; siempre incluye una breve justificación y solicita una `prefix_rule` estrecha para el comando exacto, como `flutter --version`, `flutter analyze`, `flutter test`, o `dart format`.
 
 ## Base de datos y Supabase
 
