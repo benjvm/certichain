@@ -182,13 +182,98 @@ institucionales a la transición `active → revoked`, conserva todos los demás
 campos y fija `revoked_at` con la hora de la base de datos.
 
 No hay acceso directo para `anon`; la verificación pública requiere una futura
-interfaz restringida. Tampoco hay una política de INSERT para perfiles: su
-aprovisionamiento inicial y la asignación del primer `platform_admin` requieren
-un flujo confiable. La migración no garantiza que permanezca al menos un
+interfaz restringida. Tampoco hay una política de INSERT para perfiles: el
+aprovisionamiento inicial usa el trigger descrito abajo; la asignación del primer
+`platform_admin` sigue requiriendo un flujo confiable futuro. La migración no garantiza que permanezca al menos un
 `owner` por institución; se necesita una regla transaccional de negocio para
 evitar borrar o degradar al último. La emisión directa autorizada por RLS no
 valida aún el archivo ni su hash: antes de producción, ese flujo debe pasar por
 el backend confiable descrito en `docs/ARCHITECTURE.md`.
+
+## Aprovisionamiento confiable de perfiles — Phase 4A
+
+La migración `20260921154627_trusted_profile_provisioning.sql` incorpora este
+flujo dentro de la misma transacción:
+
+```text
+INSERT auth.users
+  → certichain_auth_user_provision_profile (AFTER INSERT, FOR EACH ROW)
+  → certichain_private.provision_auth_user_profile()
+  → INSERT public.profiles (id = NEW.id, full_name validado, role = holder)
+```
+
+El perfil se crea cuando se inserta la identidad, no cuando se confirma el correo.
+La PK de `profiles` garantiza un único perfil por identidad. No hay upsert, RPC
+público ni sincronización posterior desde los metadatos de Auth. Este incremento
+no rellena perfiles ausentes de identidades anteriores.
+
+### Contrato de entrada y errores
+
+El registro debe proporcionar `full_name` como **string JSON** en los metadatos
+de usuario de Supabase Auth (`raw_user_meta_data.full_name`; en el SDK corresponde
+a `options.data.full_name`). El trigger elimina espacios en los extremos según
+la clase PostgreSQL `[[:space:]]`, incluidos tabuladores y saltos de línea, y
+conserva el contenido interior. Es entrada no confiable que se valida, no una
+fuente de autorización.
+
+Si falta el nombre, es null, tiene otro tipo JSON o queda vacío al recortarlo,
+la función lanza SQLSTATE `23514` con un mensaje fijo sin datos personales.
+La transacción revierte tanto la identidad como el perfil; Auth puede presentar
+un error genérico de creación de usuario. No se sustituye el nombre por correo,
+UUID ni datos inventados. Las altas por otros proveedores o herramientas también
+deben cumplir este contrato. La traducción del error a UI pertenece a Phase 4B.
+
+`profiles_full_name_not_blank` aplica la misma regla a cualquier INSERT/UPDATE
+del perfil, además del `NOT NULL` existente. Antes de añadirla, la migración
+comprueba los perfiles existentes: si encuentra nombres en blanco, se detiene
+con un error que exige revisión y corrección explícitas. No modifica datos ni
+incluye sus valores en ese mensaje. No se ha inspeccionado ningún proyecto remoto;
+la compatibilidad de sus datos debe comprobarse antes de una futura aplicación.
+
+### Autorización
+
+Todos los registros propios comienzan explícitamente como `holder`, incluidos
+los que seleccionen «Institución». «Estudiante»/«Institución» expresa intención
+de presentación y no se persiste aquí. Los metadatos de rol, institución o
+membresía se ignoran: no se crean instituciones ni filas en `institution_members`,
+ni se conceden `institution_admin`, `platform_admin`, `owner`, `admin` o `issuer`.
+El onboarding institucional y su aprobación siguen pendientes.
+
+La función reside en el esquema privado ya existente, es `SECURITY DEFINER`,
+usa `search_path = ''` y referencias a objetos cualificadas. Su propietario es
+el propietario confiable de las migraciones/tablas, como las funciones privadas
+existentes; esto permite insertar pese a RLS desde el trigger de Auth. No se
+añaden roles ni grants de tabla. Se revoca EXECUTE de PUBLIC, `anon`,
+`authenticated` y `service_role`; la función no es una operación de cliente.
+Su cuerpo fijo solo valida el nombre e inserta el perfil, sin SQL dinámico.
+
+INSERT de cliente permanece deshabilitado para evitar perfiles arbitrarios o
+roles elegidos por el usuario. Las políticas SELECT/UPDATE y el trigger que
+protege los cambios de rol no se alteran. La elevación administrativa queda
+fuera de este incremento.
+
+### Pruebas locales
+
+Desde la raíz, con Supabase CLI y Docker disponibles:
+
+```bash
+supabase start
+supabase db reset --local
+supabase test db --local
+supabase db lint --local --level warning
+```
+
+Si la CLI se usa mediante npm, anteponer `npx --yes` a cada comando. No usar
+`--linked` ni una URL remota para estas pruebas.
+
+`supabase/tests/profile_provisioning.test.sql` usa pgTAP sobre las tablas y el
+trigger reales. Comprueba el rol de base de datos de Auth, identidad, unicidad,
+recorte, rol inicial, metadatos maliciosos, tipos/nombres inválidos, rollback,
+permisos de función y regresiones RLS de lectura, actualización e INSERT.
+Todos los fixtures son sintéticos y se revierten al terminar. Son pruebas de
+integración de base de datos, no del endpoint HTTP de signup ni del correo.
+El enfoque sigue la [documentación de pruebas de Supabase](https://supabase.com/docs/guides/database/testing)
+y su [ciclo de creación de perfiles con triggers](https://supabase.com/docs/guides/auth/managing-user-data).
 
 ## Seeds
 
