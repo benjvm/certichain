@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/app/app.dart';
+import 'package:mobile/features/auth/presentation/login_screen.dart';
 import 'package:mobile/features/onboarding/presentation/welcome_screen.dart';
 
 void main() {
@@ -14,11 +15,11 @@ void main() {
     expect(find.text('Comenzar'), findsOneWidget);
     expect(find.bySemanticsLabel('Página 1 de 3'), findsOneWidget);
     await tester.tap(find.text('Comenzar'));
-    await tester.pump();
-    expect(
-      find.text('Continuación disponible en la próxima fase'),
-      findsOneWidget,
-    );
+    await tester.pumpAndSettle();
+    expect(find.byType(LoginScreen), findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byType(WelcomeScreen), findsOneWidget);
   });
 
   testWidgets('welcome screen fits a small portrait with enlarged text', (

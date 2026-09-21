@@ -1,6 +1,6 @@
 # CertiChain — Especificación de interfaz Flutter v1
 
-> Documento de trabajo para Codex. Referencia visual: `ChatGPT Image Sep 20, 2026, 09_00_47 PM.png` (wireframe de 15 vistas). Coloca una copia en `docs/references/certichain-wireframe.png` dentro del repositorio y ajusta esta ruta si cambia. La imagen manda en composición y jerarquía; este documento fija medidas, comportamiento y consistencia cuando la imagen no da suficiente detalle.
+> Documento de trabajo para Codex. Referencia visual: `ChatGPT Image Sep 20, 2026, 09_00_47 PM.png` (wireframe de 15 vistas). Coloca una copia en `docs/certichain-wireframe.png` dentro del repositorio y ajusta esta ruta si cambia. La imagen manda en composición y jerarquía; este documento fija medidas, comportamiento y consistencia cuando la imagen no da suficiente detalle.
 
 ## 1. Encargo para Codex
 
@@ -134,4 +134,4 @@ El wireframe incluye logo geométrico, ilustración de onboarding, diploma, avat
 
 ### Prompt breve para iniciar la ejecución
 
-> Lee `CERTICHAIN_UI_IMPLEMENTATION.md`, la imagen `docs/references/certichain-wireframe.png` y los documentos existentes del repositorio. Implementa la UI Flutter de CertiChain siguiendo la secuencia y criterios de aceptación del documento. Antes de modificar, revisa la arquitectura real y las migraciones Supabase. Mantén widgets y tokens compartidos, conecta solo funciones respaldadas por servicios reales y separa explícitamente la demostración. Al terminar, entrega resumen de pantallas, comandos de verificación y limitaciones concretas.
+> Lee `CERTICHAIN_UI_IMPLEMENTATION.md`, la imagen `docs/certichain-wireframe.png` y los documentos existentes del repositorio. Implementa la UI Flutter de CertiChain siguiendo la secuencia y criterios de aceptación del documento. Antes de modificar, revisa la arquitectura real y las migraciones Supabase. Mantén widgets y tokens compartidos, conecta solo funciones respaldadas por servicios reales y separa explícitamente la demostración. Al terminar, entrega resumen de pantallas, comandos de verificación y limitaciones concretas.

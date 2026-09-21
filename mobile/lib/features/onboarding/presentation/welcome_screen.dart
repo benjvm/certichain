@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../../app/router/app_router.dart';
+
 import '../../../app/theme/app_colors.dart';
 import '../../../app/theme/app_spacing.dart';
 import '../../../app/theme/app_typography.dart';
@@ -77,13 +79,8 @@ class WelcomeScreen extends StatelessWidget {
     );
   }
 
-  // TODO: Connect to the benefits page when onboarding continues in phase 2.
   void _startNextPhase(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Continuación disponible en la próxima fase'),
-      ),
-    );
+    Navigator.of(context).pushNamed(AppRouter.loginRoute);
   }
 }
 
