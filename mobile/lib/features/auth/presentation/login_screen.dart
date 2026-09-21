@@ -4,7 +4,9 @@ import '../../../app/theme/app_colors.dart';
 import '../../../app/theme/app_spacing.dart';
 import '../../../app/theme/app_typography.dart';
 import '../../../core/widgets/app_button.dart';
-import '../../../core/widgets/certichain_logo.dart';
+import '../../../app/router/app_router.dart';
+import 'auth_form_validators.dart';
+import 'widgets/auth_brand.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -37,15 +39,6 @@ class _LoginScreenState extends State<LoginScreen> {
     // does not create a session, persist credentials, or navigate to Home.
   }
 
-  String? _validateEmail(String? value) {
-    final email = value?.trim() ?? '';
-    if (email.isEmpty) return 'Introduce tu email';
-    if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email)) {
-      return 'Introduce un email válido';
-    }
-    return null;
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -69,16 +62,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        CertiChainLogo(size: AppSpacing.large),
-                        SizedBox(width: AppSpacing.sm),
-                        Flexible(
-                          child: Text('CertiChain', style: AppTypography.h2),
-                        ),
-                      ],
-                    ),
+                    const AuthBrand(),
                     const SizedBox(height: AppSpacing.xlarge),
                     const Text(
                       'Iniciar sesión',
@@ -105,7 +89,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       textInputAction: TextInputAction.next,
                       autocorrect: false,
                       enableSuggestions: false,
-                      validator: _validateEmail,
+                      validator: AuthFormValidators.email,
                       onFieldSubmitted: (_) => _passwordFocus.requestFocus(),
                     ),
                     const SizedBox(height: AppSpacing.lg),
@@ -150,11 +134,12 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: AppSpacing.xxl),
                     AppButton(label: 'Iniciar sesión', onPressed: _handleLogin),
                     const SizedBox(height: AppSpacing.xxl),
-                    const Center(
+                    Center(
                       child: TextButton(
-                        // TODO: Connect registration when implemented.
-                        onPressed: null,
-                        child: Text('Crear cuenta'),
+                        onPressed: () =>
+                            Navigator.of(context)
+                                .pushNamed(AppRouter.registerRoute),
+                        child: const Text('Crear cuenta'),
                       ),
                     ),
                   ],

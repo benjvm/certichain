@@ -33,8 +33,9 @@ void main() {
     expect(
       tester
           .widgetList<TextButton>(find.byType(TextButton))
-          .every((button) => button.onPressed == null),
-      isTrue,
+          .where((button) => button.onPressed == null)
+          .length,
+      1,
     );
   });
   testWidgets('visibility, keyboard next/done and outside dismissal', (
