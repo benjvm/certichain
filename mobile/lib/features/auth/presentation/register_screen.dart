@@ -5,11 +5,14 @@ import '../../../app/theme/app_spacing.dart';
 import '../../../app/theme/app_typography.dart';
 import '../../../core/widgets/app_button.dart';
 import 'auth_form_validators.dart';
+import '../domain/auth_repository.dart';
+import 'registration_credentials.dart';
 import 'widgets/auth_brand.dart';
 import 'widgets/registration_role_selector.dart';
 
 class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({super.key});
+  const RegisterScreen({required this.repository, super.key});
+  final AuthRepository repository;
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
@@ -35,10 +38,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() => _submitted = true);
     if (!_formKey.currentState!.validate()) return;
     FocusScope.of(context).unfocus();
-    // TODO: Connect Supabase registration in the dedicated Auth phase.
-    // Account type is UI intent only; trusted backend provisioning must determine
-    // profile roles, institutional membership and approval. Do not persist or
-    // navigate on local validation, and never send this preference as authority.
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => RegistrationCredentials(
+          repository: widget.repository,
+          fullName: _nameController.text.trim(),
+          email: _emailController.text.trim(),
+          institutionPreference:
+              _accountType == RegistrationAccountType.institution,
+        ),
+      ),
+    );
   }
 
   @override

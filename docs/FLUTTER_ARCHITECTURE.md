@@ -39,3 +39,14 @@ manteniendo sus conceptos de dominio independientes de Flutter e
 infraestructura. Si la decisión altera límites estructurales o responsabilidades
 existentes, debe actualizarse la documentación arquitectónica y valorarse un
 ADR.
+
+## Auth — Phase 4B
+
+`main` es la raíz de composición: valida `AppConfig`, inicializa Supabase e
+inyecta `SupabaseAuthRepository` en `CertiChainApp`. `AuthRepository` y sus tipos
+son Dart puro. Las pantallas reciben el contrato por constructor; el router
+propaga esa dependencia. `AuthController` (ChangeNotifier del SDK Flutter)
+observa una única suscripción y coordina sesión/logout. El widget raíz sustituye
+el navegador al cambiar el estado de autenticación o la identidad. La UI no
+consulta Supabase ni perfiles. No se añaden service locators ni gestores externos.
+Los tests inyectan un repositorio falso. Detalles en [AUTHENTICATION.md](AUTHENTICATION.md).

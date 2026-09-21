@@ -6,10 +6,16 @@ import '../../app/theme/app_shadows.dart';
 import '../../app/theme/app_typography.dart';
 
 class AppButton extends StatelessWidget {
-  const AppButton({required this.label, required this.onPressed, super.key});
+  const AppButton({
+    required this.label,
+    required this.onPressed,
+    this.isLoading = false,
+    super.key,
+  });
 
   final String label;
   final VoidCallback? onPressed;
+  final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
@@ -29,7 +35,7 @@ class AppButton extends StatelessWidget {
           color: onPressed == null ? AppColors.disabled : Colors.transparent,
           borderRadius: BorderRadius.circular(AppRadius.md),
           child: InkWell(
-            onTap: onPressed,
+            onTap: isLoading ? null : onPressed,
             borderRadius: BorderRadius.circular(AppRadius.md),
             child: Center(
               child: Padding(
@@ -37,9 +43,35 @@ class AppButton extends StatelessWidget {
                   horizontal: 16,
                   vertical: 12,
                 ),
-                child: Text(
-                  label,
-                  style: AppTypography.label.copyWith(color: AppColors.surface),
+                child: Semantics(
+                  button: true,
+                  enabled: !isLoading && onPressed != null,
+                  label: isLoading ? '$label. En curso' : label,
+                  liveRegion: isLoading,
+                  child: ExcludeSemantics(
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Opacity(
+                          opacity: isLoading ? 0 : 1,
+                          child: Text(
+                            label,
+                            style: AppTypography.label.copyWith(
+                              color: AppColors.surface,
+                            ),
+                          ),
+                        ),
+                        if (isLoading)
+                          const SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppColors.surface,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),

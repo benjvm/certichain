@@ -1,3 +1,5 @@
+import 'fake_auth_repository.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/app/theme/app_theme.dart';
@@ -7,7 +9,12 @@ import 'package:mobile/features/auth/presentation/login_screen.dart';
 void main() {
   Future<void> openLogin(WidgetTester tester) async {
     await tester.pumpWidget(
-      MaterialApp(theme: AppTheme.light, home: const LoginScreen()),
+      MaterialApp(
+        theme: AppTheme.light,
+        home: LoginScreen(
+          repository: FakeAuthRepository()..authenticate = false,
+        ),
+      ),
     );
   }
 

@@ -1,3 +1,5 @@
+import 'fake_auth_repository.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/app/app.dart';
@@ -5,18 +7,24 @@ import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/core/widgets/app_button.dart';
 import 'package:mobile/features/auth/presentation/login_screen.dart';
 import 'package:mobile/features/auth/presentation/register_screen.dart';
+import 'package:mobile/features/auth/presentation/registration_credentials.dart';
 import 'package:mobile/features/auth/presentation/widgets/registration_role_selector.dart';
 import 'package:mobile/features/onboarding/presentation/welcome_screen.dart';
 
 void main() {
   Future<void> open(WidgetTester tester) => tester.pumpWidget(
-    MaterialApp(theme: AppTheme.light, home: const RegisterScreen()),
+    MaterialApp(
+      theme: AppTheme.light,
+      home: RegisterScreen(repository: FakeAuthRepository()),
+    ),
   );
 
   testWidgets('welcome login register and back preserve the existing stack', (
     tester,
   ) async {
-    await tester.pumpWidget(const CertiChainApp());
+    await tester.pumpWidget(
+      CertiChainApp(authRepository: FakeAuthRepository()),
+    );
     await tester.tap(find.text('Comenzar'));
     await tester.pumpAndSettle();
     await tester.enterText(
@@ -69,7 +77,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Introduce tu nombre completo'), findsNothing);
       expect(find.text('Introduce un email válido'), findsNothing);
-      expect(find.byType(RegisterScreen), findsOneWidget);
+      expect(find.byType(RegistrationCredentials), findsOneWidget);
       expect(
         tester
             .widget<EditableText>(find.byType(EditableText).last)
