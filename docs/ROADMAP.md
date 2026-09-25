@@ -1,5 +1,17 @@
 # Hoja de ruta del MVP
 
+## Incremento entregado — Fase 4C de implementación Flutter
+
+Inicio autenticado con perfil real, total y certificados recientes; wallet
+personal limitada a los 50 más recientes; consulta de perfil y cierre de sesión.
+Incluye estados de carga/vacío/error/reintento y aislamiento por sesión.
+No equivale a completar la fase de blockchain del roadmap conceptual inferior.
+Detalle, permisos y pruebas en [STUDENT_WALLET.md](STUDENT_WALLET.md).
+
+Pendiente: detalles/documentos, paginación completa, QR/verificación, emisión,
+aprobación institucional y blockchain. La RLS actual todavía no comprueba que
+una institución esté aprobada antes de emitir; no habilitar emisión desde Flutter.
+
 ## Fase 0 — Diseño y entorno
 
 - Aprobar requisitos, actores y límites del MVP.

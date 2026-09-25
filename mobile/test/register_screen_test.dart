@@ -1,3 +1,4 @@
+import 'fake_wallet_repositories.dart';
 import 'fake_auth_repository.dart';
 
 import 'package:flutter/material.dart';
@@ -23,7 +24,11 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      CertiChainApp(authRepository: FakeAuthRepository()),
+      CertiChainApp(
+        profileRepository: FakeProfileRepository(),
+        certificateRepository: FakeCertificateRepository(),
+        authRepository: FakeAuthRepository(),
+      ),
     );
     await tester.tap(find.text('Comenzar'));
     await tester.pumpAndSettle();

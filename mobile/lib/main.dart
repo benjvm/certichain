@@ -5,6 +5,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'app/app.dart';
 import 'app/config/app_config.dart';
 import 'features/auth/data/supabase_auth_repository.dart';
+import 'features/profile/data/supabase_profile_repository.dart';
+import 'features/certificates/data/supabase_certificate_repository.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -17,7 +19,11 @@ Future<void> main() async {
       authOptions: const FlutterAuthClientOptions(detectSessionInUri: false),
     );
     runApp(
-      CertiChainApp(authRepository: SupabaseAuthRepository(supabase.client)),
+      CertiChainApp(
+        authRepository: SupabaseAuthRepository(supabase.client),
+        profileRepository: SupabaseProfileRepository(supabase.client),
+        certificateRepository: SupabaseCertificateRepository(supabase.client),
+      ),
     );
   } catch (error) {
     // Never print SDK payloads or configuration values during failed startup.

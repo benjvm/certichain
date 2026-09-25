@@ -1,3 +1,5 @@
+import 'fake_wallet_repositories.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -19,7 +21,13 @@ Future<void> click(WidgetTester tester, String label) async {
 }
 
 Future<void> openLogin(WidgetTester tester, FakeAuthRepository repo) async {
-  await tester.pumpWidget(CertiChainApp(authRepository: repo));
+  await tester.pumpWidget(
+    CertiChainApp(
+      profileRepository: FakeProfileRepository(),
+      certificateRepository: FakeCertificateRepository(),
+      authRepository: repo,
+    ),
+  );
   await click(tester, 'Comenzar');
 }
 
@@ -45,21 +53,27 @@ void main() {
     tester,
   ) async {
     final repo = FakeAuthRepository(currentSession: testSession());
-    await tester.pumpWidget(CertiChainApp(authRepository: repo));
-    expect(find.text('Sesión iniciada'), findsOneWidget);
+    await tester.pumpWidget(
+      CertiChainApp(
+        profileRepository: FakeProfileRepository(),
+        certificateRepository: FakeCertificateRepository(),
+        authRepository: repo,
+      ),
+    );
+    expect(find.text('Accesos rápidos'), findsOneWidget);
     repo.emit(null);
     await tester.pumpAndSettle();
     expect(find.text('Comenzar'), findsOneWidget);
     repo.emit(testSession());
     await tester.pumpAndSettle();
-    expect(find.text('Sesión iniciada'), findsOneWidget);
+    expect(find.text('Accesos rápidos'), findsOneWidget);
     repo.events.addError(AuthFailure.network);
     await tester.pumpAndSettle();
     expect(find.text(authMessage(AuthFailure.network)), findsOneWidget);
     expect(find.text('ana@example.com'), findsNothing);
     repo.emit(testSession());
     await tester.pumpAndSettle();
-    expect(find.text('Sesión iniciada'), findsOneWidget);
+    expect(find.text('Accesos rápidos'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
     expect(repo.events.hasListener, isFalse);
     await repo.events.close();
@@ -165,10 +179,10 @@ void main() {
       expect(find.text('Protege tu cuenta'), findsOneWidget);
       repo.request!.complete();
       await tester.pumpAndSettle();
-      expect(find.text('Sesión iniciada'), findsOneWidget);
+      expect(find.text('Accesos rápidos'), findsOneWidget);
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
-      expect(find.text('Sesión iniciada'), findsOneWidget);
+      expect(find.text('Accesos rápidos'), findsOneWidget);
     },
   );
 
@@ -182,7 +196,7 @@ void main() {
       expect(find.text('Revisa tu correo'), findsOneWidget);
       expect(find.text('Correo: a•••@example.com'), findsOneWidget);
       expect(repo.currentSession, isNull);
-      expect(find.text('Sesión iniciada'), findsNothing);
+      expect(find.text('Accesos rápidos'), findsNothing);
       await click(tester, 'Volver a Iniciar sesión');
       expect(find.text('Iniciar sesión'), findsNWidgets(2));
       await tester.binding.handlePopRoute();
@@ -236,7 +250,7 @@ void main() {
       expect(repo.email, 'ana@example.com');
       repo.request!.complete();
       await tester.pumpAndSettle();
-      expect(find.text('Sesión iniciada'), findsOneWidget);
+      expect(find.text('Accesos rápidos'), findsOneWidget);
       repo.request = null;
       await click(tester, 'Cerrar sesión');
       expect(repo.logoutCalls, 1);
@@ -276,10 +290,16 @@ void main() {
   ) async {
     final repo = FakeAuthRepository(currentSession: testSession())
       ..failure = AuthFailure.network;
-    await tester.pumpWidget(CertiChainApp(authRepository: repo));
+    await tester.pumpWidget(
+      CertiChainApp(
+        profileRepository: FakeProfileRepository(),
+        certificateRepository: FakeCertificateRepository(),
+        authRepository: repo,
+      ),
+    );
     await click(tester, 'Cerrar sesión');
     expect(repo.logoutCalls, 1);
-    expect(find.text('Sesión iniciada'), findsOneWidget);
+    expect(find.text('Accesos rápidos'), findsOneWidget);
     expect(find.text(authMessage(AuthFailure.network)), findsOneWidget);
   });
 

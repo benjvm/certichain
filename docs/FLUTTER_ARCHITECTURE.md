@@ -48,5 +48,20 @@ son Dart puro. Las pantallas reciben el contrato por constructor; el router
 propaga esa dependencia. `AuthController` (ChangeNotifier del SDK Flutter)
 observa una única suscripción y coordina sesión/logout. El widget raíz sustituye
 el navegador al cambiar el estado de autenticación o la identidad. La UI no
-consulta Supabase ni perfiles. No se añaden service locators ni gestores externos.
+consulta Supabase directamente. No se añaden service locators ni gestores externos.
 Los tests inyectan un repositorio falso. Detalles en [AUTHENTICATION.md](AUTHENTICATION.md).
+
+## Perfil y certificados — Fase 4C
+
+`main` inyecta también `ProfileRepository` y `CertificateRepository` con sus
+adaptadores Supabase. `features/profile` y `features/certificates` separan
+entidades/contratos Dart, traducción de filas en data y widgets de lectura en
+presentation. La vigencia pertenece al dominio `Certificate.validityAt`.
+`app/AuthenticatedArea` compone ambas features, coordina futuros, reintentos,
+temporizadores y destinos `AuthenticatedSection`. El navegador ligado a la sesión
+destruye los datos visibles al cambiar la identidad. No hay dependencias nuevas
+ni cambio de decisión arquitectónica que requiera ADR.
+
+Los futuros se comparten entre inicio, wallet y perfil dentro de esa área;
+FutureBuilder oculta datos anteriores durante una nueva lectura e ignora
+completados de solicitudes sustituidas. Detalles en [STUDENT_WALLET.md](STUDENT_WALLET.md).

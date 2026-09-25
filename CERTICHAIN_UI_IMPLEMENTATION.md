@@ -124,6 +124,22 @@ El wireframe incluye logo geométrico, ilustración de onboarding, diploma, avat
 
 ## 9. Criterios de aceptación
 
+### Estado de implementación — Fase 4C
+
+Las vistas 3.1 y 4.1 usan perfil y certificados reales mediante repositorios.
+El inicio conserva saludo, total, cuadrícula de accesos y tres recientes. La
+wallet muestra hasta 50 registros ordenados por emisión y navegación inferior.
+La consulta básica de perfil es funcional; su edición está pendiente. Las rutas
+internas son `AuthenticatedSection.home/wallet/profile` bajo el área autenticada.
+
+Adaptaciones al esquema/RLS: solo chip «Todos» (sin categorías en el esquema),
+emisor opcional con «Institución no disponible», vigencia sin afirmaciones
+blockchain, avatar genérico y accesos a escanear/añadir deshabilitados. No hay
+pantallas falsas de detalle, PDF o QR. Véase [docs/STUDENT_WALLET.md](docs/STUDENT_WALLET.md).
+
+Los criterios siguientes describen la interfaz completa futura, no el alcance
+entregado en 4C.
+
 - Todas las vistas del inventario se pueden alcanzar por una ruta o flujo coherente y volver sin callejones sin salida.
 - Onboarding, panel, wallet, detalle, escáner, ambos resultados, emisión, listados y diálogo mantienen composición y jerarquía reconocibles respecto al collage.
 - Un cambio en color, espaciado o tipografía principal se realiza en un solo lugar y se refleja en todas las pantallas.

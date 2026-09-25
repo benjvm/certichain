@@ -5,6 +5,8 @@ import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/register_screen.dart';
 import '../../features/auth/domain/auth_repository.dart';
 
+enum AuthenticatedSection { home, wallet, profile }
+
 abstract final class AppRouter {
   static const String initialRoute = '/';
   static const String loginRoute = '/login';

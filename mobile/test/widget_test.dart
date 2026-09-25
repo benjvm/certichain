@@ -1,3 +1,4 @@
+import 'fake_wallet_repositories.dart';
 import 'fake_auth_repository.dart';
 
 import 'package:flutter/material.dart';
@@ -9,7 +10,11 @@ import 'package:mobile/features/onboarding/presentation/welcome_screen.dart';
 void main() {
   testWidgets('welcome screen shows the first onboarding page', (tester) async {
     await tester.pumpWidget(
-      CertiChainApp(authRepository: FakeAuthRepository()),
+      CertiChainApp(
+        profileRepository: FakeProfileRepository(),
+        certificateRepository: FakeCertificateRepository(),
+        authRepository: FakeAuthRepository(),
+      ),
     );
     expect(find.text('CertiChain'), findsOneWidget);
     expect(

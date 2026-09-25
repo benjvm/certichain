@@ -17,6 +17,14 @@ abstract final class AppTheme {
         error: AppColors.error,
       ),
       scaffoldBackgroundColor: AppColors.surface,
+      navigationBarTheme: const NavigationBarThemeData(
+        backgroundColor: AppColors.surface,
+        indicatorColor: AppColors.brandPrimaryLight,
+        iconTheme: WidgetStateProperty.fromMap({
+          WidgetState.selected: IconThemeData(color: AppColors.brandPrimary),
+          WidgetState.any: IconThemeData(color: AppColors.textSecondary),
+        }),
+      ),
       textTheme: AppTypography.textTheme,
       inputDecorationTheme: InputDecorationTheme(
         filled: true,

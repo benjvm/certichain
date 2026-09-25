@@ -5,11 +5,20 @@ import 'router/app_router.dart';
 import 'theme/app_theme.dart';
 import '../features/auth/domain/auth_repository.dart';
 import '../features/auth/presentation/auth_controller.dart';
-import '../features/auth/presentation/temporary_authenticated_screen.dart';
+import '../features/profile/domain/profile_repository.dart';
+import '../features/certificates/domain/certificate_repository.dart';
+import 'authenticated_area.dart';
 
 class CertiChainApp extends StatefulWidget {
-  const CertiChainApp({required this.authRepository, super.key});
+  const CertiChainApp({
+    required this.authRepository,
+    required this.profileRepository,
+    required this.certificateRepository,
+    super.key,
+  });
   final AuthRepository authRepository;
+  final ProfileRepository profileRepository;
+  final CertificateRepository certificateRepository;
 
   @override
   State<CertiChainApp> createState() => _CertiChainAppState();
@@ -56,8 +65,11 @@ class _CertiChainAppState extends State<CertiChainApp> {
             : null,
         home: switch (_auth.status) {
           AuthStatus.unauthenticated => null,
-          AuthStatus.authenticated => TemporaryAuthenticatedScreen(
+          AuthStatus.authenticated => AuthenticatedArea(
             controller: _auth,
+            userId: _auth.session!.userId,
+            profiles: widget.profileRepository,
+            certificates: widget.certificateRepository,
           ),
           AuthStatus.initializing => const Scaffold(
             body: Center(

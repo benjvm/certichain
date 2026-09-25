@@ -1,4 +1,4 @@
-# Phase 4B — Flutter Supabase Authentication
+# Phases 4B–4C — Flutter Supabase Authentication and authenticated area
 
 ## Configuration and local run
 
@@ -129,15 +129,28 @@ session and displays a safe failure without claiming logout succeeded. Expired
 sessions are never restored as authenticated. Successful logout returns to a
 fresh Welcome and removes displayed user data.
 
-## Temporary boundary and deferred scope
+## Authenticated area — Phase 4C
 
-`TemporaryAuthenticatedScreen` displays “Sesión iniciada”, the authenticated
-email when available, an explicit development note, and real Logout. Replace it
-in the next Home UI phase. It queries no tables and invents no certificate or
-blockchain data. There is one boundary for all accounts.
+`AuthenticatedArea` replaces `TemporaryAuthenticatedScreen`. All authenticated
+accounts enter the personal Home, with their backend profile, exact certificate
+total, shortcuts and three recent certificates. The bottom navigation opens
+Home, My certificates and a read-only Profile. Registration preference grants
+no permission and selects no institutional dashboard.
 
-Deferred: final role-based Home, institutional onboarding/approval, profile
-feature, password recovery, confirmation deep links, social login, certificates,
+The composition root also injects `ProfileRepository` and `CertificateRepository`.
+Both contracts and their entities are pure Dart. Supabase adapters read only
+the current identity's profile and holder wallet. See [STUDENT_WALLET.md](STUDENT_WALLET.md)
+for queries, states, limits and verification.
+
+The existing session-keyed navigator remains the security boundary. Identity,
+expiry, logout and session errors discard the area and its pending UI state.
+FutureBuilder ignores superseded completions; the expiry timer also checks its
+request generation and mounted state. Same-user token refresh retains the active
+tab. Successful logout returns to Welcome; failed logout retains the existing
+safe error and real Auth behavior.
+
+Deferred: institutional dashboards/onboarding/approval, profile editing,
+password recovery, confirmation deep links, social login, certificate details,
 Storage, verification, blockchain and privileged backend operations.
 
 ## Verification
