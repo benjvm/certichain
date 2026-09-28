@@ -6,6 +6,10 @@ Las empresas verifican credenciales mediante documentos fáciles de alterar y pr
 
 ## Actores
 
+Las capacidades siguientes describen el MVP objetivo. Tras Fase 5 se conservan
+Auth y las lecturas de wallet/detalle 4D; emisión y revocación siguen cerradas
+en la API de tablas, y sus flujos de backend permanecen pendientes.
+
 | Actor | Capacidades del MVP |
 |---|---|
 | Estudiante | Consultar, abrir y compartir sus certificados |
@@ -34,12 +38,18 @@ Las empresas verifican credenciales mediante documentos fáciles de alterar y pr
 
 ### RF-02 Instituciones
 
-- Una institución posee estado `pending`, `approved`, `suspended` o `rejected`.
-- Solo una institución `approved` puede emitir.
-- Sus miembros tienen permisos explícitos, inicialmente `owner` o `issuer`.
+- El esquema real usa `verification_status` con `pending`, `verified`,
+  `suspended` o `rejected`. «Aprobada» significa `verified`, no `approved`.
+- Solo una institución `verified` podrá emitir mediante backend autorizado;
+  en Fase 5 ninguna institución puede emitir directamente mediante la API.
+- Los roles de membresía reales son `owner`, `admin` e `issuer`.
 
 ### RF-03 Emisión
 
+- Operación privilegiada de backend: sesión, membresía autorizada y estado
+  institucional revalidados al persistir; nunca INSERT directo desde Flutter.
+- Cumplir [SECURE_ISSUANCE.md](SECURE_ISSUANCE.md); primero emisión segura sin
+  blockchain, posteriormente anclaje.
 - Registrar destinatario, título, tipo, fecha de emisión y expiración opcional.
 - Aceptar un PDF válido dentro del límite configurado.
 - Calcular SHA-256 sobre los bytes finales almacenados.
@@ -64,6 +74,8 @@ Las empresas verifican credenciales mediante documentos fáciles de alterar y pr
 ### RF-06 Revocación
 
 - Solo la institución emisora puede solicitarla.
+- Solicitud autorizada en backend con membresía `owner`/`admin`; ningún cliente,
+  incluido `platform_admin`, utiliza UPDATE directo en `certificates`.
 - La revocación es irreversible en el MVP.
 - Persistir el resultado de blockchain y reflejarlo en la verificación.
 

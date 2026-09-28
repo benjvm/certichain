@@ -12,6 +12,38 @@
 
 Flutter y cualquier navegador son clientes no confiables. RLS y las operaciones de backend deben volver a comprobar identidad, pertenencia, estado de la institución, propiedad del certificado y validación de entrada.
 
+## Autorización efectiva tras la Fase 5
+
+`certificates` tiene únicamente una política SELECT para `authenticated`:
+titular, miembro de la institución emisora o `platform_admin`. Los grants del
+rol API se limitan a SELECT; no puede emitir, modificar, revocar, hacer upsert
+ni borrar, aunque su rol de aplicación sea `owner`, `admin`, `issuer` o
+`platform_admin` y la institución esté `verified`. No basta con aprobar la
+institución para abrir INSERT: también son obligatorias las validaciones de
+archivo, hash y operación del servidor.
+
+`anon` no tiene grants sobre certificados y no obtiene filas de perfiles,
+instituciones ni membresías por RLS. No hay verificación pública entregada.
+Se han retirado TRUNCATE, REFERENCES y TRIGGER de las cuatro tablas para
+PUBLIC, `anon` y `authenticated`; las lecturas autorizadas se conservan.
+TRUNCATE exige control mediante grants porque
+[PostgreSQL no le aplica RLS](https://www.postgresql.org/docs/17/ddl-rowsecurity.html).
+No existe una función expuesta que proporcione una vía alternativa de emisión.
+
+Emisión y revocación permanecen cerradas hasta construir el backend confiable
+de [SECURE_ISSUANCE.md](SECURE_ISSUANCE.md). Validará sesión, rol/membresía,
+`verification_status = 'verified'` en la emisión, destinatario, campos,
+PDF real y límites, almacenamiento privado, SHA-256 de los bytes finales,
+idempotencia y recuperación. El futuro backend es responsable de autorización
+incluso si usa una identidad técnica con privilegios que omiten RLS.
+La revocación deberá validar la institución emisora, una transición permitida
+y sincronizarse con blockchain cuando exista ese flujo. No hay secretos de
+servidor ni operaciones privilegiadas en Flutter.
+
+La aprobación y administración institucional completas, el aprovisionamiento
+del primer administrador y la protección del último `owner` siguen pendientes.
+No se resuelven con seeds de administradores ni metadatos de Auth editables.
+
 ## Amenazas principales y controles
 
 | Amenaza | Control mínimo |

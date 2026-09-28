@@ -4,8 +4,10 @@ La primera migración, `initial_schema`, define cuatro tablas: `profiles`,
 `institutions`, `institution_members` y `certificates`. Los campos y tablas
 adicionales descritos más abajo son propuestas para incrementos futuros, no
 parte del esquema inicial. La primera migración habilitó RLS; la segunda,
-`rls_policies`, define las políticas para `authenticated`. `anon` no tiene
-acceso directo a ninguna de las cuatro tablas.
+`rls_policies`, define las políticas para `authenticated`. La Fase 5 añade
+`close_direct_certificate_writes` para retirar escrituras de certificados y
+grants administrativos sobrantes. `anon` no puede obtener filas de ninguna
+de las cuatro tablas: certificados deniega por grants; las otras, por RLS.
 Los certificados conservan referencias obligatorias; por ello se impide borrar
 un perfil o institución que tenga certificados asociados. Esta decisión también
 puede impedir borrar un usuario de `auth.users`, porque su perfil se eliminaría
@@ -41,16 +43,24 @@ y admite `pending`, `verified`, `rejected`, `suspended`.
 
 La wallet filtra por `holder_id`, limita a 50 registros y obtiene el total exacto.
 La relación `institutions(name)` es opcional por RLS: el titular de un certificado
-no obtiene por ello permiso para leer su emisor. No se cambian políticas en 4C.
-La emisión autorizada por la RLS actual **no comprueba aprobación institucional**;
-resolverlo corresponde a una fase futura. Véase [STUDENT_WALLET.md](STUDENT_WALLET.md).
+no obtiene por ello permiso para leer su emisor. 4C no cambió políticas; la Fase 5
+conserva SELECT y cierra todas las escrituras directas, también para una
+institución `verified`. Véase [STUDENT_WALLET.md](STUDENT_WALLET.md).
 
 En 4D, el detalle usa la misma selección mínima de columnas de la wallet y
 `institutions(name)`, con `id = certificateId` y `holder_id = userId`, mediante
 `maybeSingle()`. Una fila ausente o invisible por RLS se representa con el mismo
 mensaje. Se rechaza una identidad de certificado o titular inesperada. No se
 leen `document_path`, `document_hash`, `credential_code` ni datos blockchain;
-no se añaden migraciones, funciones, grants ni políticas.
+4D no añadió migraciones, funciones, grants ni políticas.
+
+Otros campos reales de `certificates` son `issued_by` (FK obligatoria a perfil),
+`description`, `credential_code` (text no vacío y unique), `document_path` y
+`document_hash` (text nullable), `revoked_at` y `created_at`. No hay validación
+de PDF ni del formato de hash en las constraints actuales. `status`/`revoked_at`
+deben ser coherentes y `expires_at >= issued_at` si existe expiración. Los
+documentos y la idempotencia requieren reglas y migraciones posteriores;
+cerrar la API en Fase 5 no los implementa.
 
 ## Modelo futuro propuesto (no es el contrato vigente)
 
@@ -156,7 +166,7 @@ Los metadatos que deben quedar congelados después de emitir se validan mediante
 
 Esta tabla es opcional para el primer incremento. No almacenar IP sin justificación y política de retención.
 
-## Relaciones
+## Relaciones del modelo futuro
 
 ```mermaid
 erDiagram
@@ -169,7 +179,7 @@ erDiagram
     CERTIFICATES ||--o{ VERIFICATION_EVENTS : verifica
 ```
 
-## Índices mínimos
+## Índices futuros propuestos
 
 - `certificates(recipient_id, created_at desc)`.
 - `certificates(institution_id, created_at desc)`.
@@ -190,7 +200,7 @@ estos dependen de `institution_members.role` (`owner`, `admin` o `issuer`).
 | `profiles` | Perfil propio o cualquier perfil para `platform_admin` | Actualización propia sin cambiar `role`; `platform_admin` puede actualizar perfiles. Sin INSERT ni DELETE de cliente. |
 | `institutions` | Miembros y `platform_admin` | INSERT/DELETE solo `platform_admin`; UPDATE `owner`, `admin` o `platform_admin`. Solo `platform_admin` cambia `verification_status`. |
 | `institution_members` | Fila propia; todas las filas de la institución para `owner`/`admin`; todas para `platform_admin` | INSERT/UPDATE/DELETE solo `owner` de esa institución o `platform_admin`. |
-| `certificates` | Titular, cualquier miembro de la institución emisora o `platform_admin` | INSERT por `owner`/`admin`/`issuer` de la institución con `issued_by = auth.uid()`, o por `platform_admin`. UPDATE por `owner`/`admin` solo para revocar, o por `platform_admin`. Sin DELETE de cliente. |
+| `certificates` | Titular, cualquier miembro de la institución emisora o `platform_admin` | Ninguna: sin INSERT, UPDATE, upsert ni DELETE, incluidos `owner`/`admin`/`issuer` y `platform_admin`. Emisión y revocación esperan al backend confiable. |
 
 Las funciones `certichain_private.is_platform_admin`,
 `is_institution_member` y `has_institution_role` consultan únicamente el estado
@@ -198,18 +208,51 @@ de autorización del usuario actual. Son `SECURITY DEFINER`, usan un
 `search_path` vacío y evitan recursión RLS. El esquema no está expuesto por la
 API; solo `authenticated` puede ejecutarlas. Los triggers de `profiles` e
 `institutions` impiden cambiar roles globales o estados de verificación sin
-ser `platform_admin`. El trigger de `certificates` limita a los administradores
-institucionales a la transición `active → revoked`, conserva todos los demás
-campos y fija `revoked_at` con la hora de la base de datos.
+ser `platform_admin`. El trigger histórico de `certificates` conserva la guarda
+de transición `active → revoked`, inmutabilidad de otros campos y hora de base
+de datos para `revoked_at`, con la excepción administrativa original. No concede
+permisos: ninguna fila puede actualizarse desde `authenticated`. Su lógica
+deberá revisarse con el futuro backend; no valida por sí sola la autorización
+de revocación ni sincroniza blockchain.
 
 No hay acceso directo para `anon`; la verificación pública requiere una futura
 interfaz restringida. Tampoco hay una política de INSERT para perfiles: el
 aprovisionamiento inicial usa el trigger descrito abajo; la asignación del primer
 `platform_admin` sigue requiriendo un flujo confiable futuro. La migración no garantiza que permanezca al menos un
 `owner` por institución; se necesita una regla transaccional de negocio para
-evitar borrar o degradar al último. La emisión directa autorizada por RLS no
-valida aún el archivo ni su hash: antes de producción, ese flujo debe pasar por
-el backend confiable descrito en `docs/ARCHITECTURE.md`.
+evitar borrar o degradar al último. Es una dependencia del próximo flujo de
+administración institucional, no resuelta en Fase 5.
+
+### Cierre de escrituras — Fase 5
+
+`20260928202802_close_direct_certificate_writes.sql` elimina únicamente las
+políticas `certificates_insert_authorized` y `certificates_update_authorized`.
+Conserva `certificates_select_authorized` sin ampliar sus predicados. Retira
+todos los privilegios de tabla de PUBLIC, `anon` y `authenticated` en certificados
+y concede únicamente SELECT a `authenticated`; no existe excepción para un
+perfil `platform_admin` porque sigue usando el rol API `authenticated`.
+
+La inspección local de migraciones y catálogo confirmó ausencia de grants por
+columna, roles heredados por `anon`/`authenticated`, vistas expuestas o RPC que
+escriban certificados. Las tres funciones privadas de autorización solo leen;
+el trigger de aprovisionamiento escribe únicamente perfiles y no es ejecutable
+por clientes. Se retira también EXECUTE del trigger de actualización de
+certificados a los clientes, conservando el trigger instalado.
+
+Los grants automáticos locales de Supabase incluían TRUNCATE, REFERENCES y
+TRIGGER. Se retiran en las cuatro tablas privadas sin cambiar el DML/RLS de
+perfiles, instituciones ni membresías. TRUNCATE no está sujeto a RLS y podía
+afectar al historial; véase [PostgreSQL RLS](https://www.postgresql.org/docs/17/ddl-rowsecurity.html).
+En las otras tres tablas `anon` conserva grants DML históricos, pero ninguna
+política autoriza filas; se comprueba con el rol efectivo en las pruebas.
+
+La migración no contiene DML, no cambia columnas/enums ni borra datos. Los
+privilegios del propietario y del rol técnico de backend siguen siendo
+confiables, no permisos de usuarios. No se añade un endpoint ni se considera
+implementada la emisión o revocación. El backend futuro deberá validar
+`verification_status = 'verified'`, sesión, membresía, destinatario, PDF y hash,
+además de idempotencia y fallos parciales: [SECURE_ISSUANCE.md](SECURE_ISSUANCE.md).
+Las tablas y estados de la sección «Modelo futuro propuesto» no existen todavía.
 
 ## Aprovisionamiento confiable de perfiles — Phase 4A
 
@@ -281,7 +324,7 @@ Desde la raíz, con Supabase CLI y Docker disponibles:
 supabase start
 supabase db reset --local
 supabase test db --local
-supabase db lint --local --level warning
+supabase db lint --local --schema 'public,certichain_private' --level warning --fail-on warning
 ```
 
 Si la CLI se usa mediante npm, anteponer `npx --yes` a cada comando. No usar
@@ -298,4 +341,8 @@ y su [ciclo de creación de perfiles con triggers](https://supabase.com/docs/gui
 
 ## Seeds
 
-`supabase/seed.sql` solo contendrá instituciones, perfiles y certificados ficticios para desarrollo. Debe ser determinista, repetible y no depender de información personal real.
+`supabase/seed.sql` no existe todavía; el reset local informa de ello y no carga
+datos. Si se incorpora, solo contendrá datos ficticios, deterministas y
+repetibles, sin credenciales, secretos ni datos personales. No se aprovisiona
+un administrador mediante seed; las identidades y roles elevados de las
+pruebas SQL son fixtures sintéticos que se revierten.

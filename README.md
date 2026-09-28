@@ -65,6 +65,7 @@ flutter create --org com.benjvm --project-name certichain .
 - [Modelo de datos](docs/DATABASE.md)
 - [Integración blockchain](docs/BLOCKCHAIN.md)
 - [Seguridad](docs/SECURITY.md)
+- [Contrato futuro de emisión y revocación confiables](docs/SECURE_ISSUANCE.md)
 - [Pruebas](docs/TESTING.md)
 - [Flujo de desarrollo](docs/DEVELOPMENT.md)
 - [Hoja de ruta](docs/ROADMAP.md)
@@ -74,8 +75,11 @@ flutter create --org com.benjvm --project-name certichain .
 
 ## Estado
 
-Entregada la fase 4D de Flutter: autenticación, Inicio, wallet y consulta de perfil
+Entregadas la fase 4D de Flutter y la Fase 5 de autorización. 4D: autenticación,
+Inicio, wallet y consulta de perfil
 con datos reales; fundamentos visuales de Figma y detalle del certificado
 restringido al titular. Emisión, aprobación institucional, PDF, QR, verificación
-pública y blockchain siguen pendientes. El objetivo del MVP superior describe
+pública y blockchain siguen pendientes. Fase 5 cierra emisión y revocación
+directas en Supabase, conserva lecturas y documenta el backend futuro; no
+implementa esos flujos. El objetivo del MVP superior describe
 el producto futuro; no afirma que esos flujos ya funcionen.

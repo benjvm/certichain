@@ -21,6 +21,12 @@ flowchart TD
 
 Flutter puede leer datos autorizados mediante repositorios respaldados por el SDK de Supabase. Emisión, revocación, hashing definitivo y escritura blockchain pasan por una Edge Function u otro backend confiable.
 
+Tras Fase 5, la API de tablas de `certificates` solo permite SELECT autorizado
+para `authenticated`; emisión y revocación no están habilitadas, incluido para
+`platform_admin`. No se ha creado una Edge Function o RPC de escritura.
+El [contrato del backend futuro](SECURE_ISSUANCE.md) define los controles
+obligatorios antes de habilitarlas y las dependencias institucionales previas.
+
 ## Estructura Flutter
 
 ```text
@@ -69,7 +75,16 @@ Regla de dependencias: `presentation → domain ← data`. El dominio no depende
 
 Los nombres representan responsabilidades; no obligan a crear una clase por método.
 
-## Flujo de emisión
+## Flujo de emisión previsto (pendiente)
+
+Primero se implementará emisión segura sin blockchain: autorización de sesión y
+membresía, `verification_status = 'verified'` al persistir, destinatario válido,
+PDF validado/privado, SHA-256 de sus bytes finales e idempotencia durable con
+recuperación ante fallos de Storage/base de datos. Creará estado `active` y
+conservará inmutables sus datos finales. Las migraciones necesarias de integridad
+e idempotencia precederán a la apertura del endpoint; véase [SECURE_ISSUANCE.md](SECURE_ISSUANCE.md).
+
+El flujo posterior con blockchain será:
 
 1. Flutter envía metadatos y PDF a una operación autenticada.
 2. El backend verifica rol, institución aprobada, archivo y destinatario.
@@ -78,7 +93,12 @@ Los nombres representan responsabilidades; no obligan a crear una clase por mét
 5. Registra la prueba en el contrato y conserva transacción, red y bloque.
 6. Marca `active` cuando existe confirmación suficiente; ante fallo conserva `anchor_failed` para reintento controlado.
 
-## Estados del certificado
+## Estados futuros con blockchain (no implementados)
+
+El enum actual solo admite `active`/`revoked`; `expired` se deriva de la fecha
+en Flutter. `anchoring` y `anchor_failed` requieren migraciones posteriores.
+La revocación será una operación de backend autorizada, idempotente y
+sincronizada con el registro blockchain; el trigger actual no implementa ese flujo.
 
 ```mermaid
 stateDiagram-v2

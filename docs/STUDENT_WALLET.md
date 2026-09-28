@@ -117,5 +117,9 @@ Paginación completa, categorías, edición/configuración de perfil, PDF/Storag
 descarga, QR/escáner, compartir, emisión, aprobación institucional, revocación
 desde la app, notificaciones, verificación pública y blockchain.
 
-La RLS vigente no exige `verification_status = verified` antes de emitir;
-resolver esa autorización pertenece a otra fase. 4D no añade escrituras.
+4D no añadió escrituras. La Fase 5 posterior conserva sus políticas SELECT y
+selecciones de wallet/detalle, y cierra INSERT/UPDATE y demás escrituras directas
+de certificados mediante grants y RLS, también para `platform_admin` y para
+instituciones `verified`. Sus pruebas SQL verifican esas lecturas efectivas;
+no habilita emisión, revocación ni acceso al PDF. El backend futuro deberá
+cumplir [SECURE_ISSUANCE.md](SECURE_ISSUANCE.md).
