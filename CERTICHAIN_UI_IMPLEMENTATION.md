@@ -2,11 +2,18 @@
 
 > Documento de trabajo para Codex. Referencia visual: `ChatGPT Image Sep 20, 2026, 09_00_47 PM.png` (wireframe de 15 vistas). Coloca una copia en `docs/certichain-wireframe.png` dentro del repositorio y ajusta esta ruta si cambia. La imagen manda en composición y jerarquía; este documento fija medidas, comportamiento y consistencia cuando la imagen no da suficiente detalle.
 
+> Actualización 4D: el original se encuentra en `docs/ChatGPT Image Sep 20, 2026, 09_00_47 PM.png`.
+> Para las cuatro pantallas de esta fase, la referencia visual es ahora
+> [Figma · CertiChain](https://www.figma.com/design/XRk4TDOeU4yZwBHIRBRXJ6/CertiChain).
+> Las migraciones/RLS y los repositorios fijan datos y permisos. El inventario
+> completo de este documento es futuro, no el alcance entregado. Las diferencias
+> comprobadas y su adaptación están en [docs/FLUTTER_UI_FOUNDATIONS.md](docs/FLUTTER_UI_FOUNDATIONS.md).
+
 ## 1. Encargo para Codex
 
 Construye la interfaz móvil de CertiChain en el proyecto Flutter existente en `certichain/mobile/`, siguiendo el wireframe adjunto con la mayor fidelidad práctica posible. Implementa primero los fundamentos y widgets compartidos, después las pantallas y finalmente la navegación y los estados. Usa los nombres de dominio y convenciones de `AGENTS.md`, `README.md`, `docs/` y la migración Supabase existente como fuente de verdad para datos, roles y permisos. No alteres migraciones ni inventes esquemas. Si este documento discrepa del contrato de datos real, conserva el contrato real y documenta la adaptación de UI.
 
-La interfaz visible estará en español. La marca dice **CertiChain** y el subtítulo del wireframe es «Tus logros, verificados en blockchain». No hace falta Figma. La imagen es una referencia visual, no un paquete de assets listos para producción.
+La interfaz visible estará en español. La marca dice **CertiChain** y el subtítulo del wireframe es «Tus logros, verificados en blockchain». En 4D se inspecciona Figma antes de modificar la interfaz. La imagen es una referencia visual, no un paquete de assets listos para producción.
 
 ### Entregables
 
@@ -124,7 +131,18 @@ El wireframe incluye logo geométrico, ilustración de onboarding, diploma, avat
 
 ## 9. Criterios de aceptación
 
-### Estado de implementación — Fase 4C
+### Estado de implementación — Fase 4D
+
+Inicio, Mis certificados y Mi perfil comparten Inter local, tokens y componentes
+adaptados de Figma. `AppTopBar` y `AppBottomNavigation` preservan tres destinos
+reales. Las tarjetas navegables abren `/certificates/detail` y vuelven al origen.
+El detalle relee el certificado del titular, muestra título, emisor opcional,
+fechas y vigencia; conserva el espacio del diploma con un placeholder explícito.
+«Detalles» muestra el ID real; Blockchain e Historial explican la ausencia de
+datos. Compartir está deshabilitado, sin QR, PDF, hash ni pruebas ficticias.
+Estados, accesibilidad y verificación en [docs/STUDENT_WALLET.md](docs/STUDENT_WALLET.md).
+
+### Antecedente — Fase 4C
 
 Las vistas 3.1 y 4.1 usan perfil y certificados reales mediante repositorios.
 El inicio conserva saludo, total, cuadrícula de accesos y tres recientes. La
@@ -138,7 +156,7 @@ blockchain, avatar genérico y accesos a escanear/añadir deshabilitados. No hay
 pantallas falsas de detalle, PDF o QR. Véase [docs/STUDENT_WALLET.md](docs/STUDENT_WALLET.md).
 
 Los criterios siguientes describen la interfaz completa futura, no el alcance
-entregado en 4C.
+entregado en 4D.
 
 - Todas las vistas del inventario se pueden alcanzar por una ruta o flujo coherente y volver sin callejones sin salida.
 - Onboarding, panel, wallet, detalle, escáner, ambos resultados, emisión, listados y diálogo mantienen composición y jerarquía reconocibles respecto al collage.
@@ -150,4 +168,4 @@ entregado en 4C.
 
 ### Prompt breve para iniciar la ejecución
 
-> Lee `CERTICHAIN_UI_IMPLEMENTATION.md`, la imagen `docs/certichain-wireframe.png` y los documentos existentes del repositorio. Implementa la UI Flutter de CertiChain siguiendo la secuencia y criterios de aceptación del documento. Antes de modificar, revisa la arquitectura real y las migraciones Supabase. Mantén widgets y tokens compartidos, conecta solo funciones respaldadas por servicios reales y separa explícitamente la demostración. Al terminar, entrega resumen de pantallas, comandos de verificación y limitaciones concretas.
+> Lee `CERTICHAIN_UI_IMPLEMENTATION.md`, `docs/FLUTTER_UI_FOUNDATIONS.md`, el original `docs/ChatGPT Image Sep 20, 2026, 09_00_47 PM.png` y la documentación de arquitectura y permisos. Inspecciona las vistas pertinentes en Figma antes de editar. Trabaja solo en el incremento solicitado; el inventario completo describe fases futuras. Conserva datos reales, repositorios, RLS y componentes compartidos; etiqueta los flujos pendientes. Al terminar, informa de pantallas, comandos ejecutados y limitaciones concretas.

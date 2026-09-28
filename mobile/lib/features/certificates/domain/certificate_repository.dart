@@ -45,4 +45,7 @@ abstract interface class CertificateRepository {
 
   /// Newest issued first, at most walletLimit records and an exact holder total.
   Future<CertificateWallet> readWallet(String userId);
+
+  /// Only the holder's certificate. Missing and inaccessible rows both return null.
+  Future<Certificate?> readCertificate(String userId, String certificateId);
 }

@@ -9,5 +9,6 @@ abstract final class AppSpacing {
   static const large = 40.0;
   static const xlarge = 48.0;
   static const huge = 64.0;
-  static const screenHorizontal = xl;
+  static const screenHorizontal = xxl;
+  static const quickActionGap = 10.0;
 }

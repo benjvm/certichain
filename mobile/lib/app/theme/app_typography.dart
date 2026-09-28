@@ -3,7 +3,41 @@ import 'package:flutter/material.dart';
 import 'app_colors.dart';
 
 abstract final class AppTypography {
-  // TODO: Bundle and register Inter when final brand font assets are supplied.
+  static const family = 'Inter';
+  static const greeting = TextStyle(
+    fontSize: 21,
+    height: 28 / 21,
+    fontWeight: FontWeight.w700,
+    color: AppColors.inkBlue,
+  );
+  static const sectionTitle = TextStyle(
+    fontSize: 16,
+    height: 24 / 16,
+    fontWeight: FontWeight.w600,
+    color: AppColors.inkBlue,
+  );
+  static const topBarTitle = TextStyle(
+    fontFamily: family,
+    fontSize: 17,
+    height: 24 / 17,
+    fontWeight: FontWeight.w600,
+    color: AppColors.inkBlue,
+  );
+  static const cardTitle = TextStyle(
+    fontSize: 15,
+    height: 22 / 15,
+    fontWeight: FontWeight.w600,
+  );
+  static const navigation = TextStyle(
+    fontSize: 11,
+    height: 16 / 11,
+    fontWeight: FontWeight.w500,
+  );
+  static const button = TextStyle(
+    fontSize: 14,
+    height: 20 / 14,
+    fontWeight: FontWeight.w600,
+  );
   static const display = TextStyle(
     fontSize: 32,
     height: 40 / 32,
@@ -54,12 +88,15 @@ abstract final class AppTypography {
         headlineMedium: h2,
         headlineSmall: h3,
         titleLarge: title,
+        titleMedium: cardTitle,
+        titleSmall: sectionTitle,
         bodyLarge: bodyLarge,
         bodyMedium: body,
         labelLarge: label,
         bodySmall: caption,
         labelSmall: tiny,
       ).apply(
+        fontFamily: family,
         bodyColor: AppColors.textPrimary,
         displayColor: AppColors.textPrimary,
       );

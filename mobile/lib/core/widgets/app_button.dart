@@ -2,37 +2,46 @@ import 'package:flutter/material.dart';
 
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_radius.dart';
-import '../../app/theme/app_shadows.dart';
+import '../../app/theme/app_sizes.dart';
+import '../../app/theme/app_spacing.dart';
 import '../../app/theme/app_typography.dart';
+
+enum AppButtonStyle { primary, outline, ghost }
 
 class AppButton extends StatelessWidget {
   const AppButton({
     required this.label,
     required this.onPressed,
     this.isLoading = false,
+    this.style = AppButtonStyle.primary,
     super.key,
   });
 
   final String label;
   final VoidCallback? onPressed;
   final bool isLoading;
+  final AppButtonStyle style;
 
   @override
   Widget build(BuildContext context) {
+    final filled = style == AppButtonStyle.primary;
+    final foreground = filled ? AppColors.surface : AppColors.brandPrimaryDark;
     return ConstrainedBox(
-      constraints: const BoxConstraints(minHeight: 48),
+      constraints: const BoxConstraints(minHeight: AppSizes.button),
       child: DecoratedBox(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(AppRadius.md),
-          gradient: onPressed == null
-              ? null
-              : const LinearGradient(
-                  colors: [AppColors.brandPrimary, AppColors.brandPrimaryDark],
-                ),
-          boxShadow: onPressed == null ? null : AppShadows.level1,
+          color: filled
+              ? (onPressed == null
+                    ? AppColors.background
+                    : AppColors.brandPrimary)
+              : AppColors.surface,
+          border: style == AppButtonStyle.outline
+              ? Border.all(color: AppColors.border)
+              : null,
         ),
         child: Material(
-          color: onPressed == null ? AppColors.disabled : Colors.transparent,
+          color: Colors.transparent,
           borderRadius: BorderRadius.circular(AppRadius.md),
           child: InkWell(
             onTap: isLoading ? null : onPressed,
@@ -40,8 +49,8 @@ class AppButton extends StatelessWidget {
             child: Center(
               child: Padding(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
+                  horizontal: AppSpacing.lg,
+                  vertical: AppSpacing.md,
                 ),
                 child: Semantics(
                   button: true,
@@ -56,17 +65,20 @@ class AppButton extends StatelessWidget {
                           opacity: isLoading ? 0 : 1,
                           child: Text(
                             label,
-                            style: AppTypography.label.copyWith(
-                              color: AppColors.surface,
+                            textAlign: TextAlign.center,
+                            style: AppTypography.button.copyWith(
+                              color: onPressed == null
+                                  ? AppColors.textSecondary
+                                  : foreground,
                             ),
                           ),
                         ),
                         if (isLoading)
-                          const SizedBox.square(
-                            dimension: 18,
+                          SizedBox.square(
+                            dimension: AppSizes.iconSmall,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              color: AppColors.surface,
+                              color: foreground,
                             ),
                           ),
                       ],

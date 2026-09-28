@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../../app/theme/app_colors.dart';
+import '../../../app/theme/app_icons.dart';
+import '../../../app/theme/app_radius.dart';
+import '../../../app/theme/app_sizes.dart';
 import '../../../app/theme/app_spacing.dart';
+import '../../../app/theme/app_typography.dart';
 import '../../../core/widgets/read_state.dart';
 import '../domain/profile_repository.dart';
 
@@ -14,7 +19,6 @@ class ProfileContent extends StatelessWidget {
   final Future<UserProfile?> future;
   final VoidCallback onRetry;
   final bool greeting;
-
   @override
   Widget build(BuildContext context) => FutureBuilder<UserProfile?>(
     future: future,
@@ -35,34 +39,112 @@ class ProfileContent extends StatelessWidget {
           onRetry: onRetry,
         );
       }
-      return Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      final identity = Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          const CircleAvatar(child: Icon(Icons.person_outline_rounded)),
-          const SizedBox(width: AppSpacing.md),
+          if (!greeting) ...[_avatar(), const SizedBox(width: AppSpacing.lg)],
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   greeting ? 'Hola, ${profile.fullName}' : profile.fullName,
-                  style: Theme.of(context).textTheme.titleLarge,
+                  style: greeting
+                      ? AppTypography.greeting
+                      : Theme.of(context).textTheme.titleSmall,
                 ),
-                Text(switch (profile.role) {
-                  'holder' => 'Estudiante',
-                  'institution_admin' => 'Administrador institucional',
-                  'platform_admin' => 'Administrador de plataforma',
-                  _ => 'Cuenta autenticada',
-                }),
-                if (!greeting)
-                  const Text(
-                    'Consulta de perfil · Edición no disponible todavía.',
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  switch (profile.role) {
+                    'holder' => 'Estudiante',
+                    'institution_admin' => 'Administrador institucional',
+                    'platform_admin' => 'Administrador de plataforma',
+                    _ => 'Cuenta autenticada',
+                  },
+                  style: AppTypography.label.copyWith(
+                    color: AppColors.textSecondary,
+                    fontWeight: FontWeight.w400,
                   ),
+                ),
               ],
             ),
           ),
+          if (greeting) ...[const SizedBox(width: AppSpacing.md), _avatar()],
+        ],
+      );
+      if (greeting) return identity;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: AppColors.background,
+              borderRadius: BorderRadius.circular(AppRadius.md),
+            ),
+            padding: const EdgeInsets.all(AppSpacing.xl),
+            child: identity,
+          ),
+          const SizedBox(height: AppSpacing.section),
+          for (final option in const [
+            (AppIcons.profile, 'Información personal', 'Edición no disponible'),
+            (AppIcons.security, 'Seguridad', 'No disponible'),
+            (AppIcons.notification, 'Notificaciones', 'No disponible'),
+            (AppIcons.settings, 'Configuración', 'No disponible'),
+          ]) ...[
+            Semantics(
+              enabled: false,
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  child: Row(
+                    children: [
+                      Icon(
+                        option.$1,
+                        color: AppColors.brandPrimary,
+                        size: AppSizes.icon,
+                      ),
+                      const SizedBox(width: AppSpacing.lg),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(option.$2),
+                            const SizedBox(height: AppSpacing.xs),
+                            Text(
+                              option.$3,
+                              style: AppTypography.caption.copyWith(
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+          ],
         ],
       );
     },
+  );
+  Widget _avatar() => Semantics(
+    label: 'Avatar genérico',
+    image: true,
+    child: Container(
+      width: greeting ? AppSizes.avatar : AppSizes.profileAvatar,
+      height: greeting ? AppSizes.avatar : AppSizes.profileAvatar,
+      decoration: const BoxDecoration(
+        color: AppColors.brandPrimaryLight,
+        shape: BoxShape.circle,
+      ),
+      child: const Icon(
+        AppIcons.profile,
+        color: AppColors.brandPrimary,
+        size: AppSizes.iconLarge,
+      ),
+    ),
   );
 }

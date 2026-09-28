@@ -65,3 +65,27 @@ ni cambio de decisión arquitectónica que requiera ADR.
 Los futuros se comparten entre inicio, wallet y perfil dentro de esa área;
 FutureBuilder oculta datos anteriores durante una nueva lectura e ignora
 completados de solicitudes sustituidas. Detalles en [STUDENT_WALLET.md](STUDENT_WALLET.md).
+
+## Fundamentos visuales y detalle — Fase 4D
+
+Los tokens permanecen en `app/theme/`: colores, tipografía, espaciado, radios,
+tamaños e iconografía. Inter 4.1 se incorpora como asset local con su licencia,
+sin dependencias Dart nuevas ni descargas de fuentes durante la ejecución.
+`core/widgets` aporta `AppTopBar`, `AppBottomNavigation`, `AppButton` y estados
+de lectura. `CertificateCard`, `StatusBadge`, `CertificatePreview` y
+`CertificateDetailScreen` pertenecen a la presentación de certificados.
+
+`AppRouter.certificateDetail` crea `/certificates/detail` con un ID como argumento,
+el titular de la sesión y el contrato inyectado. Es una ruta interna, sin deep
+links. La pantalla consulta `CertificateRepository.readCertificate(userId, id)`;
+el adaptador reutiliza el mapeo existente y añade filtros de ID y titular. No
+hay consultas de infraestructura desde la presentación.
+
+El detalle posee su futuro, reintento, observador de reanudación y temporizador
+de expiración. Las lecturas sustituidas se ignoran; no se presenta `snapshot.data`
+mientras una nueva lectura está pendiente. La sustitución del navegador por
+identidad/estado Auth también destruye el detalle. El regreso conserva el destino
+y el desplazamiento del origen; renovar el token del mismo usuario conserva la ruta.
+
+No se alteran límites de capas, backend, RLS ni decisiones estructurales; no
+se necesita un ADR nuevo. Véase [FLUTTER_UI_FOUNDATIONS.md](FLUTTER_UI_FOUNDATIONS.md).

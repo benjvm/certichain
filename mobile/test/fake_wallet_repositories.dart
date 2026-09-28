@@ -16,7 +16,22 @@ class FakeProfileRepository implements ProfileRepository {
 class FakeCertificateRepository implements CertificateRepository {
   CertificateWallet wallet = CertificateWallet(certificates: [], total: 0);
   Future<CertificateWallet> Function(String)? handler;
+  Future<Certificate?> Function(String, String)? detailHandler;
   @override
   Future<CertificateWallet> readWallet(String userId) async =>
       handler != null ? handler!(userId) : wallet;
+
+  @override
+  Future<Certificate?> readCertificate(
+    String userId,
+    String certificateId,
+  ) async {
+    if (detailHandler != null) return detailHandler!(userId, certificateId);
+    for (final certificate in wallet.certificates) {
+      if (certificate.holderId == userId && certificate.id == certificateId) {
+        return certificate;
+      }
+    }
+    return null;
+  }
 }

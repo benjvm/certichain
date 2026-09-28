@@ -31,7 +31,7 @@ supabase db reset
 
 El nombre real llevará timestamp, por ejemplo `20260918190000_create_initial_schema.sql`. Una migración compartida no se reescribe; la corrección se hace en una migración posterior.
 
-## Contrato real consumido por Flutter — Fase 4C
+## Contrato real consumido por Flutter — Fases 4C y 4D
 
 Las migraciones vigentes definen `profiles(id, full_name, role, created_at,
 updated_at)` y `certificates` con `holder_id` (no `recipient_id`),
@@ -44,6 +44,13 @@ La relación `institutions(name)` es opcional por RLS: el titular de un certific
 no obtiene por ello permiso para leer su emisor. No se cambian políticas en 4C.
 La emisión autorizada por la RLS actual **no comprueba aprobación institucional**;
 resolverlo corresponde a una fase futura. Véase [STUDENT_WALLET.md](STUDENT_WALLET.md).
+
+En 4D, el detalle usa la misma selección mínima de columnas de la wallet y
+`institutions(name)`, con `id = certificateId` y `holder_id = userId`, mediante
+`maybeSingle()`. Una fila ausente o invisible por RLS se representa con el mismo
+mensaje. Se rechaza una identidad de certificado o titular inesperada. No se
+leen `document_path`, `document_hash`, `credential_code` ni datos blockchain;
+no se añaden migraciones, funciones, grants ni políticas.
 
 ## Modelo futuro propuesto (no es el contrato vigente)
 

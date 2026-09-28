@@ -68,8 +68,14 @@ flutter create --org com.benjvm --project-name certichain .
 - [Pruebas](docs/TESTING.md)
 - [Flujo de desarrollo](docs/DEVELOPMENT.md)
 - [Hoja de ruta](docs/ROADMAP.md)
+- [Wallet y detalle autenticados](docs/STUDENT_WALLET.md)
+- [Fundamentos visuales Flutter y referencia Figma](docs/FLUTTER_UI_FOUNDATIONS.md)
 - [Registro de decisiones](docs/adr/README.md)
 
 ## Estado
 
-Fase inicial de diseño. No se consideran definitivos el esquema, el contrato ni la API hasta aprobar sus ADR correspondientes.
+Entregada la fase 4D de Flutter: autenticación, Inicio, wallet y consulta de perfil
+con datos reales; fundamentos visuales de Figma y detalle del certificado
+restringido al titular. Emisión, aprobación institucional, PDF, QR, verificación
+pública y blockchain siguen pendientes. El objetivo del MVP superior describe
+el producto futuro; no afirma que esos flujos ya funcionen.

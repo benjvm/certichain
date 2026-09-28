@@ -1,14 +1,17 @@
 # Hoja de ruta del MVP
 
-## Incremento entregado — Fase 4C de implementación Flutter
+## Incremento entregado — Fase 4D de implementación Flutter
 
-Inicio autenticado con perfil real, total y certificados recientes; wallet
-personal limitada a los 50 más recientes; consulta de perfil y cierre de sesión.
-Incluye estados de carga/vacío/error/reintento y aislamiento por sesión.
+Fundamentos visuales basados en Figma, Inter local, cabecera y navegación
+compartidas; Inicio con perfil real, total y recientes; wallet de hasta 50
+certificados; consulta de perfil y cierre de sesión. Las tarjetas abren un
+detalle leído por ID y titular con carga, ausencia/inaccesibilidad, error y reintento.
+Se conserva el aislamiento por sesión, incluido el detalle.
 No equivale a completar la fase de blockchain del roadmap conceptual inferior.
-Detalle, permisos y pruebas en [STUDENT_WALLET.md](STUDENT_WALLET.md).
+Alcance, permisos y pruebas en [STUDENT_WALLET.md](STUDENT_WALLET.md).
+Referencia y adaptaciones visuales en [FLUTTER_UI_FOUNDATIONS.md](FLUTTER_UI_FOUNDATIONS.md).
 
-Pendiente: detalles/documentos, paginación completa, QR/verificación, emisión,
+Pendiente: acceso al PDF, paginación completa, QR/verificación, emisión,
 aprobación institucional y blockchain. La RLS actual todavía no comprueba que
 una institución esté aprobada antes de emitir; no habilitar emisión desde Flutter.
 

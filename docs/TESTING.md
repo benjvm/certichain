@@ -26,6 +26,25 @@ Casos prioritarios:
 - QR inválido, desconocido, válido, expirado y revocado;
 - accesibilidad básica de pantallas principales.
 
+## Capturas y regresiones de Flutter 4D
+
+`mobile/test/certificate_detail_test.dart` carga los assets Inter e iconos Material
+y recorre Inicio, wallet, detalle y perfil. Comprueba estados, navegación, reanudación,
+respuestas sustituidas y cambio de sesión. Los adaptadores se prueban mediante
+el SDK real y un servidor HTTP loopback, sin afirmar que se ha probado RLS real.
+
+Para exportar las capturas sintéticas, desde `mobile/` en PowerShell:
+
+```powershell
+$env:CERTICHAIN_CAPTURE_DIR = Join-Path (Get-Location) 'build\phase4d-review'
+flutter test test/certificate_detail_test.dart
+Remove-Item Env:CERTICHAIN_CAPTURE_DIR
+```
+
+Se generan vistas superiores e inferiores a 390×844, 360×800 y 320×568; a 390 y
+320 también con texto ×2. No se incluyen fixtures de estas capturas en producción.
+Las capturas y las pruebas de layout no sustituyen una revisión en dispositivo.
+
 ## Base de datos y RLS
 
 Probar con identidades distintas, no solo con `service_role`:

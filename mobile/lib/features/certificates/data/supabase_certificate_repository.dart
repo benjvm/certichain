@@ -5,6 +5,8 @@ import '../domain/certificate_repository.dart';
 class SupabaseCertificateRepository implements CertificateRepository {
   SupabaseCertificateRepository(this._client);
   final SupabaseClient _client;
+  static const _fields =
+      'id,holder_id,institution_id,title,issued_at,expires_at,status,institutions(name)';
 
   @override
   Future<CertificateWallet> readWallet(String userId) async {
@@ -12,9 +14,7 @@ class SupabaseCertificateRepository implements CertificateRepository {
     // RLS alone also permits institutional/admin reads: explicitly scope the wallet.
     final result = await _client
         .from('certificates')
-        .select(
-          'id,holder_id,institution_id,title,issued_at,expires_at,status,institutions(name)',
-        )
+        .select(_fields)
         .eq('holder_id', userId)
         .order('issued_at', ascending: false)
         .order('id', ascending: false)
@@ -26,6 +26,26 @@ class SupabaseCertificateRepository implements CertificateRepository {
       throw const FormatException('Invalid wallet owner');
     }
     return CertificateWallet(certificates: certificates, total: result.count);
+  }
+
+  @override
+  Future<Certificate?> readCertificate(
+    String userId,
+    String certificateId,
+  ) async {
+    final row = await _client
+        .from('certificates')
+        .select(_fields)
+        .eq('holder_id', userId)
+        .eq('id', certificateId)
+        .maybeSingle()
+        .timeout(const Duration(seconds: 20));
+    if (row == null) return null;
+    final certificate = _fromRow(row);
+    if (certificate.holderId != userId || certificate.id != certificateId) {
+      throw const FormatException('Invalid certificate identity');
+    }
+    return certificate;
   }
 
   Certificate _fromRow(Map<String, dynamic> row) {

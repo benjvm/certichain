@@ -8,10 +8,15 @@ import '../features/certificates/presentation/wallet_content.dart';
 import '../features/profile/domain/profile_repository.dart';
 import '../features/profile/presentation/profile_content.dart';
 import '../core/widgets/app_button.dart';
+import '../core/widgets/app_top_bar.dart';
+import '../core/widgets/app_bottom_navigation.dart';
 import 'router/app_router.dart';
 import 'theme/app_spacing.dart';
 import 'theme/app_radius.dart';
 import 'theme/app_colors.dart';
+import 'theme/app_icons.dart';
+import 'theme/app_sizes.dart';
+import 'theme/app_typography.dart';
 
 /// Owned by the session-keyed navigator. Never retained across identities.
 class AuthenticatedArea extends StatefulWidget {
@@ -38,6 +43,7 @@ class _AuthenticatedAreaState extends State<AuthenticatedArea>
   AuthenticatedSection _section = AuthenticatedSection.home;
   Timer? _expiry;
   int _request = 0;
+  bool _openingDetail = false;
 
   @override
   void initState() {
@@ -112,6 +118,19 @@ class _AuthenticatedAreaState extends State<AuthenticatedArea>
   void _open(AuthenticatedSection section) =>
       setState(() => _section = section);
 
+  Future<void> _openCertificate(String id) async {
+    if (_openingDetail) return;
+    _openingDetail = true;
+    await Navigator.of(context).push<void>(
+      AppRouter.certificateDetail(
+        userId: widget.userId,
+        certificateId: id,
+        repository: widget.certificates,
+      ),
+    );
+    _openingDetail = false;
+  }
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
@@ -128,35 +147,33 @@ class _AuthenticatedAreaState extends State<AuthenticatedArea>
         if (!didPop) _open(AuthenticatedSection.home);
       },
       child: Scaffold(
-        appBar: AppBar(
-          leading: home
-              ? null
-              : IconButton(
-                  tooltip: 'Volver al inicio',
-                  icon: const Icon(Icons.arrow_back_rounded),
-                  onPressed: () => _open(AuthenticatedSection.home),
-                ),
-          title: Text(switch (_section) {
-            AuthenticatedSection.home => 'Inicio',
+        appBar: AppTopBar(
+          onBack: home ? null : () => _open(AuthenticatedSection.home),
+          textScale: MediaQuery.textScalerOf(context).scale(1),
+          title: switch (_section) {
+            AuthenticatedSection.home => null,
             AuthenticatedSection.wallet => 'Mis certificados',
             AuthenticatedSection.profile => 'Mi perfil',
-          }),
-          actions: [
-            IconButton(
-              tooltip: 'Actualizar datos',
-              onPressed: _refresh,
-              icon: const Icon(Icons.refresh_rounded),
-            ),
-          ],
+          },
+          onRefresh: _refresh,
         ),
         body: SafeArea(
           child: Align(
             alignment: Alignment.topCenter,
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 720),
+              constraints: const BoxConstraints(
+                maxWidth: AppSizes.contentWidth,
+              ),
               child: SingleChildScrollView(
                 key: ValueKey(_section),
-                padding: const EdgeInsets.all(AppSpacing.screenHorizontal),
+                padding: EdgeInsets.fromLTRB(
+                  AppSpacing.screenHorizontal,
+                  _section == AuthenticatedSection.profile
+                      ? AppSpacing.xlarge
+                      : AppSpacing.xxl,
+                  AppSpacing.screenHorizontal,
+                  AppSpacing.xxl,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -176,6 +193,7 @@ class _AuthenticatedAreaState extends State<AuthenticatedArea>
                         recent: home,
                         homeActions: home ? _quickActions(context) : null,
                         onOpenWallet: () => _open(AuthenticatedSection.wallet),
+                        onOpenCertificate: _openCertificate,
                       ),
                     const SizedBox(height: AppSpacing.xxl),
                     if (widget.controller.message case final message?)
@@ -184,6 +202,7 @@ class _AuthenticatedAreaState extends State<AuthenticatedArea>
                       label: 'Cerrar sesión',
                       isLoading: widget.controller.signingOut,
                       onPressed: widget.controller.signOut,
+                      style: AppButtonStyle.ghost,
                     ),
                   ],
                 ),
@@ -191,24 +210,9 @@ class _AuthenticatedAreaState extends State<AuthenticatedArea>
             ),
           ),
         ),
-        bottomNavigationBar: NavigationBar(
+        bottomNavigationBar: AppBottomNavigation(
           selectedIndex: _section.index,
-          onDestinationSelected: (index) =>
-              _open(AuthenticatedSection.values[index]),
-          destinations: const [
-            NavigationDestination(
-              icon: Icon(Icons.home_outlined),
-              label: 'Inicio',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.workspace_premium_outlined),
-              label: 'Certificados',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.person_outline_rounded),
-              label: 'Perfil',
-            ),
-          ],
+          onSelected: (index) => _open(AuthenticatedSection.values[index]),
         ),
       ),
     );
@@ -217,55 +221,70 @@ class _AuthenticatedAreaState extends State<AuthenticatedArea>
   Widget _quickActions(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      Text('Accesos rápidos', style: Theme.of(context).textTheme.titleLarge),
+      const Text('Accesos rápidos', style: AppTypography.sectionTitle),
       const SizedBox(height: AppSpacing.md),
       LayoutBuilder(
         builder: (context, constraints) => Wrap(
-          spacing: AppSpacing.md,
+          spacing: AppSpacing.quickActionGap,
           runSpacing: AppSpacing.md,
           children: [
             for (final action in [
               (
                 'Mis certificados',
-                Icons.workspace_premium_outlined,
+                AppIcons.certificate,
                 () => _open(AuthenticatedSection.wallet),
               ),
+              ('Añadir certificado', AppIcons.add, null),
+              ('Escanear QR', AppIcons.scan, null),
               (
                 'Mi perfil',
-                Icons.person_outline_rounded,
+                AppIcons.profile,
                 () => _open(AuthenticatedSection.profile),
-              ),
-              (
-                'Escanear QR · No disponible',
-                Icons.qr_code_scanner_rounded,
-                null,
-              ),
-              (
-                'Añadir certificado · No disponible',
-                Icons.add_circle_outline_rounded,
-                null,
               ),
             ])
               SizedBox(
-                width: (constraints.maxWidth - AppSpacing.md) / 2,
+                width:
+                    MediaQuery.textScalerOf(context).scale(1) >=
+                        AppSizes.singleColumnTextScale
+                    ? constraints.maxWidth
+                    : (constraints.maxWidth - AppSpacing.quickActionGap) / 2,
                 child: OutlinedButton(
                   style: OutlinedButton.styleFrom(
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppRadius.md),
+                      borderRadius: BorderRadius.circular(
+                        AppRadius.quickAction,
+                      ),
                     ),
                     side: const BorderSide(color: AppColors.border),
-                    backgroundColor: AppColors.brandPrimaryLight,
+                    backgroundColor: AppColors.background,
+                    padding: const EdgeInsets.all(AppSpacing.lg),
+                    foregroundColor: AppColors.inkBlue,
+                    disabledForegroundColor: AppColors.textSecondary,
+                    minimumSize: const Size(0, AppSizes.quickAction),
                   ),
                   onPressed: action.$3,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: AppSpacing.md,
-                    ),
+                  child: SizedBox(
+                    width: double.infinity,
                     child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(action.$2),
+                        Icon(
+                          action.$2,
+                          color: action.$3 == null
+                              ? AppColors.textSecondary
+                              : AppColors.brandPrimary,
+                          size: AppSizes.iconLarge,
+                        ),
                         const SizedBox(height: AppSpacing.sm),
-                        Text(action.$1, textAlign: TextAlign.center),
+                        Text(action.$1, style: AppTypography.caption),
+                        if (action.$3 == null) ...[
+                          const SizedBox(height: AppSpacing.xs),
+                          const Text(
+                            'No disponible',
+                            style: AppTypography.caption,
+                          ),
+                        ],
                       ],
                     ),
                   ),

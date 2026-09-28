@@ -1,95 +1,121 @@
-# Fase 4C — Inicio autenticado y wallet personal
+# Wallet personal y detalle — Fase 4D
 
-## Navegación e interfaz
+## Navegación y datos reales
 
-Después del login, registro con sesión o restauración, `/` muestra el área
-autenticada. `AuthenticatedSection` centraliza sus tres destinos internos:
-Inicio, Mis certificados y Mi perfil (consulta). No son URLs ni deep links.
+Después de autenticar, `/` contiene los destinos internos
+`AuthenticatedSection.home/wallet/profile`: Inicio, Mis certificados y Mi perfil.
 Atrás desde wallet/perfil vuelve a Inicio. Las rutas públicas `/`, `/login` y
-`/register` conservan su flujo cuando no hay sesión.
+`/register` conservan su comportamiento cuando no hay sesión.
 
-Inicio presenta saludo desde `profiles.full_name`, avatar genérico sin foto
-inventada, total real, accesos 2×2 y tres certificados recientes. Mi perfil
-muestra nombre y rol procedentes de la tabla, sin conceder permisos. Todas las
-cuentas reciben esta vista personal; los paneles institucionales quedan pendientes.
-Wallet muestra hasta 50 certificados, del más reciente al más antiguo, con
-desempate por ID. Indica el límite cuando el total lo supera. Solo existe el
-chip «Todos»: el esquema vigente no tiene categorías de certificados.
+Inicio presenta nombre y rol de `profiles`, avatar genérico, total exacto y
+tres certificados recientes. Wallet muestra hasta 50 registros ordenados por
+`issued_at DESC, id DESC`, e indica el límite si el total lo supera. Solo hay
+«Todos»: el esquema no tiene categorías. Mi perfil muestra los datos reales y
+opciones explícitamente no disponibles; cerrar sesión sigue funcionando.
+No se usan fixtures en producción ni se conceden permisos por el rol mostrado.
 
-Se reutilizan tema, espaciados, radios y AppButton. La navegación inferior incluye
-los tres destinos funcionales. Escanear y añadir certificados están deshabilitados
-y etiquetados como no disponibles. Las tarjetas no abren detalles falsos. No se
-usan fixtures ni datos de demostración en producción.
+Una tarjeta de Inicio o wallet abre `/certificates/detail` con un ID como
+argumento y el titular de la sesión. Es una ruta interna, sin deep links.
+El detalle vuelve al destino y desplazamiento originales; se evita abrir dos
+detalles por pulsaciones consecutivas. Renovar el token del mismo usuario
+conserva la ruta. Cambiar de identidad o salir sustituye todo el navegador.
 
-## Lectura y permisos
+## Lecturas y autorización
 
 - Perfil: `profiles.select(id,full_name,role).eq(id, userId).maybeSingle()`.
-  Un perfil ausente muestra un error recuperable con reintento y posibilidad de
-  cerrar sesión. No se fabrica un perfil con metadatos de Auth o datos del formulario.
-- Wallet: `certificates`, filtro explícito `holder_id = userId`, orden
-  `issued_at DESC, id DESC`, límite 50 y `count=exact`. Se solicitan únicamente
-  `id, holder_id, institution_id, title, issued_at, expires_at, status` y
-  `institutions(name)` mediante relación opcional (sin `!inner`).
-- Se usa el cliente Supabase existente, con clave pública y sesión del usuario.
-  RLS sigue siendo la autorización efectiva. El filtro de titular es necesario
-  incluso para usuarios que puedan leer certificados ajenos como miembros o admins.
-- La RLS de instituciones permite leerlas a miembros y administradores de
-  plataforma; ser titular no basta. Si la relación devuelve null se muestra
-  «Institución no disponible» y se conserva el certificado. No se expone un nombre
-  inventado ni se amplían permisos para resolver esta limitación.
-- No se leen rutas de documentos, hashes, correos ni códigos de credencial.
-  No se cambian migraciones, RLS, esquema o dependencias.
+  Un perfil ausente muestra error/reintento y permite salir.
+- Wallet: selección mínima de `id, holder_id, institution_id, title, issued_at,
+  expires_at, status` y relación opcional `institutions(name)`, filtro de
+  `holder_id`, límite 50 y `count=exact`.
+- Detalle: `CertificateRepository.readCertificate(userId, certificateId)`;
+  el adaptador reutiliza la selección y mapeo de wallet, filtra tanto `id`
+  como `holder_id`, y usa `maybeSingle()`. Un resultado sin fila significa
+  «No existe o no tienes acceso», sin distinguir casos que permitan enumeración.
+  Titular/ID inesperados y estados desconocidos fallan de forma segura.
+- Se conserva el cliente con clave pública y sesión del usuario; RLS es la
+  autorización efectiva. El filtro de titular sigue siendo obligatorio para
+  cuentas que también puedan leer datos institucionales o administrativos.
+- RLS puede ocultar `institutions`: ser titular no concede acceso al emisor.
+  Se muestra «Institución no disponible» sin descartar el certificado.
+- No se consultan rutas de documentos, hashes, códigos de credencial, correos,
+  transacciones ni historiales. No se cambia backend, esquema ni RLS.
 
-El dominio deriva la vigencia: `revoked` prevalece sobre la expiración;
-`active` con `expires_at <= ahora` se muestra «Expirado» y el resto «Válido».
-Un estado desconocido falla de forma segura. Las fechas se muestran en la zona
-local del dispositivo como `dd/MM/yyyy`; los instantes de expiración se comparan
-con su zona horaria. El estado no acredita verificación blockchain y la UI lo explica.
-Un temporizador actualiza la vigencia al alcanzar la próxima expiración visible.
-La hora del dispositivo solo sirve para presentación; una futura verificación
-autoritativa deberá usar el backend.
+Las lecturas del adaptador tienen timeout de 20 segundos. Los mensajes de error
+son fijos y seguros; no se presentan errores crudos del proveedor.
+
+## Detalle y significado de los estados
+
+El detalle relee el certificado en lugar de considerar la tarjeta una fuente
+actualizada. Presenta título, emisor opcional, emisión, expiración opcional y
+vigencia. Si no hay expiración, indica «Sin fecha de expiración».
+El espacio superior del diploma es un placeholder explícito: «Vista previa
+no disponible / El PDF todavía no está disponible». No simula un documento.
+
+«Detalles» muestra el ID real. «Blockchain» muestra «Sin datos de blockchain»;
+«Historial» explica que el backend todavía no lo proporciona. Compartir está
+deshabilitado y QR/verificación pública se señalan como pendientes. No hay hashes,
+bloques, enlaces ni códigos inventados.
+
+La entidad deriva la vigencia: revocado prevalece sobre expiración; active con
+`expires_at <= ahora` se muestra «Expirado»; el resto, «Válido». Este estado no
+acredita verificación blockchain y la UI lo explica. Fechas locales `dd/MM/yyyy`,
+instantes comparados con su zona horaria. La hora del dispositivo sirve solo
+para presentación; la verificación autoritativa requerirá el backend.
 
 ## Estados y ciclo de vida
 
-Perfil y wallet tienen lecturas independientes, carga accesible, error seguro y
-reintento. Un fallo nunca se interpreta como wallet vacía ni total cero. La lista
-vacía explica dónde aparecerán futuros certificados. Las peticiones tienen un
-timeout de 20 segundos. «Actualizar datos» y volver al primer plano recargan datos;
-no hay suscripción Realtime. La revocación realizada fuera de la app se refleja
-al recargar.
+Perfil y wallet conservan carga, error y reintento independientes. Un fallo
+no se interpreta como lista vacía ni total cero. El detalle añade carga,
+ausencia/inaccesibilidad y error/reintento. Los nuevos futuros ocultan datos
+anteriores durante la lectura y descartan respuestas sustituidas.
 
-El navegador se sustituye al cambiar de identidad/estado Auth. Sus futuros y
-temporizadores no pueden presentar respuestas de la sesión anterior. Los
-reintentos sustituyen también el futuro de lectura; se ignoran respuestas
-supersedidas y se cancelan temporizadores al destruir el área. Los datos solo se
-mantienen en memoria durante esa sesión, sin segunda caché persistente.
+Wallet y detalle actualizan la vigencia con temporizadores de expiración.
+Actualizar datos o volver al primer plano relee el recurso correspondiente;
+no hay Realtime. La revocación externa se refleja al recargar.
+El navegador ligado a identidad/estado Auth destruye rutas, futuros visibles
+y temporizadores al cambiar de cuenta o salir. No hay caché persistente adicional.
 
 ## Verificación
 
-Desde `mobile/`: `dart format lib test`, `flutter analyze`, `flutter test`.
+Desde `mobile/`:
 
-- Widgets con repositorios falsos: perfil presente/ausente, carga/error/reintento,
-  wallet vacía y poblada, fechas/estados, navegación, cambio de identidad con
-  respuestas tardías, cierre de sesión y conservación de pestaña al refrescar token.
-- Adaptadores con SDK real y servidor HTTP loopback simulado: selección de campos,
-  filtro por titular, límite, orden, total, relación inaccesible/accesible, perfil
-  ausente, error de backend y rechazo de titular/estado inesperado.
-- Dominio: revocado antes que expirado, sin expiración, pasado, futuro y límite
-  exacto con offset horario.
-- Diseño: widgets a 320×568, 360×800 y 390×844, escala de texto 2, sin overflow.
-  Regresiones de Auth existentes incluidas. También se inspeccionaron capturas
-  del inicio y wallet a 390×844 con fixtures sintéticos, fuera del código de
-  producción. Las capturas del harness de tests no validan fuentes/iconos del
-  dispositivo.
+```powershell
+dart format lib test
+dart format --output=none --set-exit-if-changed lib test
+flutter analyze
+flutter test
+```
 
-Estas pruebas no verifican RLS en un servicio real. No se ha ejecutado una prueba
-contra Supabase local/remoto en esta fase ni una prueba manual en dispositivo.
-El test de integración local de Auth sigue siendo opt-in.
+Cobertura funcional:
+
+- Navegación al detalle desde ambos orígenes y regreso.
+- Lectura fresca, carga, ausencia, error seguro y reintento; campos opcionales,
+  revocación y expiración; pestañas explícitas y compartir deshabilitado.
+- Renovación de token, reanudación, respuestas sustituidas y respuesta tardía
+  tras cambio de usuario o salida.
+- Selección mínima y filtros de titular/ID con SDK real y HTTP loopback simulado;
+  ausencia, emisor oculto y rechazo de identidad/estado inesperados.
+- Regresiones existentes de Auth, perfil y wallet.
+
+Se inspeccionaron capturas de las cuatro pantallas a 390×844, 320×568 y texto ×2.
+Las pruebas incluyen también 360×800 y 320×568 con texto ×2, con Inter e iconos
+Material cargados. Los campos inferiores y cerrar sesión siguen accesibles por
+scroll. Las capturas usan fixtures sintéticos exclusivos de tests.
+Véase [FLUTTER_UI_FOUNDATIONS.md](FLUTTER_UI_FOUNDATIONS.md) y [TESTING.md](TESTING.md).
+
+Estas pruebas no prueban RLS en un Supabase real ni equivalen a una revisión en
+dispositivo físico. El test local de Auth sigue siendo opt-in.
+
+Resultado ejecutado el 28/09/2026: formato sin cambios pendientes, análisis sin
+incidencias, 68 pruebas superadas y 1 omitida (integración opt-in de Supabase local).
+`flutter build web` también completó correctamente. Las 14 pruebas del detalle
+y las 2 nuevas del adaptador están incluidas en ese total.
 
 ## Pendiente
 
-Paginación más allá de los 50 registros visibles, edición de perfil, categorías,
-detalle, PDF/Storage, QR/escáner, emisión, verificación pública y blockchain.
-La autorización institucional para emitir requiere otra fase: la RLS vigente
-no exige que la institución esté aprobada (`verification_status = verified`
-en el esquema real). Esta fase no incorpora ninguna operación de escritura.
+Paginación completa, categorías, edición/configuración de perfil, PDF/Storage,
+descarga, QR/escáner, compartir, emisión, aprobación institucional, revocación
+desde la app, notificaciones, verificación pública y blockchain.
+
+La RLS vigente no exige `verification_status = verified` antes de emitir;
+resolver esa autorización pertenece a otra fase. 4D no añade escrituras.

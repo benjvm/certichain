@@ -15,6 +15,10 @@ abstract final class AppColors {
   static const surface = Color(0xFFFFFFFF);
   static const border = Color(0xFFE4E7EC);
   static const textPrimary = Color(0xFF101828);
+  static const inkBlue = Color(0xFF0E1950);
+  // Accessible text on the pale status surfaces; retain Figma hues for icons.
+  static const successText = Color(0xFF067647);
+  static const errorText = Color(0xFFB42318);
   static const textSecondary = Color(0xFF667085);
   static const textTertiary = Color(0xFF98A2B3);
   static const disabled = Color(0xFFD0D5DD);

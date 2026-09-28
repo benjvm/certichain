@@ -118,6 +118,55 @@ void main() {
   });
 
   test(
+    'detail scopes id and holder, preserves hidden issuer and missing rows',
+    () async {
+      final repository = SupabaseCertificateRepository(client);
+      response = [row()];
+      final certificate = await repository.readCertificate(
+        'holder-a',
+        'certificate-a',
+      );
+      expect(certificate?.title, 'Formación sintética');
+      expect(certificate?.institutionName, isNull);
+      expect(uri.queryParameters['holder_id'], 'eq.holder-a');
+      expect(uri.queryParameters['id'], 'eq.certificate-a');
+      expect(
+        uri.queryParameters['select'],
+        'id,holder_id,institution_id,title,issued_at,expires_at,status,institutions(name)',
+      );
+      response = <Object>[];
+      expect(
+        await repository.readCertificate('holder-a', 'certificate-a'),
+        isNull,
+      );
+    },
+  );
+
+  test(
+    'detail rejects unexpected identities and states, propagates errors',
+    () async {
+      final repository = SupabaseCertificateRepository(client);
+      for (final invalid in [
+        row(holder: 'holder-b'),
+        {...row(), 'id': 'other'},
+        row(state: 'unknown'),
+      ]) {
+        response = [invalid];
+        await expectLater(
+          repository.readCertificate('holder-a', 'certificate-a'),
+          throwsFormatException,
+        );
+      }
+      status = 403;
+      response = {'message': 'private payload', 'code': '42501'};
+      await expectLater(
+        repository.readCertificate('holder-a', 'certificate-a'),
+        throwsA(isA<PostgrestException>()),
+      );
+    },
+  );
+
+  test(
     'backend failure is propagated for retry, never interpreted as empty',
     () async {
       status = 403;
