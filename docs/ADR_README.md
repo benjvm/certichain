@@ -53,6 +53,9 @@ No se edita el razonamiento histórico de un ADR aceptado para ocultar un cambio
 
 ## ADR iniciales recomendados
 
+Decisión aceptada implementada en Fase 6:
+[0007-managed-institution-administration.md](adr/0007-managed-institution-administration.md).
+
 1. `0001-use-supabase-initially.md`.
 2. `0002-feature-first-clean-boundaries.md`.
 3. `0003-version-database-with-migrations.md`.

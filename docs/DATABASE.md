@@ -8,6 +8,9 @@ parte del esquema inicial. La primera migración habilitó RLS; la segunda,
 `close_direct_certificate_writes` para retirar escrituras de certificados y
 grants administrativos sobrantes. `anon` no puede obtener filas de ninguna
 de las cuatro tablas: certificados deniega por grants; las otras, por RLS.
+La Fase 6 añade `institution_administration`: alta administrada atómica,
+RPC estrechos, bootstrap SQL confiable y protección transaccional de propietarios.
+Retira las políticas/grants DML institucionales históricos y conserva SELECT.
 Los certificados conservan referencias obligatorias; por ello se impide borrar
 un perfil o institución que tenga certificados asociados. Esta decisión también
 puede impedir borrar un usuario de `auth.users`, porque su perfil se eliminaría
@@ -197,9 +200,9 @@ estos dependen de `institution_members.role` (`owner`, `admin` o `issuer`).
 
 | Tabla | Lectura | Escritura desde `authenticated` |
 |---|---|---|
-| `profiles` | Perfil propio o cualquier perfil para `platform_admin` | Actualización propia sin cambiar `role`; `platform_admin` puede actualizar perfiles. Sin INSERT ni DELETE de cliente. |
-| `institutions` | Miembros y `platform_admin` | INSERT/DELETE solo `platform_admin`; UPDATE `owner`, `admin` o `platform_admin`. Solo `platform_admin` cambia `verification_status`. |
-| `institution_members` | Fila propia; todas las filas de la institución para `owner`/`admin`; todas para `platform_admin` | INSERT/UPDATE/DELETE solo `owner` de esa institución o `platform_admin`. |
+| `profiles` | Perfil propio o cualquier perfil para `platform_admin` | Actualización propia sin cambiar `role`; plataforma puede editar datos de otros perfiles, nunca sus roles por API. Sin INSERT ni DELETE de cliente. |
+| `institutions` | Miembros y `platform_admin` | Ningún DML directo. RPC: alta solo plataforma con owner atómico; datos por owner/admin/plataforma; estado solo plataforma. DELETE cerrado. |
+| `institution_members` | Fila propia; todas las filas de la institución para `owner`/`admin`; todas para `platform_admin` | Ningún DML directo. RPC de alta/cambio/baja solo owner de esa institución o plataforma, conservando último owner. |
 | `certificates` | Titular, cualquier miembro de la institución emisora o `platform_admin` | Ninguna: sin INSERT, UPDATE, upsert ni DELETE, incluidos `owner`/`admin`/`issuer` y `platform_admin`. Emisión y revocación esperan al backend confiable. |
 
 Las funciones `certichain_private.is_platform_admin`,
@@ -207,8 +210,8 @@ Las funciones `certichain_private.is_platform_admin`,
 de autorización del usuario actual. Son `SECURITY DEFINER`, usan un
 `search_path` vacío y evitan recursión RLS. El esquema no está expuesto por la
 API; solo `authenticated` puede ejecutarlas. Los triggers de `profiles` e
-`institutions` impiden cambiar roles globales o estados de verificación sin
-ser `platform_admin`. El trigger histórico de `certificates` conserva la guarda
+`institutions` impiden cambiar roles globales por API o estados de verificación
+sin ser `platform_admin`. El trigger histórico de `certificates` conserva la guarda
 de transición `active → revoked`, inmutabilidad de otros campos y hora de base
 de datos para `revoked_at`, con la excepción administrativa original. No concede
 permisos: ninguna fila puede actualizarse desde `authenticated`. Su lógica
@@ -217,11 +220,53 @@ de revocación ni sincroniza blockchain.
 
 No hay acceso directo para `anon`; la verificación pública requiere una futura
 interfaz restringida. Tampoco hay una política de INSERT para perfiles: el
-aprovisionamiento inicial usa el trigger descrito abajo; la asignación del primer
-`platform_admin` sigue requiriendo un flujo confiable futuro. La migración no garantiza que permanezca al menos un
-`owner` por institución; se necesita una regla transaccional de negocio para
-evitar borrar o degradar al último. Es una dependencia del próximo flujo de
-administración institucional, no resuelta en Fase 5.
+aprovisionamiento inicial usa el trigger descrito abajo. La Fase 6 incorpora
+el bootstrap mediante SQL confiable y el invariante de propietarios descrito
+en la siguiente sección; ambos estaban pendientes tras la Fase 5.
+
+### Administración institucional — Fase 6
+
+`20260928210000_institution_administration.sql` añade cinco RPC con
+`SECURITY DEFINER`, `search_path = ''`, referencias cualificadas y EXECUTE
+únicamente para `authenticated`. Consultan `auth.uid()` y el rol/membresía real;
+la identidad del actor no es un parámetro. Alta de institución y owner en la
+misma operación, datos por owner/admin/plataforma, estados solo plataforma,
+miembros solo owner/plataforma. El enum conserva exactamente pending, verified,
+rejected, suspended y las membresías owner, admin, issuer.
+
+El alta comienza siempre pending. Transiciones: pending → verified/rejected;
+verified → suspended; rejected/suspended → pending para nueva revisión. Repetir
+estado actual es idempotente. Nombre 2–160 caracteres recortados y sin controles;
+slug único 3–80, minúsculas ASCII y guiones simples; web HTTPS opcional hasta 2048.
+Constraints y RPC validan; un duplicado no reemplaza la institución existente.
+
+Se eliminan las políticas INSERT/UPDATE/DELETE y grants DML institucionales
+para clientes. SELECT y sus predicados permanecen intactos. Un trigger cierra
+DELETE de institución; los estados conservan miembros e historial.
+TRUNCATE institucional/membresías se cierra además con triggers de sentencia,
+incluyendo cascadas desde perfiles que eludirían las guardas de fila. Las FK
+RESTRICT de certificados permanecen vigentes y también pueden impedir eliminar
+un usuario Auth. No se habilita ningún RPC que escriba certificados.
+
+Las mutaciones de miembros bloquean y escriben el padre institucional; el trigger
+rechaza baja/degradación del último owner, incluso por cascada desde perfiles/Auth.
+La escritura impide write skew con snapshots antiguos: se serializa en READ
+COMMITTED o se aborta en REPEATABLE READ/SERIALIZABLE. La identidad de membresía
+es inmutable. Triggers diferibles comprueban owner al finalizar el alta. Antes de
+aplicar, la migración rechaza instituciones existentes sin owner; no asigna
+personas automáticamente. Los datos previos deben cumplir las nuevas constraints.
+
+`certichain_private.grant_platform_admin` es SECURITY INVOKER y solo permite
+`postgres`; requiere UUID confirmado, Auth/perfil existentes y contador esperado
+de administradores, bajo bloqueo de tabla. No es RPC ni tiene grants API. El
+trigger de perfil bloquea cambios de rol incluso para un administrador vía API.
+Bootstrap inicial y altas adicionales usan el mismo acceso operativo confiable.
+
+Dependencias específicas de Supabase: `auth.users`, `auth.uid()`, roles API y
+exposición RPC por PostgREST. Transacciones, constraints, triggers y bloqueos son
+PostgreSQL. Instrucciones, errores seguros y demo repetible sin PII almacenada:
+[INSTITUTION_ADMINISTRATION.md](INSTITUTION_ADMINISTRATION.md) y
+[ADR-0007](adr/0007-managed-institution-administration.md).
 
 ### Cierre de escrituras — Fase 5
 
@@ -243,7 +288,7 @@ Los grants automáticos locales de Supabase incluían TRUNCATE, REFERENCES y
 TRIGGER. Se retiran en las cuatro tablas privadas sin cambiar el DML/RLS de
 perfiles, instituciones ni membresías. TRUNCATE no está sujeto a RLS y podía
 afectar al historial; véase [PostgreSQL RLS](https://www.postgresql.org/docs/17/ddl-rowsecurity.html).
-En las otras tres tablas `anon` conserva grants DML históricos, pero ninguna
+Tras esa migración, en las otras tres tablas `anon` conserva grants DML históricos, pero ninguna
 política autoriza filas; se comprueba con el rol efectivo en las pruebas.
 
 La migración no contiene DML, no cambia columnas/enums ni borra datos. Los
@@ -301,7 +346,8 @@ los que seleccionen «Institución». «Estudiante»/«Institución» expresa in
 de presentación y no se persiste aquí. Los metadatos de rol, institución o
 membresía se ignoran: no se crean instituciones ni filas en `institution_members`,
 ni se conceden `institution_admin`, `platform_admin`, `owner`, `admin` o `issuer`.
-El onboarding institucional y su aprobación siguen pendientes.
+El onboarding administrado y su aprobación se incorporan en Fase 6, sin cambiar
+el comportamiento del registro ni implementar solicitudes de autoservicio.
 
 La función reside en el esquema privado ya existente, es `SECURITY DEFINER`,
 usa `search_path = ''` y referencias a objetos cualificadas. Su propietario es

@@ -23,9 +23,22 @@ Flutter puede leer datos autorizados mediante repositorios respaldados por el SD
 
 Tras Fase 5, la API de tablas de `certificates` solo permite SELECT autorizado
 para `authenticated`; emisión y revocación no están habilitadas, incluido para
-`platform_admin`. No se ha creado una Edge Function o RPC de escritura.
+`platform_admin`. No se ha creado una Edge Function o RPC que escriba certificados.
 El [contrato del backend futuro](SECURE_ISSUANCE.md) define los controles
 obligatorios antes de habilitarlas y las dependencias institucionales previas.
+
+Fase 6 resuelve administración institucional mediante operaciones SQL
+transaccionales expuestas como RPC autenticados: alta pending con primer owner,
+datos, estados y miembros. Sus funciones verifican auth.uid() y autorización
+en BD y sustituyen el DML institucional directo. La aprobación corresponde a
+plataforma; owner gestiona miembros y admin institucional edita datos. La
+escritura de la fila institucional serializa los cambios y protege último owner,
+también en cascadas de Auth. DELETE institucional se cierra para conservar historial.
+Bootstrap y altas adicionales de plataforma requieren SQL operativo confiable;
+no son RPC públicos ni actualizaciones ordinarias de perfil.
+Decisión: [ADR-0007](adr/0007-managed-institution-administration.md).
+La Fase 7 será emisión segura sin blockchain con backend, PDF privado, SHA-256
+e idempotencia; los RPC de fase 6 no escriben certificados ni implementan PDF.
 
 ## Estructura Flutter
 

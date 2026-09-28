@@ -1,0 +1,39 @@
+name: Database permissions
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  database:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - name: Install Supabase CLI
+        uses: supabase/setup-cli@1dedf2c611547ede7232d26866dd3c56ab903bbb # v1.7.3
+        with:
+          version: 2.117.0
+      - name: Start local Supabase
+        run: supabase start
+      - name: Rebuild database
+        run: supabase db reset --local
+      - name: SQL permission tests
+        run: supabase test db --local
+      - name: Concurrent owner protection
+        run: node supabase/tests/institution_concurrency.mjs
+      - name: Historical certificate migration preservation
+        shell: pwsh
+        run: ./supabase/tests/verify_certificate_migration.ps1
+      - name: Lint project schemas
+        run: supabase db lint --local --schema public,certichain_private --level warning --fail-on warning
+      - name: Stop local Supabase
+        if: always()
+        run: supabase stop --no-backup

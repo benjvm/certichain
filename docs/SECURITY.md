@@ -12,7 +12,7 @@
 
 Flutter y cualquier navegador son clientes no confiables. RLS y las operaciones de backend deben volver a comprobar identidad, pertenencia, estado de la institución, propiedad del certificado y validación de entrada.
 
-## Autorización efectiva tras la Fase 5
+## Autorización efectiva tras las Fases 5 y 6
 
 `certificates` tiene únicamente una política SELECT para `authenticated`:
 titular, miembro de la institución emisora o `platform_admin`. Los grants del
@@ -40,9 +40,40 @@ La revocación deberá validar la institución emisora, una transición permitid
 y sincronizarse con blockchain cuando exista ese flujo. No hay secretos de
 servidor ni operaciones privilegiadas en Flutter.
 
-La aprobación y administración institucional completas, el aprovisionamiento
-del primer administrador y la protección del último `owner` siguen pendientes.
-No se resuelven con seeds de administradores ni metadatos de Auth editables.
+### Administración institucional
+
+La Fase 6 implementa alta administrada y aprobación mediante RPC transaccionales.
+Solo `platform_admin` crea una institución `pending` con primer `owner` y decide
+`verified`, `rejected`, `suspended` o reapertura `pending`. La identidad se deriva
+de `auth.uid()` y el rol se consulta en `profiles`, nunca de metadatos o entrada
+del cliente. `owner` y plataforma gestionan miembros; `admin` institucional solo
+edita datos permitidos y lee miembros. `institution_admin` global no sustituye
+una membresía. La administración se permite en los cuatro estados, sin emisión.
+
+No queda DML directo de cliente sobre instituciones/membresías: se retiran tanto
+grants como políticas de escritura. Los RPC tienen lista cerrada de campos,
+autorización por institución, search_path vacío y EXECUTE solo de authenticated.
+La búsqueda/listado de perfiles no se amplía para resolver miembros. Las
+validaciones y errores de duplicado no incluyen datos ni detalles de constraints.
+
+El último owner está protegido por escritura/bloqueo de la fila padre, guarda
+de baja/degradación, identidad de membresía inmutable y constraint diferible de
+alta. Incluye cascadas desde Auth/perfiles y operaciones concurrentes; snapshots
+obsoletos abortan. DELETE institucional queda cerrado para preservar referencias
+y certificados históricos. Los triggers de sentencia cierran TRUNCATE de
+instituciones/membresías, incluso en cascada desde perfiles, además de los grants
+API ya retirados. Antes de eliminar una cuenta que sea último owner,
+asignar otro propietario mediante el flujo autorizado.
+
+El primer `platform_admin` y los adicionales solo se asignan con SQL confiable
+como `postgres`, UUID objetivo confirmado y contador esperado bajo bloqueo de
+perfiles. La función privada es SECURITY INVOKER y no tiene EXECUTE API, tampoco
+para service_role. Los UPDATE de rol por API se rechazan incluso desde plataforma;
+los metadatos y la opción «Institución» del registro no conceden permisos.
+No hay cuentas/credenciales compartidas, administradores en seeds ni secretos
+de servidor en Flutter. El acceso capaz de alterar el esquema es confiable y
+debe controlarse operativamente. Procedimiento y revisiones manuales:
+[INSTITUTION_ADMINISTRATION.md](INSTITUTION_ADMINISTRATION.md).
 
 ## Amenazas principales y controles
 

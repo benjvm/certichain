@@ -150,6 +150,125 @@ errores de PostgREST. No se ejecutaron Flutter ni Foundry: no se modificaron sus
 áreas. No hay formateador SQL configurado; se revisó el formato siguiendo las
 migraciones existentes y se validaron sintaxis/esquema mediante reset y lint.
 
+### Administración y concurrencia — Fase 6
+
+`supabase/tests/institution_administration.test.sql` añade **187 comprobaciones**
+con identidades sintéticas y roles efectivos authenticated/anon. Conservamos las
+203 comprobaciones de certificados y las 39 de perfiles (**429 en total**);
+en perfiles solo se actualiza el mensaje esperado del trigger de rol y un
+comentario, sin eliminar comportamientos probados. Migraciones históricas intactas.
+
+Cobertura nueva:
+
+- Bootstrap inicial y adicional por SQL confiable: confirmación, contador,
+  identidad/perfil existentes, destinatario único, idempotencia y grants privados.
+- Ausencia de promoción por metadatos, UPDATE propio o incluso UPDATE de roles
+  por platform_admin en el rol API; ausencia de RPC público de escalada.
+- Alta pending con primer owner; validación, duplicados y rollback del primer
+  INSERT cuando un trigger de prueba hace fallar el segundo. Constraint diferible
+  impide que SQL confiable cree una institución sin owner.
+- Datos por owner/admin; membresías solo owner/plataforma; denegación de issuer,
+  titular, owner ajeno y global institution_admin sin membresía.
+- Estados reales y transiciones de revisión; todos los estados conservan
+  administración autorizada y rechazan emisión/revocación directa.
+- Último owner bajo degradación, baja y cascadas de perfiles/Auth; identidad de
+  membresía inmutable y cierre de DELETE/TRUNCATE institucional incluso en SQL
+  confiable, también TRUNCATE CASCADE desde perfiles.
+- Catálogo de grants/RLS y regrant temporal de DML para probar la segunda barrera.
+  Los 203 tests previos mantienen lecturas de wallet/detalle 4D y comparan filas
+  completas tras operaciones de certificados rechazadas.
+
+`supabase/tests/institution_concurrency.mjs` usa Node.js 22 (solo biblioteca
+estándar) y Docker. Hace pg_dump **solo del esquema** real de public/auth/
+certichain_private, lo reconstruye en una base `phase6_test_<aleatorio>` del
+contenedor local y crea allí fixtures sintéticos. No copia datos ni compromete
+fixtures en la base de aplicación. El finally elimina únicamente esa base
+temporal; un fallo de SQL/expectativa/limpieza devuelve exit distinto de cero.
+El acceso supabase_admin se limita a crear/restaurar/eliminar la base temporal;
+las operaciones API se ejecutan como authenticated, nunca service_role.
+
+Ejecuta los archivos operativos reales de bootstrap/demo, comprueba confirmación
+del objetivo y rollback de la demo. Después abre dos conexiones psql, mantiene
+la primera transacción abierta y **comprueba un lock wait real** de la segunda
+en pg_stat_activity antes de permitir COMMIT. Prueba ocho escenarios:
+
+| Escenario | Aislamiento | Segunda operación |
+|---|---|---|
+| Dos bajas por RPC | READ COMMITTED | Rechazada 23514, queda un owner |
+| Dos degradaciones por RPC | READ COMMITTED | Rechazada 23514, queda un owner |
+| Baja + degradación | READ COMMITTED | Rechazada 23514, queda un owner |
+| Dos bajas con snapshot previo | REPEATABLE READ | Aborta 40001, queda un owner |
+| Dos degradaciones con snapshot previo | SERIALIZABLE | Aborta 40001, queda un owner |
+| Owner degradado mientras espera para añadir un miembro | READ COMMITTED | Rechazada 42501, permisos revalidados |
+| Dos cascadas de Auth | READ COMMITTED | Rechazada 23514, queda un owner |
+| Dos cascadas con snapshot previo | REPEATABLE READ | Aborta 40001, queda un owner |
+
+Comandos desde la raíz (Docker local y CLI 2.117.0). Si la CLI no está instalada,
+usar `npx --yes supabase@2.117.0` en lugar de `npx --no-install supabase`:
+
+```powershell
+npx --no-install supabase start
+npx --no-install supabase db reset --local
+npx --no-install supabase test db --local
+node supabase/tests/institution_concurrency.mjs
+powershell -NoProfile -ExecutionPolicy Bypass -File supabase/tests/verify_certificate_migration.ps1
+npx --no-install supabase db lint --local --schema 'public,certichain_private' --level warning --fail-on warning
+node --check supabase/tests/institution_concurrency.mjs
+git diff --check
+```
+
+Resultados realmente ejecutados el 28/09/2026 (CLI 2.117.0, PostgreSQL 17.6,
+Node 22.14.0, Docker local):
+
+| Comando | Resultado local |
+|---|---|
+| `supabase db reset --local` | Exit 0, cinco migraciones aplicadas; aviso de seed.sql ausente, sin fixtures de producción |
+| `supabase test db --local` | Exit 0; 3 archivos, **429 tests PASS** (242 previos + 187 nuevos) |
+| `node supabase/tests/institution_concurrency.mjs` | Exit 0; scripts operativos y **8 escenarios PASS**, solapamiento comprobado y base temporal eliminada |
+| Script de preservación fase 5 | Exit 0; seis certificados y las cuatro tablas conservadas exactamente sobre permisos históricos |
+| Lint public/certichain_private con fail-on warning | Exit 0; sin incidencias de esquemas propios |
+| `node --check` y `git diff --check` | Exit 0; sintaxis válida y sin errores de whitespace |
+
+Durante el desarrollo se corrigió el harness concurrente para envolver los
+claims SET LOCAL en BEGIN/COMMIT y mostrar la etapa issuer en la demo. Las pruebas
+de TRUNCATE vacían primero los eventos diferidos de constraints; de otro modo
+PostgreSQL rechaza antes la sentencia con 55006 y no ejercita la guarda nueva. La entrega
+final se verifica después de esas correcciones; no se cuenta un intento fallido
+como prueba superada. No hay formateador SQL configurado: formato revisado según
+las migraciones existentes y sintaxis verificada con reset, pgTAP y lint.
+
+No se ha observado CI de estos cambios, aplicado migración remota ni ejecutado
+bootstrap sobre personas reales. Las comprobaciones manuales de identidad,
+proyecto y sesión JWT HTTP firmada están en
+[INSTITUTION_ADMINISTRATION.md](INSTITUTION_ADMINISTRATION.md). Los tests SQL
+ejercitan claims y roles, no el login HTTP ni mensajes traducidos de PostgREST.
+No se ejecutan Flutter/Foundry porque no cambian sus áreas. Tampoco se afirman
+pruebas de PDF, Storage, emisión, revocación, verificación pública o blockchain.
+
+### Workflow real de base de datos
+
+`.github/workflows/database.yml` se dispara en cada pull request y push a main.
+Usa ubuntu-24.04, permisos contents:read, checkout sin persistir credenciales,
+Supabase local y CLI fijada a 2.117.0. No exige SUPABASE_ACCESS_TOKEN, project ref,
+service_role remoto ni secrets del repositorio; no enlaza un proyecto remoto.
+Ejecuta start, reset, las 429 pruebas, concurrencia, preservación histórica y
+lint de public/certichain_private con `--fail-on warning`, y detiene el stack
+en always(). No usa continue-on-error ni silencia fallos con `|| true`.
+
+Referencias verificadas en repositorios oficiales con `git ls-remote`:
+[checkout v4.3.1](https://github.com/actions/checkout/releases/tag/v4.3.1)
+(`34e114876b0b11c390a56381ad16ebd13914f8d5`),
+[setup-cli v1.7.3](https://github.com/supabase/setup-cli/releases/tag/v1.7.3)
+(`1dedf2c611547ede7232d26866dd3c56ab903bbb`) y
+[CLI v2.117.0](https://github.com/supabase/cli/releases/tag/v2.117.0).
+Los dos uses se fijan al SHA completo. Contrato de comandos:
+[testing y linting de Supabase](https://supabase.com/docs/guides/local-development/cli/testing-and-linting).
+
+Se excluye extensions del lint porque contiene pgTAP externo, con los avisos
+documentados en fase 5. Los dos esquemas propios se comprueban enteros: no se
+filtran errores del proyecto ni se rebaja su umbral. Crear el workflow **no
+demuestra CI pasada**; falta observar su ejecución tras publicar los cambios.
+
 ## Blockchain
 
 Ejecutar:
@@ -172,13 +291,14 @@ Cubrir permisos, duplicados, eventos, revocación irreversible, consultas, fuzzi
 7. Institución revoca.
 8. El mismo QR devuelve revocado.
 
-## CI
+## CI general previsto
 
-En cada pull request:
+El workflow de base de datos anterior está implementado. El objetivo completo
+del proyecto para cada pull request añade además estas áreas cuando se incorporen
+sus jobs (no se afirman como implementadas en Fase 6):
 
 - formato y análisis de Dart;
 - unit/widget tests de Flutter;
-- recreación local de base y pruebas SQL/RLS;
 - formato, build y tests de Foundry;
 - escaneo de secretos y dependencias.
 

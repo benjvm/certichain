@@ -97,7 +97,7 @@ WITH changed AS (
 SELECT is((SELECT count(*) FROM changed), 0::bigint, 'Holder cannot update another profile');
 SELECT throws_ok($sql$
     UPDATE public.profiles SET role = 'platform_admin' WHERE id = auth.uid()
-$sql$, 'P0001', 'Only a platform administrator may change a global role', 'Role-change protection remains active');
+$sql$, 'P0001', 'Global roles require trusted administrative SQL', 'Role-change protection remains active');
 SELECT throws_ok($sql$
     UPDATE public.profiles SET full_name = E' \t\n ' WHERE id = auth.uid()
 $sql$, '23514', NULL, 'Constraint rejects whitespace on profile updates');
@@ -115,7 +115,7 @@ SELECT throws_ok($sql$
 $sql$, '42501', NULL, 'Anonymous client cannot insert profiles');
 RESET ROLE;
 
--- Trusted test-only admin fixture; no production admin-provisioning mechanism.
+-- Trusted test-only admin fixture; bootstrap is tested separately in phase 6.
 DELETE FROM public.profiles WHERE id = '00000000-0000-4000-8000-000000000003';
 INSERT INTO public.profiles (id, full_name, role)
 VALUES ('00000000-0000-4000-8000-000000000003', 'Synthetic Admin Fixture', 'platform_admin');

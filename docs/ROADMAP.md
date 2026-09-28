@@ -54,16 +54,59 @@ El lint global informa incidencias de la extensión pgTAP; véase [TESTING.md](T
 No se ha aplicado a un proyecto remoto. Esta fase **no habilita emisión ni
 revocación**: ambas permanecen cerradas para clientes y sus endpoints están pendientes.
 
-### Orden recomendado de los siguientes incrementos (pendientes)
+### Fase 6 — Administración, membresías y aprobación institucional
 
-1. Aprovisionamiento, administración y aprobación institucional: alta confiable
-   del primer administrador, instituciones y membresías, protección del último
-   `owner` y aprobación con `verification_status = 'verified'`.
-2. Emisión segura sin blockchain: backend autorizado, PDF privado, validación
+**Objetivo:** recorrido administrado desde una identidad Auth existente hasta
+una institución con propietario, revisión y gestión de miembros, sin abrir emisión.
+
+**Entregables:**
+
+- Migración nueva `20260928210000_institution_administration.sql`: RPC protegidos
+  para alta atómica `pending` + primer `owner`, datos, estados y membresías;
+  cierre del DML institucional directo y de la eliminación institucional.
+- Bootstrap y altas adicionales de `platform_admin` solo mediante SQL confiable,
+  con UUID objetivo confirmado y contador esperado; sin credenciales en Git,
+  metadatos de autorización ni promociones por actualización de perfil.
+- Gestión de miembros por `owner`/`platform_admin`; `admin` institucional edita
+  datos, pero no miembros ni `verification_status`. Protección de último owner,
+  incluida concurrencia y cascadas de perfiles/Auth.
+- 187 comprobaciones pgTAP nuevas, conservación de las 242 anteriores y ocho
+  escenarios concurrentes en copia temporal del esquema sin datos de aplicación.
+- Workflow `.github/workflows/database.yml` para PR y push a `main`: stack local,
+  reset, SQL, concurrencia, preservación de certificados y lint de esquemas propios.
+- [Guion operativo](INSTITUTION_ADMINISTRATION.md) y
+  [ADR-0007](adr/0007-managed-institution-administration.md). El autoservicio de
+  solicitudes institucionales y la UI Flutter institucional quedan pendientes.
+
+**Criterios de aceptación:** solo plataforma crea/aprueba/suspende; alta y owner
+atómicos; cada institución conserva un owner; ni miembros ni perfiles pueden
+escalar permisos; bajas/degradaciones concurrentes no dejan instituciones huérfanas;
+permisos SQL comprobables por CI en nuevos commits; certificados siguen sin
+INSERT/UPDATE directos y las lecturas de wallet/detalle 4D se conservan.
+
+**Estado al 28/09/2026: implementada y verificada localmente.** Reset de cinco
+migraciones, 429 comprobaciones SQL, ocho escenarios concurrentes, ejecución de
+scripts operativos en base temporal, preservación histórica y lint propio pasan.
+El workflow está creado con acciones fijadas por SHA y CLI 2.117.0; **no se ha
+observado una ejecución de GitHub Actions de estos cambios**. No se ha aplicado
+a un proyecto remoto ni asignado un administrador real. Las comprobaciones
+operativas/manuales del bootstrap siguen a cargo del operador.
+
+### Fase 7 — Emisión segura sin blockchain (pendiente)
+
+Depende de la administración institucional de fase 6. Implementará backend
+autorizado, PDF privado con validación real y límites, SHA-256 de bytes finales,
+idempotencia persistente y recuperación de fallos parciales. Necesita nuevas
+migraciones y pruebas antes de habilitar cualquier escritura de certificados;
+véase [SECURE_ISSUANCE.md](SECURE_ISSUANCE.md). No incluye todavía blockchain.
+
+### Orden recomendado de los incrementos posteriores (pendientes)
+
+1. Fase 7: emisión segura sin blockchain: backend autorizado, PDF privado, validación
    real, SHA-256 de bytes finales, idempotencia y recuperación de fallos parciales.
-3. Verificación pública y QR: interfaz mínima, privacidad y límites de abuso.
-4. Anclaje blockchain: contrato, adaptador de backend, estados e idempotencia.
-5. Revocación completa y endurecimiento: backend, sincronización blockchain,
+2. Verificación pública y QR: interfaz mínima, privacidad y límites de abuso.
+3. Anclaje blockchain: contrato, adaptador de backend, estados e idempotencia.
+4. Revocación completa y endurecimiento: backend, sincronización blockchain,
    reconciliación, seguridad, recuperación y pruebas del recorrido completo.
 
 ## Etapas conceptuales del MVP

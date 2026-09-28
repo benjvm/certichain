@@ -6,7 +6,7 @@ Las empresas verifican credenciales mediante documentos fáciles de alterar y pr
 
 ## Actores
 
-Las capacidades siguientes describen el MVP objetivo. Tras Fase 5 se conservan
+Las capacidades siguientes describen el MVP objetivo. Tras Fase 6 se conservan
 Auth y las lecturas de wallet/detalle 4D; emisión y revocación siguen cerradas
 en la API de tablas, y sus flujos de backend permanecen pendientes.
 
@@ -43,6 +43,15 @@ en la API de tablas, y sus flujos de backend permanecen pendientes.
 - Solo una institución `verified` podrá emitir mediante backend autorizado;
   en Fase 5 ninguna institución puede emitir directamente mediante la API.
 - Los roles de membresía reales son `owner`, `admin` e `issuer`.
+- Fase 6 entrega alta administrada: plataforma crea institución pending y primer
+  owner existente en una transacción. Autoservicio e interfaz Flutter quedan
+  pendientes. El registro normal y la selección «Institución» crean un holder.
+- Solo plataforma aprueba/rechaza/suspende/reabre para revisión. Owner y admin
+  institucional editan datos; solo owner y plataforma gestionan miembros.
+- Conservar al menos un owner bajo bajas, degradaciones, cascadas y concurrencia.
+  No permitir eliminar instituciones; conservar referencias e historial.
+- Primer administrador y adicionales: SQL confiable con identidad confirmada,
+  nunca metadatos, RPC público de promoción ni UPDATE ordinario de perfil.
 
 ### RF-03 Emisión
 

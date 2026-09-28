@@ -1,10 +1,10 @@
 # Contrato del futuro backend de certificados
 
-## Estado tras la Fase 5
+## Estado tras las Fases 5 y 6
 
 Emisión y revocación no están implementadas. `authenticated` solo puede leer
 certificados autorizados por RLS, incluso si su perfil es `platform_admin`.
-`anon` no tiene acceso a la tabla. No existe un RPC alternativo de escritura.
+`anon` no tiene acceso a la tabla. No existe un RPC alternativo que escriba certificados.
 Flutter conserva su clave pública y la sesión del usuario; nunca recibe
 `service_role`, claves de firma ni lógica privilegiada.
 
@@ -103,11 +103,14 @@ no constituye una implementación de este flujo.
 
 ## Dependencias del siguiente incremento
 
-Primero resolver el aprovisionamiento confiable del administrador inicial,
-administración/aprobación institucional y membresías, incluyendo la protección
-transaccional del último `owner`. Los grants y políticas actuales de esas tablas
-permiten operaciones administrativas concretas; no equivalen a un onboarding
-completo. No crear administradores con credenciales o PII en seeds.
+Fase 6 resuelve el administrador inicial mediante SQL confiable, alta administrada
+atómica, aprobación y miembros con protección concurrente del último owner.
+Los RPC verifican roles reales y serializan mutaciones por fila institucional;
+no habilitan escritura de certificados. Bootstrap, decisiones y procedimiento:
+[INSTITUTION_ADMINISTRATION.md](INSTITUTION_ADMINISTRATION.md).
 
-Después: emisión segura sin blockchain, verificación pública/QR, anclaje y
+Fase 7: emisión segura sin blockchain mediante backend, PDF privado, SHA-256 e
+idempotencia. Su transacción de autorización debe coordinarse con la misma fila
+institucional que bloquean los cambios de miembros/estado en fase 6; no basta
+con una comprobación previa aislada. Posteriormente: verificación pública/QR, anclaje y
 revocación completa con endurecimiento, según [ROADMAP.md](ROADMAP.md).
