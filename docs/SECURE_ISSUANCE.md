@@ -1,10 +1,12 @@
 # Contrato del futuro backend de certificados
 
-## Estado tras las Fases 5 y 6
+## Estado tras las Fases 5, 6 y 7A
 
 Emisión y revocación no están implementadas. `authenticated` solo puede leer
 certificados autorizados por RLS, incluso si su perfil es `platform_admin`.
 `anon` no tiene acceso a la tabla. No existe un RPC alternativo que escriba certificados.
+7A preparó una tabla privada de reservas y un bucket PDF privado; todavía no
+hay endpoint que emita ni acceso autorizado al PDF.
 Flutter conserva su clave pública y la sesión del usuario; nunca recibe
 `service_role`, claves de firma ni lógica privilegiada.
 
@@ -41,9 +43,8 @@ el backend debe comprobar todos los puntos siguientes antes de persistir.
   `revoked_at`, ruta, hash ni marcas internas. Generar IDs/código opacos en servidor.
 - El contrato real es `holder_id`, `issued_by`, `credential_code`,
   `document_path`, `document_hash` de tipo text y estado `active`/`revoked`.
-  No existen todavía `public_id`, `idempotency_key`, `document_sha256`,
-  `anchoring`, `anchor_failed` ni tablas blockchain. Añadir los campos y
-  constraints necesarios mediante migraciones nuevas antes de usarlos.
+  La idempotencia de 7A reside en `certificate_issuance_operations`; no existen
+  `public_id`, `document_sha256`, `anchoring`, `anchor_failed` ni tablas blockchain.
 - Validar extensión `.pdf`, tipo real y estructura PDF mediante un parser de
   servidor; MIME declarado o cabecera `%PDF` por sí solos no bastan. Rechazar
   archivos vacíos, truncados, inválidos o que no puedan comprobarse, y aplicar
@@ -51,26 +52,75 @@ el backend debe comprobar todos los puntos siguientes antes de persistir.
   de bytes en backend y bucket, limitar también la lectura/parseo y probar el
   borde y su exceso. El límite global actual de Storage (50 MiB) no es una
   política de documentos aprobada; el valor de producto debe fijarse y probarse
-  en la fase de PDF antes de habilitar el endpoint.
+  en 7B antes de habilitar el endpoint. El bucket de 7A limita a 8 MiB
+  (8 388 608 bytes) y MIME `application/pdf` como barreras adicionales.
 - Guardar solo en bucket privado, con rutas de IDs opacos creadas por servidor;
   ningún cliente puede reemplazar el objeto final. Las descargas futuras deben
-  autorizarse y usar URLs firmadas cortas. No hay bucket ni flujo PDF entregado
-  en esta fase.
+  autorizarse y usar URLs firmadas cortas. 7A entrega el bucket, no el flujo PDF.
 - Calcular SHA-256 en backend sobre los **bytes finales almacenados**, después
   de cualquier transformación; comprobar lectura e integridad del objeto final
   antes de crear el certificado. Nunca confiar en un hash aportado por Flutter.
-  Definir y validar su representación (por ejemplo, hexadecimal de 64 caracteres
-  en el `document_hash` actual) mediante una migración y pruebas futuras.
+  7A fija `document_hash` a hexadecimal minúsculo de 64 caracteres para
+  certificados vinculados a una operación; los datos históricos quedan exentos.
 - Crear inicialmente `active` en la emisión segura sin blockchain. Congelar
   metadatos, emisor, titular, fechas, PDF y hash tras emitir. Corregir un certificado
   requerirá revocación y nueva emisión; no sustituir silenciosamente su PDF.
 
 ## Idempotencia y fallos parciales
 
-- Introducir una clave de idempotencia persistente, con unicidad y ámbito de
-  institución/operación definidos en base de datos. Vincularla al solicitante y
-  al contenido normalizado, incluidos bytes/hash: mismo contenido devuelve el
-  mismo resultado; misma clave con otro contenido se rechaza. Probar reintentos
+### Contrato persistente de 7A para 7B
+
+El backend reservará por `(institution_id, idempotency_key UUID)` y bloqueará
+la fila durante la decisión transaccional. La clave pertenece a una sola
+institución y actor. Una misma clave exige el mismo actor y la misma
+`request_fingerprint`; si difieren, responderá conflicto sin emitir. Para
+la misma clave/contenido recuperará el mismo `target_certificate_id` y, si
+está `completed`, el mismo certificado. Dos claves distintas **no** son
+duplicados automáticos, aunque los bytes y metadatos coincidan.
+
+La huella v1 es SHA-256 hexadecimal minúsculo de la secuencia UTF-8
+`certichain-issuance-v1` seguida de un byte NUL y siete campos en este orden:
+UUID de institución, UUID de actor, UUID de titular, título, descripción,
+expiración y `pdf_hash`. Cada campo se antepone con su longitud en cuatro bytes
+big endian; NULL usa `0xffffffff` y no lleva bytes. UUID en minúsculas con
+guiones; título/descripción se normalizan a Unicode NFC y se recortan en los
+extremos, y descripción vacía pasa a NULL. Expiración es NULL o UTC en formato
+`YYYY-MM-DDTHH:mm:ss.ffffffZ`. `pdf_hash` es SHA-256 hexadecimal minúsculo de
+los bytes exactos del PDF de entrada. No entran `issued_at` ni código generados
+por servidor. 7B implementará y probará esta codificación antes de aceptar
+solicitudes, con lista cerrada de campos; `request_fingerprint` no sustituye
+la comparación con el hash de los bytes finales almacenados. El cliente no
+decide huellas, actor ni IDs. `stored_hash` usa también 64 hex minúsculos.
+Puede diferir de `pdf_hash` si el backend transforma el PDF; 7B deberá
+verificar los bytes finales y registrar la transformación de forma coherente.
+
+Estados: `reserved` conserva intención; `uploading` indica subida en curso;
+`finalizing` indica objeto final leído y hash verificado; `completed` enlaza
+el certificado publicado; `cleanup_pending` conserva un objeto posiblemente
+huérfano para reconciliación; `failed` cierra una reserva sin certificado tras
+limpieza confirmada. Solo `completed` lleva `certificate_id`. La identidad de
+la reserva y el resultado completado son inmutables. 7B implementará la
+máquina de transiciones, bloqueos, tiempos de reintento y reconciliación.
+
+Ruta final: `<institution_id>/<target_certificate_id>.pdf`, solo UUID opacos.
+El nombre es inmutable y toda subida final usa `upsert: false`; una colisión
+se investiga y nunca reemplaza bytes publicados. 7B debe leer/verificar el
+objeto final y calcular SHA-256 **de sus bytes almacenados** antes de insertar
+el certificado y completar la operación. Un fallo deja `cleanup_pending` y
+un reconciliador futuro decide si borra el huérfano por API Storage. Los PDF
+de certificados válidos, incluso revocados, se conservan según la política
+de retención que se apruebe; no se establece borrado automático. La limpieza
+jamás borra un objeto referenciado por un certificado completado.
+
+En la transacción de reserva y de publicación, 7B validará sesión y bloqueará
+la fila de `institutions` con `FOR UPDATE` antes de comprobar
+`verification_status = verified` y membresía `owner`/`admin`/`issuer`, con la
+misma coordinación de bloqueos de Fase 6. Revalidará todo al publicar después
+de la subida; no mantendrá una transacción abierta durante el upload.
+
+- Usar la clave de idempotencia persistente de 7A y comparar actor y huella
+  en 7B: misma clave y contenido devuelve el mismo resultado; misma clave con
+  otro contenido se rechaza. Probar reintentos
   simultáneos y respuestas perdidas; el actual `credential_code UNIQUE` no
   implementa este contrato.
 - PostgreSQL y Storage no comparten una transacción. Registrar el avance de la

@@ -87,18 +87,33 @@ INSERT/UPDATE directos y las lecturas de wallet/detalle 4D se conservan.
 **Estado al 28/09/2026: implementada y verificada localmente.** Reset de cinco
 migraciones, 429 comprobaciones SQL, ocho escenarios concurrentes, ejecución de
 scripts operativos en base temporal, preservación histórica y lint propio pasan.
-El workflow está creado con acciones fijadas por SHA y CLI 2.117.0; **no se ha
-observado una ejecución de GitHub Actions de estos cambios**. No se ha aplicado
+El workflow está creado con acciones fijadas por SHA y CLI 2.117.0; la
+[ejecución de GitHub Actions 36491581655](https://github.com/benjvm/certichain/actions/runs/36491581655)
+terminó correctamente. No se ha aplicado
 a un proyecto remoto ni asignado un administrador real. Las comprobaciones
 operativas/manuales del bootstrap siguen a cargo del operador.
 
-### Fase 7 — Emisión segura sin blockchain (pendiente)
+### Fase 7 — Emisión segura sin blockchain (en curso)
 
 Depende de la administración institucional de fase 6. Implementará backend
 autorizado, PDF privado con validación real y límites, SHA-256 de bytes finales,
 idempotencia persistente y recuperación de fallos parciales. Necesita nuevas
 migraciones y pruebas antes de habilitar cualquier escritura de certificados;
 véase [SECURE_ISSUANCE.md](SECURE_ISSUANCE.md). No incluye todavía blockchain.
+
+- **7A — datos, idempotencia y Storage privado: entregada localmente el
+  30/09/2026.** La migración nueva añade operaciones persistentes con clave por
+  institución, huellas SHA-256 en hex minúsculo, estados de recuperación,
+  vínculos comprobables y certificado final inmutable. El bucket `certificates`
+  es privado, admite solo PDF y limita a 8 MiB; los roles API no operan objetos
+  directamente. Se conservaron los certificados anteriores sin normalizarlos.
+  Reset, 468 pruebas SQL (429 anteriores y 39 nuevas), ocho escenarios de
+  concurrencia, preservación histórica, pruebas HTTP Storage, lint propio y
+  diff check pasaron localmente. No se afirma CI nueva ni despliegue remoto.
+- **7B — backend de emisión, validación PDF, autorización transaccional,
+  conciliación y limpieza: pendiente.**
+- **7C — interfaz de emisión y acceso autorizado al PDF: pendiente.**
+- **7D — pruebas integrales y endurecimiento del flujo: pendiente.**
 
 ### Orden recomendado de los incrementos posteriores (pendientes)
 

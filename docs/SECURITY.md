@@ -12,7 +12,7 @@
 
 Flutter y cualquier navegador son clientes no confiables. RLS y las operaciones de backend deben volver a comprobar identidad, pertenencia, estado de la institución, propiedad del certificado y validación de entrada.
 
-## Autorización efectiva tras las Fases 5 y 6
+## Autorización efectiva tras las Fases 5, 6 y 7A
 
 `certificates` tiene únicamente una política SELECT para `authenticated`:
 titular, miembro de la institución emisora o `platform_admin`. Los grants del
@@ -29,6 +29,10 @@ PUBLIC, `anon` y `authenticated`; las lecturas autorizadas se conservan.
 TRUNCATE exige control mediante grants porque
 [PostgreSQL no le aplica RLS](https://www.postgresql.org/docs/17/ddl-rowsecurity.html).
 No existe una función expuesta que proporcione una vía alternativa de emisión.
+La tabla `certificate_issuance_operations` tiene RLS sin políticas y no concede
+lectura ni escritura a `anon` o `authenticated`; contiene claves, huellas y
+vínculos privados. Los nuevos triggers de integridad no tienen EXECUTE directo
+para roles API ni service_role. Ningún RPC de 7A publica certificados.
 
 Emisión y revocación permanecen cerradas hasta construir el backend confiable
 de [SECURE_ISSUANCE.md](SECURE_ISSUANCE.md). Validará sesión, rol/membresía,
@@ -112,11 +116,20 @@ El nombre completo del estudiante no debe mostrarse públicamente por defecto. U
 
 ## Storage
 
-- Bucket de certificados privado.
-- Ruta basada en IDs opacos, nunca en emails o nombres.
-- Escritura únicamente mediante el flujo autorizado.
-- Descarga mediante URL firmada y corta.
-- Política documentada para revocación, eliminación y conservación legal.
+- Bucket `certificates` privado, `application/pdf`, máximo 8 388 608 bytes.
+  La configuración vive en migración y config local. Cuatro políticas
+  restrictivas de `storage.objects` deniegan SELECT/INSERT/UPDATE/DELETE en
+  ese bucket a `anon` y `authenticated`, incluso ante futuras políticas
+  permisivas. Las pruebas HTTP locales comprueban listar, leer, subir,
+  reemplazar y eliminar; la ausencia de políticas por sí sola no sería prueba.
+- Ruta final `<institution_id>/<certificate_id>.pdf` con UUID opacos, sin nombres
+  ni emails; `upsert: false` e inmutabilidad tras publicar. 7B hará validación
+  estructural del PDF, límite de bytes en backend y lectura/hash del objeto
+  final antes de publicar. El MIME/límite del bucket no sustituyen esa validación.
+- Descarga futura autorizada mediante URL firmada corta. Los PDF emitidos se
+  conservan, también si se revocan. Solo un reconciliador futuro podrá borrar
+  por API Storage un huérfano confirmado; no hay borrado automático de PDFs
+  válidos. La política legal de retención requiere decisión posterior.
 
 ## Checklist antes de demo pública
 

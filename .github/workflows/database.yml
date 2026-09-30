@@ -27,11 +27,16 @@ jobs:
         run: supabase db reset --local
       - name: SQL permission tests
         run: supabase test db --local
+      - name: Private Storage HTTP tests
+        run: node supabase/tests/private_storage.mjs
       - name: Concurrent owner protection
         run: node supabase/tests/institution_concurrency.mjs
       - name: Historical certificate migration preservation
         shell: pwsh
         run: ./supabase/tests/verify_certificate_migration.ps1
+      - name: Historical data preserved by private issuance migration
+        shell: pwsh
+        run: ./supabase/tests/verify_private_issuance_migration.ps1
       - name: Lint project schemas
         run: supabase db lint --local --schema public,certichain_private --level warning --fail-on warning
       - name: Stop local Supabase

@@ -59,9 +59,9 @@ demostrar restricciones de `authenticated`:
 - rechazar upsert, borrado y TRUNCATE, sin alterar certificados existentes.
 
 El enum real de membresías solo incluye `owner`, `admin`, `issuer`; `viewer`
-es una propuesta futura. Las pruebas de PDF/Storage, formato de hash,
-idempotency key, endpoint público y backend de emisión/revocación se incorporarán
-cuando esos flujos y constraints existan. No están cubiertos por esta fase.
+es una propuesta futura. 7A prueba Storage, formato y reservas persistentes;
+validación estructural PDF, concurrencia del endpoint, verificación pública y
+backend de emisión/revocación corresponden a incrementos posteriores.
 
 `supabase db reset` debe reconstruir el esquema completo y cargar seeds sin intervención manual.
 
@@ -237,7 +237,9 @@ final se verifica después de esas correcciones; no se cuenta un intento fallido
 como prueba superada. No hay formateador SQL configurado: formato revisado según
 las migraciones existentes y sintaxis verificada con reset, pgTAP y lint.
 
-No se ha observado CI de estos cambios, aplicado migración remota ni ejecutado
+La [ejecución 36491581655](https://github.com/benjvm/certichain/actions/runs/36491581655)
+de GitHub Actions terminó correctamente para Fase 6. No se ha observado un CI
+de 7A, aplicado migración remota ni ejecutado
 bootstrap sobre personas reales. Las comprobaciones manuales de identidad,
 proyecto y sesión JWT HTTP firmada están en
 [INSTITUTION_ADMINISTRATION.md](INSTITUTION_ADMINISTRATION.md). Los tests SQL
@@ -251,7 +253,8 @@ pruebas de PDF, Storage, emisión, revocación, verificación pública o blockch
 Usa ubuntu-24.04, permisos contents:read, checkout sin persistir credenciales,
 Supabase local y CLI fijada a 2.117.0. No exige SUPABASE_ACCESS_TOKEN, project ref,
 service_role remoto ni secrets del repositorio; no enlaza un proyecto remoto.
-Ejecuta start, reset, las 429 pruebas, concurrencia, preservación histórica y
+Ejecuta start, reset, las 468 pruebas (429 anteriores y 39 de 7A), pruebas
+HTTP Storage, concurrencia, ambos scripts de preservación histórica y
 lint de public/certichain_private con `--fail-on warning`, y detiene el stack
 en always(). No usa continue-on-error ni silencia fallos con `|| true`.
 
@@ -266,8 +269,68 @@ Los dos uses se fijan al SHA completo. Contrato de comandos:
 
 Se excluye extensions del lint porque contiene pgTAP externo, con los avisos
 documentados en fase 5. Los dos esquemas propios se comprueban enteros: no se
-filtran errores del proyecto ni se rebaja su umbral. Crear el workflow **no
-demuestra CI pasada**; falta observar su ejecución tras publicar los cambios.
+filtran errores del proyecto ni se rebaja su umbral. La ejecución de Fase 6
+consta arriba; falta observar una ejecución del workflow ampliado para 7A.
+
+### Incremento 7A — datos y Storage
+
+`supabase/tests/private_issuance.test.sql` añade 39 comprobaciones de
+restricciones de hash/vínculos/estados, ámbitos de clave, conservación de filas
+históricas sin PDF y con hash desconocido, revocación histórica, inmutabilidad,
+grants/RLS y denegación con roles API efectivos. Las pruebas transaccionales
+usan identidades sintéticas y no dejan datos en la base local.
+
+`supabase/tests/private_storage.mjs` usa exclusivamente el API HTTP local de
+Storage. Obtiene claves de desarrollo de `supabase status` en memoria, valida
+un JWT sintético con el Data API, crea un objeto fixture mediante la API de
+Storage, comprueba que anon y authenticated no pueden leer, listar, subir,
+reemplazar ni borrar, verifica los bytes conservados y elimina el fixture por
+la API en `finally`. Prueba MIME no PDF, tamaño de 8 MiB + 1 byte y colisión
+con upsert deshabilitado. No manipula `storage.objects` por SQL ni necesita
+proyecto o secretos remotos.
+
+`supabase/tests/verify_private_issuance_migration.ps1` retrocede solo el
+esquema de 7A dentro de una transacción local, inserta dos certificados
+históricos sintéticos (sin PDF y con hash antiguo desconocido), reaplica la
+migración y compara las filas sin la nueva columna. Después prueba su
+revocación y hace ROLLBACK. El script previo de preservación de Fase 5 sigue
+ejecutándose sin cambios.
+
+Desde la raíz, con el stack local:
+
+```powershell
+npx --no-install supabase db reset --local
+npx --no-install supabase test db --local
+node supabase/tests/private_storage.mjs
+node supabase/tests/institution_concurrency.mjs
+powershell -NoProfile -ExecutionPolicy Bypass -File supabase/tests/verify_certificate_migration.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File supabase/tests/verify_private_issuance_migration.ps1
+npx --no-install supabase db lint --local --schema 'public,certichain_private' --level warning --fail-on warning
+node --check supabase/tests/private_storage.mjs
+git diff --check
+```
+
+El reset comprueba además que la definición del bucket sobrevive a la
+reconstrucción. Los tests SQL no prueban por sí solos el acceso HTTP a objetos;
+por eso el workflow ejecuta también el script Storage. 7B deberá añadir
+pruebas de parser PDF, autorización y bloqueo transaccional, reintentos
+simultáneos, respuesta perdida y caídas entre subida y commit.
+
+Resultado local del 30/09/2026, CLI 2.117.0:
+
+| Comprobación | Resultado |
+|---|---|
+| `db reset --local` | Exit 0; seis migraciones y bucket recreado con límite 8 MiB/PDF privado |
+| `test db --local` | Exit 0; **468/468 PASS** (429 anteriores + 39 de 7A) |
+| `private_storage.mjs` | Exit 0; JWT local aceptado y denegaciones HTTP/bytes conservados, MIME y tamaño comprobados |
+| `institution_concurrency.mjs` | Exit 0; ocho escenarios concurrentes PASS |
+| Ambos scripts de preservación | Exit 0; datos históricos sin modificación y revocación posterior posible |
+| `db lint --local --schema 'public,certichain_private' --level warning --fail-on warning` | Exit 0; sin incidencias |
+| `node --check` y `git diff --check` | Exit 0; sin errores de sintaxis o whitespace (Git avisa conversión LF/CRLF) |
+
+No se usó proyecto remoto ni secretos reales. No se ha observado una ejecución
+de GitHub Actions para 7A. Los tests no validan un PDF estructuralmente ni
+ejercen un endpoint de emisión: ambos pertenecen a 7B.
 
 ## Blockchain
 

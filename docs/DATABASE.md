@@ -1,9 +1,9 @@
 # Modelo de datos y migraciones
 
 La primera migración, `initial_schema`, define cuatro tablas: `profiles`,
-`institutions`, `institution_members` y `certificates`. Los campos y tablas
-adicionales descritos más abajo son propuestas para incrementos futuros, no
-parte del esquema inicial. La primera migración habilitó RLS; la segunda,
+`institutions`, `institution_members` y `certificates`. La Fase 7A añade
+`certificate_issuance_operations`. Otras tablas descritas más abajo son
+propuestas para incrementos futuros. La primera migración habilitó RLS; la segunda,
 `rls_policies`, define las políticas para `authenticated`. La Fase 5 añade
 `close_direct_certificate_writes` para retirar escrituras de certificados y
 grants administrativos sobrantes. `anon` no puede obtener filas de ninguna
@@ -20,6 +20,41 @@ explícitamente ese caso sin perder el historial.
 ## Fuente de verdad
 
 El esquema se define exclusivamente en `supabase/migrations/`. El panel visual sirve para inspección, nunca para realizar cambios no versionados.
+
+## Incremento 7A: integridad y reserva de emisión
+
+La migración `20260930120000_prepare_private_issuance.sql` añade
+`certificate_issuance_operations` y el vínculo nullable
+`certificates.issuance_operation_id`. El contrato real conserva `holder_id`,
+`issued_by`, `credential_code`, `document_path` y `document_hash` como text y
+`active`/`revoked`. Para un certificado ligado a operación, `document_hash`
+debe ser exactamente SHA-256 hexadecimal minúsculo de 64 caracteres y
+`document_path` es `<institution_id>/<certificate_id>.pdf`. Las FK compuestas
+coinciden en operación, certificado objetivo, institución, actor, titular y
+hash final; la operación completada apunta de vuelta al mismo certificado.
+Los triggers congelan la identidad de la reserva, el resultado completado y
+los campos emitidos del certificado. Solo quedan posibles transiciones futuras
+de estado/revocación por backend autorizado.
+
+Las filas históricas tienen `issuance_operation_id = NULL` y quedan exentas
+de las nuevas comprobaciones de PDF/hash; no se alteran ni se les atribuye
+un archivo. Una actualización o revocación futura de una fila antigua no
+activa la nueva constraint. Cualquier hash/ruta histórica de formato desconocido
+requiere revisión antes de migrarla a un flujo nuevo; no se corrige
+silenciosamente. Nuevas emisiones de 7B deben crear y vincular una operación.
+La tabla de operaciones tiene RLS sin políticas y sin grants para anon o
+authenticated. Sus UUID, huellas y rutas siguen privados.
+
+La clave UUID es única por `(institution_id, idempotency_key)`. La huella de
+solicitud y el hash del PDF se guardan al reservar; dos claves diferentes
+pueden emitir certificados distintos aunque el contenido coincida. El esquema
+impide una segunda reserva para la misma clave, pero 7B debe comparar actor,
+huella y contenido, bloquear la operación y recuperar su resultado bajo
+concurrencia. PostgreSQL y Storage no comparten una transacción.
+
+El bucket `certificates` se versiona en migración y `supabase/config.toml`,
+privado, con MIME `application/pdf` y máximo 8 388 608 bytes. Storage es una
+dependencia específica de Supabase; el resto de restricciones usan PostgreSQL.
 
 Crear una migración:
 
@@ -60,10 +95,11 @@ leen `document_path`, `document_hash`, `credential_code` ni datos blockchain;
 Otros campos reales de `certificates` son `issued_by` (FK obligatoria a perfil),
 `description`, `credential_code` (text no vacío y unique), `document_path` y
 `document_hash` (text nullable), `revoked_at` y `created_at`. No hay validación
-de PDF ni del formato de hash en las constraints actuales. `status`/`revoked_at`
+estructural de PDF en la base; 7A valida el formato del hash solo para filas
+vinculadas a operación. `status`/`revoked_at`
 deben ser coherentes y `expires_at >= issued_at` si existe expiración. Los
-documentos y la idempotencia requieren reglas y migraciones posteriores;
-cerrar la API en Fase 5 no los implementa.
+7A prepara el almacenamiento y la reserva; su ejecución de emisión queda
+para 7B.
 
 ## Modelo futuro propuesto (no es el contrato vigente)
 
@@ -117,26 +153,12 @@ Unique recomendado: `(institution_id, lower(name))` mediante índice de expresi�
 
 ### `certificates`
 
-| Columna | Tipo | Regla |
-|---|---|---|
-| id | uuid | PK interno |
-| public_id | uuid | unique, usado por QR |
-| institution_id | uuid | FK obligatoria |
-| recipient_id | uuid | FK a `profiles` |
-| certificate_type_id | uuid | FK opcional |
-| title | text | obligatorio |
-| description | text | opcional |
-| issued_at | timestamptz | obligatorio |
-| expires_at | timestamptz | opcional, posterior a emisión |
-| document_path | text | obligatorio y privado |
-| document_sha256 | bytea | exactamente 32 bytes |
-| status | text | anchoring/active/anchor_failed/revoking/revoked |
-| idempotency_key | uuid | unique |
-| created_by | uuid | FK a `profiles` |
-| created_at | timestamptz | default `now()` |
-| updated_at | timestamptz | default `now()` |
-
-Los metadatos que deben quedar congelados después de emitir se validan mediante permisos y trigger. No se permite sustituir silenciosamente el PDF.
+La tabla actual conserva `holder_id`, `issued_by`, `credential_code`,
+`document_path` y `document_hash` text nullable, y estados `active`/`revoked`.
+7A añadió `issuance_operation_id` nullable y la inmutabilidad de filas
+vinculadas. La futura verificación pública puede requerir un identificador
+opaco separado; blockchain se modelará en otra migración, sin anticipar sus
+estados en esta tabla.
 
 ### `blockchain_records`
 
@@ -184,9 +206,10 @@ erDiagram
 
 ## Índices futuros propuestos
 
-- `certificates(recipient_id, created_at desc)`.
+- `certificates(holder_id, created_at desc)` si la paginación lo requiere.
 - `certificates(institution_id, created_at desc)`.
-- Unique `certificates(public_id)` e `idempotency_key`.
+- Unique `certificates(public_id)` si se incorpora QR público; la unicidad de
+  idempotencia ya reside en `(institution_id, idempotency_key)` de operaciones.
 - `blockchain_records(certificate_id, operation, created_at desc)`.
 - Unique `blockchain_records(chain_id, transaction_hash)`.
 - `verification_events(certificate_id, created_at desc)` si se activa historial.
@@ -204,6 +227,7 @@ estos dependen de `institution_members.role` (`owner`, `admin` o `issuer`).
 | `institutions` | Miembros y `platform_admin` | Ningún DML directo. RPC: alta solo plataforma con owner atómico; datos por owner/admin/plataforma; estado solo plataforma. DELETE cerrado. |
 | `institution_members` | Fila propia; todas las filas de la institución para `owner`/`admin`; todas para `platform_admin` | Ningún DML directo. RPC de alta/cambio/baja solo owner de esa institución o plataforma, conservando último owner. |
 | `certificates` | Titular, cualquier miembro de la institución emisora o `platform_admin` | Ninguna: sin INSERT, UPDATE, upsert ni DELETE, incluidos `owner`/`admin`/`issuer` y `platform_admin`. Emisión y revocación esperan al backend confiable. |
+| `certificate_issuance_operations` | Ninguna para clientes | Ninguna: RLS sin políticas y sin grants API. |
 
 Las funciones `certichain_private.is_platform_admin`,
 `is_institution_member` y `has_institution_role` consultan únicamente el estado
@@ -297,7 +321,8 @@ confiables, no permisos de usuarios. No se añade un endpoint ni se considera
 implementada la emisión o revocación. El backend futuro deberá validar
 `verification_status = 'verified'`, sesión, membresía, destinatario, PDF y hash,
 además de idempotencia y fallos parciales: [SECURE_ISSUANCE.md](SECURE_ISSUANCE.md).
-Las tablas y estados de la sección «Modelo futuro propuesto» no existen todavía.
+Las tablas futuras de la sección «Modelo futuro propuesto» no existen todavía;
+la tabla de operaciones de 7A sí existe y se describe arriba.
 
 ## Aprovisionamiento confiable de perfiles — Phase 4A
 
