@@ -12,7 +12,7 @@
 
 Flutter y cualquier navegador son clientes no confiables. RLS y las operaciones de backend deben volver a comprobar identidad, pertenencia, estado de la institución, propiedad del certificado y validación de entrada.
 
-## Autorización efectiva tras las Fases 5, 6 y 7A
+## Autorización efectiva tras las Fases 5, 6, 7A y 7B
 
 `certificates` tiene únicamente una política SELECT para `authenticated`:
 titular, miembro de la institución emisora o `platform_admin`. Los grants del
@@ -28,17 +28,19 @@ Se han retirado TRUNCATE, REFERENCES y TRIGGER de las cuatro tablas para
 PUBLIC, `anon` y `authenticated`; las lecturas autorizadas se conservan.
 TRUNCATE exige control mediante grants porque
 [PostgreSQL no le aplica RLS](https://www.postgresql.org/docs/17/ddl-rowsecurity.html).
-No existe una función expuesta que proporcione una vía alternativa de emisión.
+7B añade dos RPC técnicas con EXECUTE solo para service_role; no son una vía
+de emisión directa para clientes.
 La tabla `certificate_issuance_operations` tiene RLS sin políticas y no concede
 lectura ni escritura a `anon` o `authenticated`; contiene claves, huellas y
 vínculos privados. Los nuevos triggers de integridad no tienen EXECUTE directo
 para roles API ni service_role. Ningún RPC de 7A publica certificados.
 
-Emisión y revocación permanecen cerradas hasta construir el backend confiable
-de [SECURE_ISSUANCE.md](SECURE_ISSUANCE.md). Validará sesión, rol/membresía,
+La emisión se realiza exclusivamente por el backend autenticado; la revocación
+sigue pendiente. El contrato vigente está en
+[SECURE_ISSUANCE.md](SECURE_ISSUANCE.md). El backend valida sesión, rol/membresía,
 `verification_status = 'verified'` en la emisión, destinatario, campos,
 PDF real y límites, almacenamiento privado, SHA-256 de los bytes finales,
-idempotencia y recuperación. El futuro backend es responsable de autorización
+idempotencia y recuperación. El backend es responsable de autorización
 incluso si usa una identidad técnica con privilegios que omiten RLS.
 La revocación deberá validar la institución emisora, una transición permitida
 y sincronizarse con blockchain cuando exista ese flujo. No hay secretos de
@@ -123,11 +125,11 @@ El nombre completo del estudiante no debe mostrarse públicamente por defecto. U
   permisivas. Las pruebas HTTP locales comprueban listar, leer, subir,
   reemplazar y eliminar; la ausencia de políticas por sí sola no sería prueba.
 - Ruta final `<institution_id>/<certificate_id>.pdf` con UUID opacos, sin nombres
-  ni emails; `upsert: false` e inmutabilidad tras publicar. 7B hará validación
+  ni emails; `upsert: false` e inmutabilidad tras publicar. 7B hace validación
   estructural del PDF, límite de bytes en backend y lectura/hash del objeto
   final antes de publicar. El MIME/límite del bucket no sustituyen esa validación.
 - Descarga futura autorizada mediante URL firmada corta. Los PDF emitidos se
-  conservan, también si se revocan. Solo un reconciliador futuro podrá borrar
+  conservan, también si se revocan. El reconciliador local explícito puede borrar
   por API Storage un huérfano confirmado; no hay borrado automático de PDFs
   válidos. La política legal de retención requiere decisión posterior.
 
@@ -144,3 +146,34 @@ El nombre completo del estudiante no debe mostrarse públicamente por defecto. U
 ## Limitación académica
 
 El MVP demuestra integridad técnica, no acredita legalmente a una institución ni sustituye marcos regulatorios como eIDAS. Cualquier lanzamiento real requiere revisión legal, DPIA cuando corresponda, gestión profesional de claves y respuesta a incidentes.
+
+
+## Controles efectivos del backend 7B
+
+La Edge Function `issue-certificate` conserva verify_jwt=true y valida el JWT
+mediante Auth con un cliente separado del técnico. Actor exclusivamente de ese
+ID, nunca cuerpo/user_metadata. Las RPC service_role autorizan por institución
+bajo bloqueo padre primero y revalidan antes del INSERT. Platform_admin sin
+membresía no emite; un actor retirado no recupera completed por este endpoint.
+Titular confirmado/no anónimo/no bloqueado/no eliminado con perfil holder.
+
+Entrada multipart cerrada, sin issued_by/status/ID/ruta/hash/código manipulables;
+límite real de lectura incluso sin Content-Length, PDF de hasta 8 MiB, metadatos
+limitados, fechas normalizadas con microsegundos e issued_at de BD. Validación
+estructural mediante pdf-lib 1.17.1 fijado y controles complementarios, con
+subconjunto conservador documentado: sin cifrado, acciones, JavaScript ni adjuntos;
+recursos/Flate acotados. El parser no es un antivirus ni prueba de renderizado.
+
+Storage exclusivamente técnico, ruta reservada y upsert:false; una colisión se
+inspecciona sin reemplazo. Leer/limitar/validar bytes almacenados y comparar
+SHA-256 antes de publicar. Certificado/completed atómicos. Token de lease de
+120 segundos protege procesos vencidos; cleanup_pending/failed nunca se reabren.
+Limpieza revalida BD, usa Storage API y confirma ausencia; completed/revocado se
+conserva. No hay cron: la conciliación local explícita conserva fallos pendientes
+y lápidas para subidas tardías. No registra PDF, JWT, rutas, huellas, PII o secretos.
+
+Respuesta mínima con certificate_id o error/estado seguro, Cache-Control:no-store;
+sin PDF público, ruta privada ni huella. Inyección de fallos solo disponible en
+runtime loopback/kong local sin DENO_DEPLOYMENT_ID y con token efímero de prueba;
+no tiene efectos sin esa configuración. No habilita acciones privilegiadas
+adicionales. Contrato y límites: [SECURE_ISSUANCE.md](SECURE_ISSUANCE.md).

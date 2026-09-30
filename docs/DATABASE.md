@@ -48,8 +48,8 @@ authenticated. Sus UUID, huellas y rutas siguen privados.
 La clave UUID es única por `(institution_id, idempotency_key)`. La huella de
 solicitud y el hash del PDF se guardan al reservar; dos claves diferentes
 pueden emitir certificados distintos aunque el contenido coincida. El esquema
-impide una segunda reserva para la misma clave, pero 7B debe comparar actor,
-huella y contenido, bloquear la operación y recuperar su resultado bajo
+impide una segunda reserva para la misma clave, y 7B compara actor,
+huella y contenido, bloquea la operación y recupera su resultado bajo
 concurrencia. PostgreSQL y Storage no comparten una transacción.
 
 El bucket `certificates` se versiona en migración y `supabase/config.toml`,
@@ -97,9 +97,9 @@ Otros campos reales de `certificates` son `issued_by` (FK obligatoria a perfil),
 `document_hash` (text nullable), `revoked_at` y `created_at`. No hay validación
 estructural de PDF en la base; 7A valida el formato del hash solo para filas
 vinculadas a operación. `status`/`revoked_at`
-deben ser coherentes y `expires_at >= issued_at` si existe expiración. Los
-7A prepara el almacenamiento y la reserva; su ejecución de emisión queda
-para 7B.
+deben ser coherentes y `expires_at >= issued_at` si existe expiración.
+7A prepara el almacenamiento y la reserva; la ejecución autenticada se implementa
+en 7B.
 
 ## Modelo futuro propuesto (no es el contrato vigente)
 
@@ -226,7 +226,7 @@ estos dependen de `institution_members.role` (`owner`, `admin` o `issuer`).
 | `profiles` | Perfil propio o cualquier perfil para `platform_admin` | Actualización propia sin cambiar `role`; plataforma puede editar datos de otros perfiles, nunca sus roles por API. Sin INSERT ni DELETE de cliente. |
 | `institutions` | Miembros y `platform_admin` | Ningún DML directo. RPC: alta solo plataforma con owner atómico; datos por owner/admin/plataforma; estado solo plataforma. DELETE cerrado. |
 | `institution_members` | Fila propia; todas las filas de la institución para `owner`/`admin`; todas para `platform_admin` | Ningún DML directo. RPC de alta/cambio/baja solo owner de esa institución o plataforma, conservando último owner. |
-| `certificates` | Titular, cualquier miembro de la institución emisora o `platform_admin` | Ninguna: sin INSERT, UPDATE, upsert ni DELETE, incluidos `owner`/`admin`/`issuer` y `platform_admin`. Emisión y revocación esperan al backend confiable. |
+| `certificates` | Titular, cualquier miembro de la institución emisora o `platform_admin` | Ninguna: sin INSERT, UPDATE, upsert ni DELETE, incluidos `owner`/`admin`/`issuer` y `platform_admin`. Emisión solo por backend autenticado 7B; revocación pendiente. |
 | `certificate_issuance_operations` | Ninguna para clientes | Ninguna: RLS sin políticas y sin grants API. |
 
 Las funciones `certichain_private.is_platform_admin`,
@@ -239,7 +239,7 @@ sin ser `platform_admin`. El trigger histórico de `certificates` conserva la gu
 de transición `active → revoked`, inmutabilidad de otros campos y hora de base
 de datos para `revoked_at`, con la excepción administrativa original. No concede
 permisos: ninguna fila puede actualizarse desde `authenticated`. Su lógica
-deberá revisarse con el futuro backend; no valida por sí sola la autorización
+se conserva en 7B porque solo protege UPDATE; no valida por sí sola la autorización
 de revocación ni sincroniza blockchain.
 
 No hay acceso directo para `anon`; la verificación pública requiere una futura
@@ -317,8 +317,8 @@ política autoriza filas; se comprueba con el rol efectivo en las pruebas.
 
 La migración no contiene DML, no cambia columnas/enums ni borra datos. Los
 privilegios del propietario y del rol técnico de backend siguen siendo
-confiables, no permisos de usuarios. No se añade un endpoint ni se considera
-implementada la emisión o revocación. El backend futuro deberá validar
+confiables, no permisos de usuarios. Fase 5 no añadió un endpoint; 7B implementa
+la emisión y mantiene pendiente la revocación. Su backend valida
 `verification_status = 'verified'`, sesión, membresía, destinatario, PDF y hash,
 además de idempotencia y fallos parciales: [SECURE_ISSUANCE.md](SECURE_ISSUANCE.md).
 Las tablas futuras de la sección «Modelo futuro propuesto» no existen todavía;
@@ -417,3 +417,45 @@ datos. Si se incorpora, solo contendrá datos ficticios, deterministas y
 repetibles, sin credenciales, secretos ni datos personales. No se aprovisiona
 un administrador mediante seed; las identidades y roles elevados de las
 pruebas SQL son fixtures sintéticos que se revierten.
+
+
+## Incremento 7B: operaciones técnicas, metadatos y leases
+
+La migración nueva `20260930150000_authenticated_private_issuance.sql` añade
+`title`, `description`, `expires_at`, `lease_token` y `lease_until` a operaciones.
+Los metadatos de intención son inmutables; no hay backfill de reservas antiguas
+ni modificación de certificados históricos. El trigger histórico de certificados
+solo protege UPDATE y se conserva: no impide INSERT atómico de 7B.
+
+`reserve_certificate_issuance` y `advance_certificate_issuance` son SECURITY
+DEFINER con search_path vacío y EXECUTE solo para service_role, revocado de
+PUBLIC/anon/authenticated. Ninguna política o grant abre DML directo a clientes.
+La identidad técnica aporta exclusivamente el actor resuelto por Auth en la
+Edge Function. Las comprobaciones de membresía/estado leen filas reales.
+
+Orden: institución FOR UPDATE, operación FOR UPDATE, Auth/perfil titular FOR
+SHARE. Reserva y publicación autorizan owner/admin/issuer de institución verified;
+publicación revalida inmediatamente antes de insertar. Es compatible con las
+mutaciones padre primero de Fase 6 y abortos de snapshots obsoletos. Nunca se
+mantiene SQL abierto durante Storage. `issued_at` y credential_code se generan
+al publicar; el código es UUID opaco independiente del certificado objetivo.
+
+Uploading/finalizing tienen lease de 120 segundos y token nuevo por adquisición;
+un propietario vencido no finaliza. `validate` exige stored_hash = pdf_hash.
+`publish` crea active y enlaza completed en una sola transacción. Resultado y
+metadatos publicados conservan las constraints/inmutabilidad de 7A. Una clave
+completada solo devuelve su resultado al actor aún autorizado.
+
+`cleanup_claim`, `cleanup_check`, `cleanup_done` y `abandon` son acciones técnicas
+de la segunda RPC. `cleanup_pending` y `failed` son terminales para publicación;
+un PDF referenciado no se limpia. El operador confirma ausencia mediante API
+Storage antes de failed. No se escribe/borrar storage.objects por SQL. Se
+conservan lápidas failed para retirar subidas tardías en otra pasada explícita.
+No existe cron. Tras descarte, el cliente necesita nueva clave; para recuperar
+uploading/finalizing vencidos, reenvía exactamente PDF y metadatos.
+
+Regla titular MVP: identidad Auth confirmada, no anónima/eliminada/bloqueada y
+perfil holder. No se amplía SELECT de perfiles para resolver destinatarios.
+Estados, errores, política PDF y comandos de conciliación:
+[SECURE_ISSUANCE.md](SECURE_ISSUANCE.md). Decisión de limpieza terminal:
+[ADR-0009](adr/0009-leased-private-issuance.md).

@@ -4,6 +4,10 @@
 # working directory name when running `supabase init`.
 project_id = "certichain"
 
+[functions.issue-certificate]
+verify_jwt = true
+entrypoint = "./functions/issue-certificate/index.ts"
+
 [api]
 enabled = true
 # Port to use for the API URL.

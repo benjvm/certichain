@@ -95,10 +95,10 @@ operativas/manuales del bootstrap siguen a cargo del operador.
 
 ### Fase 7 — Emisión segura sin blockchain (en curso)
 
-Depende de la administración institucional de fase 6. Implementará backend
+Depende de la administración institucional de fase 6. 7A y 7B entregan backend
 autorizado, PDF privado con validación real y límites, SHA-256 de bytes finales,
-idempotencia persistente y recuperación de fallos parciales. Necesita nuevas
-migraciones y pruebas antes de habilitar cualquier escritura de certificados;
+idempotencia persistente y recuperación de fallos parciales. Sus nuevas
+migraciones y pruebas habilitan la emisión solo por backend;
 véase [SECURE_ISSUANCE.md](SECURE_ISSUANCE.md). No incluye todavía blockchain.
 
 - **7A — datos, idempotencia y Storage privado: entregada localmente el
@@ -109,9 +109,21 @@ véase [SECURE_ISSUANCE.md](SECURE_ISSUANCE.md). No incluye todavía blockchain.
   directamente. Se conservaron los certificados anteriores sin normalizarlos.
   Reset, 468 pruebas SQL (429 anteriores y 39 nuevas), ocho escenarios de
   concurrencia, preservación histórica, pruebas HTTP Storage, lint propio y
-  diff check pasaron localmente. No se afirma CI nueva ni despliegue remoto.
+  diff check pasaron localmente. Su CI observado falló en el harness HTTP de
+  Storage; véase 7B. No hubo despliegue remoto.
 - **7B — backend de emisión, validación PDF, autorización transaccional,
-  conciliación y limpieza: pendiente.**
+  conciliación y limpieza: entregada localmente el 30/09/2026.**
+  Edge Function autenticada, entrada cerrada, huella v1 exacta, parser PDF acotado,
+  lease exclusivo, Storage sin upsert y publicación atómica con revalidación.
+  Limpieza terminal explícita y reintento recuperable sin cron. Migración nueva;
+  históricos y revocación preservados. Pasan 493 SQL (468 previas + 25 nuevas),
+  17 tests de función, 368 aserciones HTTP con Auth real, 14 carreras concurrentes,
+  reset, preservación, lint, formato/tipos y diff check. Workflow ampliado y
+  corregido para usar CLI instalada. CI de 7A observado: ejecución
+  [36696424479](https://github.com/benjvm/certichain/actions/runs/36696424479),
+  fallo del harness Storage tras reset/SQL correctos; no se afirma CI de 7B.
+  Contrato/límites PDF y recuperación en [SECURE_ISSUANCE.md](SECURE_ISSUANCE.md).
+  No se despliega al remoto.
 - **7C — interfaz de emisión y acceso autorizado al PDF: pendiente.**
 - **7D — pruebas integrales y endurecimiento del flujo: pendiente.**
 

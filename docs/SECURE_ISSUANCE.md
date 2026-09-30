@@ -1,166 +1,235 @@
-# Contrato del futuro backend de certificados
+# Emisión privada autenticada — Fase 7B
 
-## Estado tras las Fases 5, 6 y 7A
+## Estado y límite de confianza
 
-Emisión y revocación no están implementadas. `authenticated` solo puede leer
-certificados autorizados por RLS, incluso si su perfil es `platform_admin`.
-`anon` no tiene acceso a la tabla. No existe un RPC alternativo que escriba certificados.
-7A preparó una tabla privada de reservas y un bucket PDF privado; todavía no
-hay endpoint que emita ni acceso autorizado al PDF.
-Flutter conserva su clave pública y la sesión del usuario; nunca recibe
-`service_role`, claves de firma ni lógica privilegiada.
+7B implementa `POST /functions/v1/issue-certificate`. Solo owner/admin/issuer
+vigentes de una institución verified pueden emitir. Revocación, descarga para
+el titular, Flutter institucional, QR, verificación pública y blockchain siguen
+pendientes. No se ha desplegado ninguna función ni migración remota.
 
-Este contrato define comprobaciones para una futura Edge Function u operación
-de backend; no introduce endpoints o abstracciones vacías. El hecho de que una
-identidad técnica de servidor pueda omitir RLS no autoriza al solicitante:
-el backend debe comprobar todos los puntos siguientes antes de persistir.
+Para servirlo manualmente, con el stack local reconstruido y la CLI 2.117.0:
 
-## Autorización en el momento de emitir
+```powershell
+npx --no-install supabase functions serve
+```
 
-1. Validar la sesión y el token mediante Auth: autenticidad, vigencia y sujeto.
-   Derivar la identidad del token validado, no del cuerpo ni de metadatos
-   editables del usuario; rechazar sesiones ausentes, inválidas o expiradas.
-2. Consultar en base de datos el perfil y una membresía vigente en la institución
-   indicada. Autorizar solo `institution_members.role` igual a `owner`, `admin`
-   o `issuer`. `holder`, `institution_admin` global y `platform_admin` por sí
-   solos no sustituyen la membresía; una excepción administrativa futura exige
-   decisión explícita y pruebas, nunca un bypass implícito.
-3. Exigir `institutions.verification_status = 'verified'`. `pending`, `rejected`
-   y `suspended` se rechazan. Revalidar membresía/rol y estado al crear la fila
-   mediante una operación transaccional que serialice los cambios concurrentes
-   de autorización; comprobarlos solo antes de subir el PDF sería insuficiente.
-4. Comprobar que el destinatario existe en Auth y `profiles`, es elegible como
-   titular según la regla de producto acordada y puede resolverse sin enumerar
-   perfiles privados. El mecanismo de selección/invitación de destinatario sigue
-   pendiente; no ampliar SELECT de perfiles para anticiparlo.
+Enviar el multipart descrito abajo a http://127.0.0.1:54321/functions/v1/issue-certificate
+con Authorization: Bearer de una sesión Auth local real y la clave pública local.
+No usar --no-verify-jwt ni el token service_role como sesión del solicitante.
 
-## Entrada, PDF e integridad
+`verify_jwt = true` permanece habilitado. La función consulta efectivamente
+Auth `/user` con el JWT del solicitante y la clave pública. Su ID verificado
+es el único actor. Otro cliente técnico usa service_role, exclusivamente en
+servidor, para las RPC estrechas y Storage. Metadatos y cuerpo no autorizan.
+No se amplían grants, RLS ni SELECT de perfiles para clientes.
 
-- Lista cerrada de campos de entrada; validar título no vacío, descripción,
-  límites de longitud, fechas y expiración. Usar el reloj del servidor y exigir
-  expiración posterior a emisión en el flujo futuro (la constraint actual
-  permite igualdad). No permitir al cliente fijar `issued_by`, estado,
-  `revoked_at`, ruta, hash ni marcas internas. Generar IDs/código opacos en servidor.
-- El contrato real es `holder_id`, `issued_by`, `credential_code`,
-  `document_path`, `document_hash` de tipo text y estado `active`/`revoked`.
-  La idempotencia de 7A reside en `certificate_issuance_operations`; no existen
-  `public_id`, `document_sha256`, `anchoring`, `anchor_failed` ni tablas blockchain.
-- Validar extensión `.pdf`, tipo real y estructura PDF mediante un parser de
-  servidor; MIME declarado o cabecera `%PDF` por sí solos no bastan. Rechazar
-  archivos vacíos, truncados, inválidos o que no puedan comprobarse, y aplicar
-  controles de contenido malicioso cuando proceda. Establecer un límite finito
-  de bytes en backend y bucket, limitar también la lectura/parseo y probar el
-  borde y su exceso. El límite global actual de Storage (50 MiB) no es una
-  política de documentos aprobada; el valor de producto debe fijarse y probarse
-  en 7B antes de habilitar el endpoint. El bucket de 7A limita a 8 MiB
-  (8 388 608 bytes) y MIME `application/pdf` como barreras adicionales.
-- Guardar solo en bucket privado, con rutas de IDs opacos creadas por servidor;
-  ningún cliente puede reemplazar el objeto final. Las descargas futuras deben
-  autorizarse y usar URLs firmadas cortas. 7A entrega el bucket, no el flujo PDF.
-- Calcular SHA-256 en backend sobre los **bytes finales almacenados**, después
-  de cualquier transformación; comprobar lectura e integridad del objeto final
-  antes de crear el certificado. Nunca confiar en un hash aportado por Flutter.
-  7A fija `document_hash` a hexadecimal minúsculo de 64 caracteres para
-  certificados vinculados a una operación; los datos históricos quedan exentos.
-- Crear inicialmente `active` en la emisión segura sin blockchain. Congelar
-  metadatos, emisor, titular, fechas, PDF y hash tras emitir. Corregir un certificado
-  requerirá revocación y nueva emisión; no sustituir silenciosamente su PDF.
+## Entrada y respuesta
 
-## Idempotencia y fallos parciales
+Una petición multipart/form-data contiene exactamente:
 
-### Contrato persistente de 7A para 7B
+| Campo | Contrato |
+|---|---|
+| institution_id | UUID, normalizado a minúsculas con guiones |
+| holder_id | UUID confirmado por un canal operativo autorizado |
+| idempotency_key | UUID por intento lógico, scoped a institución |
+| title | NFC, trim, 1–200 puntos de código Unicode, sin controles C0/C1 |
+| description | Opcional; NFC, trim, hasta 4000 puntos; vacío pasa a NULL |
+| expires_at | Opcional; RFC3339 con segundos, zona Z o ±HH:mm y 0–6 decimales |
+| pdf | Un File .pdf, MIME application/pdf, bytes reales >0 y <=8 388 608 |
 
-El backend reservará por `(institution_id, idempotency_key UUID)` y bloqueará
-la fila durante la decisión transaccional. La clave pertenece a una sola
-institución y actor. Una misma clave exige el mismo actor y la misma
-`request_fingerprint`; si difieren, responderá conflicto sin emitir. Para
-la misma clave/contenido recuperará el mismo `target_certificate_id` y, si
-está `completed`, el mismo certificado. Dos claves distintas **no** son
-duplicados automáticos, aunque los bytes y metadatos coincidan.
+No se admiten claves desconocidas, repetidas, archivos adicionales ni campos
+para actor, issued_by, issued_at, estado, código, ID, ruta o hash. El sobre
+multipart tiene un presupuesto adicional de 32 768 bytes. La lectura por stream
+comprueba bytes reales aunque Content-Length falte o sea falso. El límite del
+bucket es una segunda barrera. Una petición que excede límites devuelve 413.
 
-La huella v1 es SHA-256 hexadecimal minúsculo de la secuencia UTF-8
-`certichain-issuance-v1` seguida de un byte NUL y siete campos en este orden:
-UUID de institución, UUID de actor, UUID de titular, título, descripción,
-expiración y `pdf_hash`. Cada campo se antepone con su longitud en cuatro bytes
-big endian; NULL usa `0xffffffff` y no lleva bytes. UUID en minúsculas con
-guiones; título/descripción se normalizan a Unicode NFC y se recortan en los
-extremos, y descripción vacía pasa a NULL. Expiración es NULL o UTC en formato
-`YYYY-MM-DDTHH:mm:ss.ffffffZ`. `pdf_hash` es SHA-256 hexadecimal minúsculo de
-los bytes exactos del PDF de entrada. No entran `issued_at` ni código generados
-por servidor. 7B implementará y probará esta codificación antes de aceptar
-solicitudes, con lista cerrada de campos; `request_fingerprint` no sustituye
-la comparación con el hash de los bytes finales almacenados. El cliente no
-decide huellas, actor ni IDs. `stored_hash` usa también 64 hex minúsculos.
-Puede diferir de `pdf_hash` si el backend transforma el PDF; 7B deberá
-verificar los bytes finales y registrar la transformación de forma coherente.
+La expiración debe ser futura al reservar/publicar y como máximo diez años desde
+reserva. El reintento completed puede recuperar un certificado ya expirado:
+la expiración forma parte de su identidad, no se recalcula. Fechas imposibles,
+segundos intercalares y fracciones mayores de seis dígitos se rechazan. issued_at
+procede de clock_timestamp() en la transacción que publica.
 
-Estados: `reserved` conserva intención; `uploading` indica subida en curso;
-`finalizing` indica objeto final leído y hash verificado; `completed` enlaza
-el certificado publicado; `cleanup_pending` conserva un objeto posiblemente
-huérfano para reconciliación; `failed` cierra una reserva sin certificado tras
-limpieza confirmada. Solo `completed` lleva `certificate_id`. La identidad de
-la reserva y el resultado completado son inmutables. 7B implementará la
-máquina de transiciones, bloqueos, tiempos de reintento y reconciliación.
+Elegibilidad MVP del titular: Auth y profiles existentes, email confirmado,
+no anónimo, no eliminado, no bloqueado actualmente y profiles.role = holder.
+Se comprueba después de autorizar al actor y otra vez al publicar, bloqueando
+Auth/profiles FOR SHARE. Una identidad no elegible devuelve un error fijo;
+no se exponen sus datos. Invitaciones/búsqueda de personas quedan para 7C.
 
-Ruta final: `<institution_id>/<target_certificate_id>.pdf`, solo UUID opacos.
-El nombre es inmutable y toda subida final usa `upsert: false`; una colisión
-se investiga y nunca reemplaza bytes publicados. 7B debe leer/verificar el
-objeto final y calcular SHA-256 **de sus bytes almacenados** antes de insertar
-el certificado y completar la operación. Un fallo deja `cleanup_pending` y
-un reconciliador futuro decide si borra el huérfano por API Storage. Los PDF
-de certificados válidos, incluso revocados, se conservan según la política
-de retención que se apruebe; no se establece borrado automático. La limpieza
-jamás borra un objeto referenciado por un certificado completado.
+Éxito: 201 para la publicación confirmada, 200 para recuperar completed;
+`{"status":"completed","certificate_id":"UUID"}`. Nunca se devuelve ruta,
+URL PDF, código, huella, hash, token de lease, datos personales ni secretos.
+Solo certificate_id y un estado/error seguro son necesarios para el cliente.
 
-En la transacción de reserva y de publicación, 7B validará sesión y bloqueará
-la fila de `institutions` con `FOR UPDATE` antes de comprobar
-`verification_status = verified` y membresía `owner`/`admin`/`issuer`, con la
-misma coordinación de bloqueos de Fase 6. Revalidará todo al publicar después
-de la subida; no mantendrá una transacción abierta durante el upload.
+| HTTP | error | Significado / actuación |
+|---|---|---|
+| 401 | unauthenticated | Sesión ausente, inválida, expirada o no resoluble por Auth |
+| 403 | forbidden | Sin membresía permitida/institución verified; incluye reintento completed |
+| 400/422 | invalid_input | Lista cerrada, campos, fecha o titular no elegible |
+| 422 | invalid_pdf | PDF no inspeccionable según política siguiente |
+| 413 | payload_too_large | Archivo o petición excede su presupuesto |
+| 409 | idempotency_conflict | Misma clave con actor/huella distintos; no modifica reserva |
+| 409 | operation_in_progress | Lease activo o propietario vencido; Retry-After: 120 |
+| 409 | attempt_failed | cleanup_pending/failed; conciliar y utilizar una nueva clave |
+| 503 | temporary_failure | Dependencia/commit incierto; repetir misma entrada tras lease |
+| 503 | stored_object_invalid | Colisión/bytes almacenados incoherentes; conciliar |
+| 500 | internal_failure | Fallo inesperado sin detalles privados |
 
-- Usar la clave de idempotencia persistente de 7A y comparar actor y huella
-  en 7B: misma clave y contenido devuelve el mismo resultado; misma clave con
-  otro contenido se rechaza. Probar reintentos
-  simultáneos y respuestas perdidas; el actual `credential_code UNIQUE` no
-  implementa este contrato.
-- PostgreSQL y Storage no comparten una transacción. Registrar el avance de la
-  operación, usar un objeto final inmutable y publicar la fila solo cuando
-  autorización, PDF e integridad estén confirmados. Si falla la inserción tras
-  subir, limpiar el objeto huérfano o dejar trabajo de reconciliación durable;
-  si se pierde la respuesta después de insertar, recuperar el resultado sin
-  duplicar ni borrar el PDF válido. Probar caídas entre cada paso y limpieza fallida.
-- No habilitar el endpoint mientras falten almacenamiento privado, validación,
-  constraints de integridad, control transaccional de permisos, idempotencia o
-  recuperación. Errores externos seguros y correlación operativa sin PII,
-  documentos, rutas privadas, tokens o secretos en logs.
+El gateway JWT puede responder su propio 401 antes de ejecutar la función.
+No se anuncia HTTP success si no se confirma la transacción de publicación.
+No se registran peticiones completas, PDF, JWT, rutas, PII o errores upstream.
 
-## Revocación futura
+## Política PDF y recursos
 
-La solicitud pasa por backend: validar sesión, membresía `owner`/`admin` en la
-institución emisora, propiedad institucional y transición `active → revoked`.
-`issuer` no obtiene revocación por el hecho de poder emitir. `revoked_at` se fija
-en servidor y la operación es irreversible e idempotente. La política sobre
-revocar certificados de una institución suspendida deberá decidirse y probarse
-expresamente; no reusar automáticamente la autorización de emisión.
+Se fija pdf-lib 1.17.1 y sus dependencias/integridades en functions/deno.lock.
+Es TypeScript/JavaScript portable sin proceso externo ni binario nativo, usado
+solo para leer; las APIs Web estándar no ofrecen un parser PDF. No se transforma
+ni se vuelve a guardar el documento. Entrada y bytes finales tienen el mismo hash.
+La dependencia necesita seguimiento de seguridad y pruebas al actualizarse;
+el lock y los vectores impiden una actualización silenciosa.
 
-Cuando exista anclaje, registrar y seguir la transacción de revocación, reintentar
-de forma segura y reconciliar base de datos y blockchain. La verificación pública
-no debe anunciar una revocación confirmada en cadena antes de su confirmación.
-Los estados intermedios y evidencias requerirán nuevas migraciones: el esquema
-actual solo admite `active` y `revoked`. El trigger histórico únicamente protege
-la transición y los campos; no verifica sesión, membresía, PDF ni blockchain y
-no constituye una implementación de este flujo.
+El parser se complementa con validación de header, EOF/startxref, offsets xref,
+objetos referenciados, Root, terminadores endobj, longitudes de streams,
+referencias y páginas. Se rechaza reparación implícita, truncado/corrupción y
+cifrado. Un adaptador pequeño del PDFObjectParser exportado verifica el offset
+consumido porque pdf-lib tolera endobj ausente; tiene regresión específica.
 
-## Dependencias del siguiente incremento
+Política conservadora MVP: PDF 1.0–1.7 de una sola revisión, xref clásico,
+1–100 páginas, <=20 000 objetos/entradas, <=100 000 nodos/nombres y profundidad
+<=64; nombres <=1024 caracteres. No se admiten xref/object streams, revisiones
+incrementales, codecs desconocidos, cadenas de filtros ni DecodeParms.
+Streams sin filtro o FlateDecode son inspeccionables; Flate se descomprime con
+lectura limitada a 16 MiB acumulados. Se impide inflar object streams antes de
+invocar el parser. Preflight puede rechazar nombres sospechosos dentro de datos:
+es una restricción deliberada del MVP, no una promesa de compatibilidad universal.
 
-Fase 6 resuelve el administrador inicial mediante SQL confiable, alta administrada
-atómica, aprobación y miembros con protección concurrente del último owner.
-Los RPC verifican roles reales y serializan mutaciones por fila institucional;
-no habilitan escritura de certificados. Bootstrap, decisiones y procedimiento:
-[INSTITUTION_ADMINISTRATION.md](INSTITUTION_ADMINISTRATION.md).
+Se rechazan JavaScript/JS, AA/A/Action/OpenAction, Launch, RichMedia, EmbeddedFiles/
+EmbeddedFile/Filespec/EF/AF, AcroForm/XFA, Rendition/Movie/Sound/3D,
+SubmitForm, ImportData, GoToR/GoToE y URI en el grafo
+parseado, incluidas claves escapadas. Adjuntos, formularios y acciones se deniegan, no se
+eliminan silenciosamente. Este parser NO es un antivirus ni un renderer; no
+asegura que los operadores gráficos o todos los lectores interpreten igual el
+PDF. Ampliar compatibilidad necesita fixtures y otra revisión de recursos.
 
-Fase 7: emisión segura sin blockchain mediante backend, PDF privado, SHA-256 e
-idempotencia. Su transacción de autorización debe coordinarse con la misma fila
-institucional que bloquean los cambios de miembros/estado en fase 6; no basta
-con una comprobación previa aislada. Posteriormente: verificación pública/QR, anclaje y
-revocación completa con endurecimiento, según [ROADMAP.md](ROADMAP.md).
+Se prueba el límite exacto de 8 MiB y FlateDecode en el runtime Edge local
+1.74.3 (Deno 2.1.4), además de Deno 2.2.12 en tests. La configuración local
+inspeccionada aplica memoryLimitMb=256 y cpuTimeHardLimitMs=2000; los fixtures
+HTTP pasan bajo esos límites. Las pruebas locales no sustituyen mediciones de
+carga/CPU en un despliegue futuro. No se hizo ese despliegue.
+Referencias: [pdf-lib](https://pdf-lib.js.org/docs/api/classes/pdfdocument) y
+[límites Edge](https://supabase.com/docs/guides/functions/limits).
+
+## request_fingerprint v1 — contrato literal de 7A
+
+SHA-256 hexadecimal minúsculo de la secuencia UTF-8 `certichain-issuance-v1`
+seguida de un byte NUL y siete campos, en este orden: UUID institución, UUID
+actor verificado, UUID titular, título, descripción, expiración, pdf_hash.
+Cada campo lleva su longitud UTF-8 en BYTES, cuatro bytes big endian; NULL
+usa 0xffffffff y no lleva bytes. UUID en minúsculas con guiones; título y
+descripción NFC y trim; descripción vacía pasa a NULL. Expiración NULL o UTC
+`YYYY-MM-DDTHH:mm:ss.ffffffZ`, preservando los seis decimales sin redondear a
+milisegundos. pdf_hash es SHA-256 hex minúsculo de los bytes exactos aceptados.
+No entran idempotency_key, issued_at ni código generado por servidor.
+
+El fixture PDF determinista de 330 bytes de tests/pdf_fixture.mjs tiene SHA-256
+`598c50f845d76f4fe6125df9906750584668e526be96e78ca43548eb60f20b1f`.
+contract_test.ts fija la secuencia completa en hex y vectores NFC, longitudes
+multibyte, UTC/microsegundos y NULL frente a longitud cero. Un cambio de formato
+necesitaría una versión nueva, nunca reinterpretar reservas existentes.
+
+## Transacciones, bloqueos y recorrido
+
+La migración NUEVA 20260930150000_authenticated_private_issuance.sql añade
+metadatos normalizados inmutables y lease_token/lease_until. No reescribe 7A,
+certificados históricos ni triggers de revocación. Las RPC públicas siguientes
+tienen SECURITY DEFINER, search_path vacío, referencias cualificadas, REVOKE
+PUBLIC/anon/authenticated y EXECUTE solo para service_role:
+
+- reserve_certificate_issuance: institución FOR UPDATE → autorización → operación
+  FOR UPDATE → comprobación de identidad/titular → reserva/adquisición de lease.
+- advance_certificate_issuance: institución FOR UPDATE → operación FOR UPDATE →
+  token/estado/tiempo → transición. publish revalida autorización y titular antes
+  del INSERT. El servidor genera credential_code opaco y issued_at.
+
+Es el mismo orden padre primero de los cambios de membresía/estado de Fase 6.
+No hay SQL abierto durante Storage. Las referencias Auth/profiles se bloquean
+tras institución/operación. Deadlocks/serialización abortan y se reintenta la
+operación completa; un lease perdido usa PT409, evitando que PostgREST lo trate
+como un error de serialización que puede reintentar internamente.
+
+1. Auth, entrada y parser se validan ANTES de reservar/subir; calcular pdf_hash
+   y huella v1 normalizada en backend.
+2. La reserva UNIQUE(institution_id,idempotency_key) fija actor/titular/huella/
+   hash/target_certificate_id. Igual actor y huella recuperan resultado o lease;
+   otro actor/contenido autorizado recibe conflicto sin alterar la fila.
+3. reserved → uploading con token nuevo y vencimiento de 120 segundos del reloj
+   PostgreSQL. Solo una transacción adquiere propiedad, incluida reserva vencida;
+   otros intentos reciben in_progress o completed. El token anterior no finaliza.
+4. Storage API sube application/pdf a institution_id/target_certificate_id.pdf,
+   upsert:false. Una colisión se lee e investiga; nunca permite reemplazo.
+   Respuesta de subida perdida también se resuelve por lectura, sin suponer fallo.
+5. Descargar por cliente técnico, limitar lectura, inspeccionar PDF y comprobar
+   tamaño exacto y SHA-256. uploading → finalizing almacena stored_hash = pdf_hash.
+6. publish inserta el certificado active con issuance_operation_id, ruta y hash
+   coherentes, y cambia operación a completed EN UNA transacción. Una excepción
+   en el segundo paso revierte también el certificado. Los metadatos publicados
+   y resultado completed son inmutables. Dos claves pueden emitir igual contenido.
+7. Solo después de confirmar publish se devuelve 201. Si se pierde esa respuesta,
+   el mismo actor actualmente autorizado obtiene 200 y el mismo certificate_id.
+   Un actor retirado o institución suspendida recibe 403 incluso si completed:
+   no se revela el resultado privado mediante el endpoint.
+
+## Recuperación y reconciliación local real
+
+No hay cron. El cliente debe guardar la clave y reenviar exactamente PDF y
+metadatos. uploading/finalizing vencidos se recuperan con nuevo token: se intenta
+subir sin upsert, se lee cualquier objeto existente, se valida y se publica.
+También cubre corte después de reserva, subida confirmada con respuesta perdida,
+objeto existente en uploading, lectura correcta con publicación fallida y
+respuesta perdida después de completed. Se devuelve estado claro durante lease.
+
+Si permisos, titular/expiración o integridad fallan tras subir, abandon cambia a
+cleanup_pending cuando el lease sigue vigente. Si falla también esa RPC, la fila
+uploading/finalizing sigue durable y el operador puede conciliarla al vencer.
+No se borra un objeto en un catch de emisión.
+
+El operador local puede DESCARTAR una reserva abandonada (no completarla sin
+metadatos/PDF) con:
+
+```powershell
+node supabase/admin/reconcile_issuance.mjs --local <operation_uuid>
+# O recorrer por páginas todas las operaciones no completadas:
+node supabase/admin/reconcile_issuance.mjs --local
+```
+
+El UUID de operación solo se consulta por un operador técnico, no se devuelve
+al cliente. La herramienta verifica loopback/puerto 54321 y usa claves locales de
+supabase status exclusivamente en memoria; no acepta proyecto/URL remotos.
+
+cleanup_claim bloquea institución/operación, rechaza lease activo y cualquier
+certificado que referencie la operación/ruta, y obtiene lease de limpieza.
+cleanup_check vuelve a comprobar BD inmediatamente antes de Storage DELETE.
+cleanup_pending/failed nunca pueden volver a uploading por RPC: no habrá una
+publicación concurrente tras ese chequeo. Se borra por API Storage, se confirma
+404 por lectura y solo entonces cleanup_done fija failed. Jamás se manipula
+storage.objects por SQL ni se limpia un PDF completed, incluso revocado.
+
+Un fallo de borrado deja cleanup_pending; tras 120 segundos, ejecutar de nuevo.
+failed es una lápida conservada: la conciliación vuelve a revisar sus objetos
+para retirar una subida antigua que llegó después del borrado. Un proceso viejo
+no puede publicar ni reclamar esa clave. No se promete barrer subidas tardías
+sin que el operador vuelva a ejecutar el comando. Usar una NUEVA clave tras
+failed/cleanup_pending; nunca sustituir bytes de una emisión publicada.
+Reservas antiguas de 7A sin metadatos siguen limpiables, no se inventa su título.
+
+## Revocación y siguientes fases
+
+El trigger histórico de certificados solo controla UPDATE y no bloquea el INSERT
+del flujo nuevo; se conserva intacto junto con la inmutabilidad de 7A. No existe
+endpoint de revocación. Su futuro backend exigirá owner/admin de la institución,
+transición active → revoked, hora de servidor y una política explícita sobre
+instituciones suspended. Blockchain necesitará su propio registro/reconciliación.
+
+7C: pantallas de emisión, selección/invitación del titular y descarga autorizada
+con URL firmada breve. 7D: E2E, carga/límites de abuso, revisión de compatibilidad
+PDF y endurecimiento operativo. QR/verificación pública y blockchain permanecen
+fuera de 7B. Resultados reales y CI observado están en TESTING.md.
