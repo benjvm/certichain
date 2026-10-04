@@ -156,8 +156,8 @@ Unique recomendado: `(institution_id, lower(name))` mediante índice de expresi�
 La tabla actual conserva `holder_id`, `issued_by`, `credential_code`,
 `document_path` y `document_hash` text nullable, y estados `active`/`revoked`.
 7A añadió `issuance_operation_id` nullable y la inmutabilidad de filas
-vinculadas. La futura verificación pública puede requerir un identificador
-opaco separado; blockchain se modelará en otra migración, sin anticipar sus
+vinculadas. 8A reutiliza `credential_code`, UUID aleatorio independiente generado
+por 7B, único e inmutable en filas publicadas. No añade public_id; blockchain se modelará en otra migración, sin anticipar sus
 estados en esta tabla.
 
 ### `blockchain_records`
@@ -208,8 +208,9 @@ erDiagram
 
 - `certificates(holder_id, created_at desc)` si la paginación lo requiere.
 - `certificates(institution_id, created_at desc)`.
-- Unique `certificates(public_id)` si se incorpora QR público; la unicidad de
-  idempotencia ya reside en `(institution_id, idempotency_key)` de operaciones.
+- 8A reutiliza el índice UNIQUE de `certificates(credential_code)`; no necesita
+  otro índice para QR. La unicidad de idempotencia reside en
+  `(institution_id, idempotency_key)` de operaciones.
 - `blockchain_records(certificate_id, operation, created_at desc)`.
 - Unique `blockchain_records(chain_id, transaction_hash)`.
 - `verification_events(certificate_id, created_at desc)` si se activa historial.
@@ -242,8 +243,8 @@ permisos: ninguna fila puede actualizarse desde `authenticated`. Su lógica
 se conserva en 7B porque solo protege UPDATE; no valida por sí sola la autorización
 de revocación ni sincroniza blockchain.
 
-No hay acceso directo para `anon`; la verificación pública requiere una futura
-interfaz restringida. Tampoco hay una política de INSERT para perfiles: el
+No hay acceso directo para `anon`; 8A verifica por una Edge Function con
+proyección restringida. Tampoco hay una política de INSERT para perfiles: el
 aprovisionamiento inicial usa el trigger descrito abajo. La Fase 6 incorpora
 el bootstrap mediante SQL confiable y el invariante de propietarios descrito
 en la siguiente sección; ambos estaban pendientes tras la Fase 5.
@@ -481,3 +482,32 @@ institución seleccionada; no necesita perfiles de titulares ajenos. Los histór
 sin operación/PDF siguen visibles según su RLS pero no obtienen documento.
 Se conservan las 493 comprobaciones previas y se añaden siete pgTAP; escenarios
 completos de autorización/PDF se ejercen por HTTP local con Auth/Storage reales.
+
+## Incremento 8A: proyección pública y presupuesto compartido
+
+Migración nueva `20261004173032_public_certificate_verification.sql`, creada con
+`supabase migration new public_certificate_verification`. No modifica datos
+privados ni migraciones anteriores. Añade `lookup_public_certificate(text)` y
+`consume_public_verification_budget()`, SECURITY DEFINER, search_path vacío,
+EXECUTE solo service_role y revocado de PUBLIC/anon/authenticated. El helper de
+prioridad reside en certichain_private y no tiene EXECUTE de roles API/técnico.
+
+Lookup valida UUID canónico de 36 caracteres (caso equivalente) y busca por
+igualdad en credential_code usando su UNIQUE actual, sin índice adicional ni
+public_id. Exige completed y coherencia de IDs, institución, titular, emisor,
+SHA-256/pdfs y ruta canónica. Proyecta solo los nueve campos v1; ausencia elegible
+devuelve schema_version/result. Fechas conservan precisión; un instante servidor
+evalúa revoked > expired inclusivo > issuer_unavailable > valid. No consulta
+Storage en cada petición, ni reatribuye evidencia a históricos.
+
+La única tabla nueva está en esquema privado: public_verification_budget,
+singleton boolean con PK/CHECK true, window_started_at y used 0–60. RLS sin
+políticas y sin grants incluso a service_role. Su RPC bloquea FOR UPDATE, usa
+reloj tras el lock, renueva ventana 60 s y consume como máximo 60. No registra
+IP/códigos/eventos ni acepta parámetros de límite; estado ausente falla cerrado.
+No amplía grants ni RLS de tablas existentes o bucket privado.
+
+Las pruebas SQL conservan 500 anteriores y añaden 57. Preservación 8A reaplica la
+migración con históricos sintéticos, compara filas privadas/Storage y revierte
+la transacción. Contrato y confianza:
+[PUBLIC_VERIFICATION.md](PUBLIC_VERIFICATION.md), [ADR-0011](adr/0011-public-registry-verification.md).

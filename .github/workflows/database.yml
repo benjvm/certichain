@@ -33,14 +33,15 @@ jobs:
         run: supabase test db --local
       - name: Function formatting, lint, types and unit tests
         run: |
-          npx --yes deno@2.2.12 fmt --check supabase/functions supabase/tests/issuance_http.mjs supabase/tests/certificate_pdf_http.mjs supabase/scripts/local_supabase.mjs supabase/tests/pdf_fixture.mjs supabase/tests/institution_concurrency.mjs supabase/tests/private_storage.mjs supabase/admin/reconcile_issuance.mjs supabase/tests/local_issuance_fixture.mjs supabase/tests/issuance_hardening.mjs mobile/tool/secure_issuance_browser.mjs
+          npx --yes deno@2.2.12 fmt --check supabase/functions supabase/tests/public_verification_http.mjs supabase/tests/issuance_http.mjs supabase/tests/certificate_pdf_http.mjs supabase/scripts/local_supabase.mjs supabase/tests/pdf_fixture.mjs supabase/tests/institution_concurrency.mjs supabase/tests/private_storage.mjs supabase/admin/reconcile_issuance.mjs supabase/tests/local_issuance_fixture.mjs supabase/tests/issuance_hardening.mjs mobile/tool/secure_issuance_browser.mjs
           npx --yes deno@2.2.12 lint supabase/functions
-          npx --yes deno@2.2.12 check --frozen --config supabase/functions/deno.json supabase/functions/issue-certificate/index.ts supabase/functions/certificate-pdf/index.ts
+          npx --yes deno@2.2.12 check --frozen --config supabase/functions/deno.json supabase/functions/issue-certificate/index.ts supabase/functions/certificate-pdf/index.ts supabase/functions/verify-certificate/index.ts
           npx --yes deno@2.2.12 test --frozen --config supabase/functions/deno.json supabase/functions
           node --check supabase/tests/issuance_http.mjs
           node --check supabase/admin/reconcile_issuance.mjs
           node --check supabase/tests/local_issuance_fixture.mjs
           node --check supabase/tests/issuance_hardening.mjs
+          node --check supabase/tests/public_verification_http.mjs
           node --check mobile/tool/secure_issuance_browser.mjs
       - name: Issuance HTTP and recovery with real local Auth
         run: node supabase/tests/issuance_http.mjs
@@ -50,6 +51,10 @@ jobs:
         run: node supabase/tests/private_storage.mjs
       - name: Authorized PDF HTTP and actual capability expiry
         run: node supabase/tests/certificate_pdf_http.mjs
+      - name: Public verification without Auth and shared atomic budget
+        env:
+          CERTICHAIN_TEST_DISPOSABLE: '1'
+        run: node supabase/tests/public_verification_http.mjs
       - name: Concurrent owner protection
         run: node supabase/tests/institution_concurrency.mjs
       - name: Historical certificate migration preservation
@@ -58,6 +63,9 @@ jobs:
       - name: Historical data preserved by private issuance migration
         shell: pwsh
         run: ./supabase/tests/verify_private_issuance_migration.ps1
+      - name: Historical data and private documents preserved by public verification
+        shell: pwsh
+        run: ./supabase/tests/verify_public_verification_migration.ps1
       - name: Lint project schemas
         run: supabase db lint --local --schema public,certichain_private --level warning --fail-on warning
       - name: Install pinned Flutter for the full local UI journey

@@ -5,7 +5,9 @@
 7B implementa `POST /functions/v1/issue-certificate`. Solo owner/admin/issuer
 vigentes de una institución verified pueden emitir. 7C incorpora el cliente
 Flutter institucional y `POST /functions/v1/certificate-pdf` para descarga privada.
-Revocación, QR, verificación pública y blockchain siguen pendientes.
+7D cierra las pruebas integrales y endurecimiento. 8A añade el backend público
+descrito en [PUBLIC_VERIFICATION.md](PUBLIC_VERIFICATION.md). Revocación, QR,
+pantalla de verificación y blockchain siguen pendientes.
 No se ha desplegado ninguna función ni migración remota.
 
 Para servirlo manualmente, con el stack local reconstruido y la CLI 2.117.0:
@@ -234,7 +236,7 @@ transición active → revoked, hora de servidor y una política explícita sobr
 instituciones suspended. Blockchain necesitará su propio registro/reconciliación.
 
 7C entrega pantallas de emisión, ID de titular voluntario y descarga autorizada
-con URL firmada breve. 7D: E2E, carga/límites de abuso, revisión de compatibilidad
+con URL firmada breve. 7D entrega E2E, carga/límites de abuso, revisión de compatibilidad
 PDF y endurecimiento operativo. QR/verificación pública y blockchain permanecen
 fuera de 7B. Resultados reales y CI observado están en TESTING.md.
 

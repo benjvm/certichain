@@ -23,7 +23,8 @@ institución para abrir INSERT: también son obligatorias las validaciones de
 archivo, hash y operación del servidor.
 
 `anon` no tiene grants sobre certificados y no obtiene filas de perfiles,
-instituciones ni membresías por RLS. No hay verificación pública entregada.
+instituciones ni membresías por RLS. 8A publica únicamente una proyección cerrada
+mediante Edge; no abre ninguna tabla a clientes.
 Se han retirado TRUNCATE, REFERENCES y TRIGGER de las cuatro tablas para
 PUBLIC, `anon` y `authenticated`; las lecturas autorizadas se conservan.
 TRUNCATE exige control mediante grants porque
@@ -92,19 +93,30 @@ debe controlarse operativamente. Procedimiento y revisiones manuales:
 | Abuso de endpoint público | Rate limit, respuesta uniforme y monitorización sin PII |
 | Archivo malicioso | Límite de tamaño, MIME real, PDF válido y análisis cuando proceda |
 | Doble emisión por reintento | Clave de idempotencia y constraint unique |
-| Enumeración de certificados | `public_id` aleatorio y mensajes prudentes |
+| Enumeración de certificados | `credential_code` UUID aleatorio independiente, presupuesto compartido y ausencia uniforme |
 | Inyección o datos inválidos | Consultas parametrizadas, constraints y validación servidor |
 
 ## Información pública de verificación
 
-Por defecto se puede mostrar:
+8A permite exclusivamente `schema_version`, `result`, `credential_code`, `title`,
+`issuer.name`, `issued_at`, `expires_at`, `checked_at` y `verification_source`.
+Para `not_found`, solo `schema_version` y `result`. No hay logo en el modelo
+actual, ni campos blockchain en este contrato.
 
-- resultado y estado;
-- título del certificado;
-- nombre público y logo de la institución;
-- fecha de emisión y expiración;
-- identificador público;
-- red y enlace a transacción, si aporta valor.
+La elegibilidad exige publicación completed y evidencia coherente. Prioridad:
+revoked, expired (expires_at <= checked_at), issuer_unavailable, valid.
+Suspender una institución no revoca sus certificados. Las fechas conservan
+microsegundos y proceden de PostgreSQL. `valid` acredita el registro bajo estas
+condiciones; no identifica al presentador ni compara su copia de PDF.
+
+`verify-certificate` tiene verify_jwt=false exclusivamente para ese endpoint.
+Cada POST consume presupuesto global atómico 60/60 s antes de validar entrada;
+OPTIONS no consume. La fila privada no registra IP, códigos ni eventos; no se
+confía en X-Forwarded-For. Si falla la infraestructura, se devuelve 503 seguro.
+RPC técnicos exclusivos service_role, search_path vacío y sin nuevos grants de
+tablas/Storage. No hay lectura de PDF por consulta. Alcance y límite de confianza:
+[PUBLIC_VERIFICATION.md](PUBLIC_VERIFICATION.md). El presupuesto es protección
+de la demo local, compartido por todos; producción requiere otro diseño de abuso.
 
 El nombre completo del estudiante no debe mostrarse públicamente por defecto. Una futura opción de consentimiento o enlace compartido con alcance limitado requiere diseño específico.
 

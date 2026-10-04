@@ -61,6 +61,9 @@ Decisiones aceptadas de emisión y documentos:
 [ADR-0009](adr/0009-leased-private-issuance.md) y
 [ADR-0010](adr/0010-institutional-client-and-document-capabilities.md).
 
+Verificación pública del registro y presupuesto compartido:
+[ADR-0011](adr/0011-public-registry-verification.md).
+
 1. `0001-use-supabase-initially.md`.
 2. `0002-feature-first-clean-boundaries.md`.
 3. `0003-version-database-with-migrations.md`.

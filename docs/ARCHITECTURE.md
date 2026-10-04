@@ -22,10 +22,11 @@ flowchart TD
 Flutter puede leer datos autorizados mediante repositorios respaldados por el SDK de Supabase. Emisión, revocación, hashing definitivo y escritura blockchain pasan por una Edge Function u otro backend confiable.
 
 Tras Fase 5, la API de tablas de `certificates` solo permite SELECT autorizado
-para `authenticated`; emisión y revocación no están habilitadas, incluido para
-`platform_admin`. No se ha creado una Edge Function o RPC que escriba certificados.
-El [contrato del backend futuro](SECURE_ISSUANCE.md) define los controles
-obligatorios antes de habilitarlas y las dependencias institucionales previas.
+para `authenticated`; emisión y revocación directas no están habilitadas,
+incluido para `platform_admin`. 7B implementa la Edge Function autenticada y
+RPC técnicos de publicación; 7C añade cliente y acceso autorizado al PDF.
+El [contrato vigente](SECURE_ISSUANCE.md) define sus controles. El nuevo flujo
+de revocación y blockchain siguen pendientes.
 
 Fase 6 resuelve administración institucional mediante operaciones SQL
 transaccionales expuestas como RPC autenticados: alta pending con primer owner,
@@ -37,7 +38,7 @@ también en cascadas de Auth. DELETE institucional se cierra para conservar hist
 Bootstrap y altas adicionales de plataforma requieren SQL operativo confiable;
 no son RPC públicos ni actualizaciones ordinarias de perfil.
 Decisión: [ADR-0007](adr/0007-managed-institution-administration.md).
-La Fase 7 será emisión segura sin blockchain con backend, PDF privado, SHA-256
+La Fase 7 entrega emisión segura sin blockchain con backend, PDF privado, SHA-256
 e idempotencia; los RPC de fase 6 no escriben certificados ni implementan PDF.
 
 ## Estructura Flutter
@@ -88,14 +89,29 @@ Regla de dependencias: `presentation → domain ← data`. El dominio no depende
 
 Los nombres representan responsabilidades; no obligan a crear una clase por método.
 
-## Flujo de emisión previsto (pendiente)
+## Flujo de emisión vigente sin blockchain
 
-Primero se implementará emisión segura sin blockchain: autorización de sesión y
+7A–7D implementan emisión segura sin blockchain: autorización de sesión y
 membresía, `verification_status = 'verified'` al persistir, destinatario válido,
 PDF validado/privado, SHA-256 de sus bytes finales e idempotencia durable con
-recuperación ante fallos de Storage/base de datos. Creará estado `active` y
-conservará inmutables sus datos finales. Las migraciones necesarias de integridad
-e idempotencia precederán a la apertura del endpoint; véase [SECURE_ISSUANCE.md](SECURE_ISSUANCE.md).
+recuperación ante fallos de Storage/base de datos. Publica estado `active` y
+conserva inmutables sus datos finales. Reserva y publicación transaccionales
+rodean las operaciones Storage; véase [SECURE_ISSUANCE.md](SECURE_ISSUANCE.md).
+
+## Backend público 8A
+
+Verificador sin sesión → POST verify-certificate → consumo de presupuesto
+compartido en PostgreSQL → entrada JSON cerrada → lookup_public_certificate.
+Solo el backend posee service_role; ambos RPC técnicos tienen EXECUTE exclusivo.
+La consulta enlaza certificado/operación completed/institución y proyecta campos
+públicos. Un instante servidor evalúa resultados. No accede a Auth, membresías
+del verificador ni Storage; no descarga ni compara PDFs por petición.
+
+El limitador serializa una fila privada, usa reloj servidor tras el lock y no
+depende de cabeceras o IP. El backend consume antes de validar para cubrir los
+POST desconocidos/inválidos y falla cerrado ante problemas de infraestructura.
+No hay cambios Flutter en 8A. Contrato y límites:
+[PUBLIC_VERIFICATION.md](PUBLIC_VERIFICATION.md), [ADR-0011](adr/0011-public-registry-verification.md).
 
 El flujo posterior con blockchain será:
 

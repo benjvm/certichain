@@ -54,14 +54,14 @@ demostrar restricciones de `authenticated`:
 - una institución no lee ni revoca certificados de otra;
 - ningún cliente emite ni revoca por INSERT/UPDATE, incluidos `issuer`, `admin`,
   `owner` y `platform_admin`, con institución `pending`, `verified` o `suspended`;
-- anónimo no obtiene filas privadas (el DTO público sigue pendiente);
+- anónimo no obtiene filas privadas (8A expone exclusivamente el DTO mediante Edge);
 - preservar SELECT del titular, membresía institucional y administrador global;
 - rechazar upsert, borrado y TRUNCATE, sin alterar certificados existentes.
 
 El enum real de membresías solo incluye `owner`, `admin`, `issuer`; `viewer`
 es una propuesta futura. 7A prueba Storage, formato y reservas persistentes;
-validación estructural PDF, concurrencia del endpoint, verificación pública y
-backend de emisión/revocación corresponden a incrementos posteriores.
+7B–7D añaden validación PDF, concurrencia y backend de emisión; 8A incorpora
+verificación pública. El nuevo flujo de revocación permanece pendiente.
 
 `supabase db reset` debe reconstruir el esquema completo y cargar seeds sin intervención manual.
 
@@ -253,9 +253,9 @@ pruebas de PDF, Storage, emisión, revocación, verificación pública o blockch
 Usa ubuntu-24.04, permisos contents:read, checkout sin persistir credenciales,
 Supabase local y CLI fijada a 2.117.0. No exige SUPABASE_ACCESS_TOKEN, project ref,
 service_role remoto ni secrets del repositorio; no enlaza un proyecto remoto.
-Ejecuta start, reset, las 500 pruebas SQL (468 de 7A, 25 de 7B y 7 de 7C), formato/lint/
+Ejecuta start, reset, las 557 pruebas SQL (500 de 7A–7C y 57 de 8A), formato/lint/
 tipos/tests de funciones, HTTP de emisión/recuperación y Storage, concurrencia,
-ambos scripts de preservación histórica y
+los tres scripts de preservación histórica y
 lint de public/certichain_private con `--fail-on warning`, y detiene el stack
 en always(). No usa continue-on-error ni silencia fallos con `|| true`.
 
@@ -790,9 +790,90 @@ ejecutar en Windows por la limitación CanvasKit descrita en 7C. Chrome sí ejec
 los builds locales del harness E2E y del probe de adaptadores. No se confunden
 esas ejecuciones con una prueba del runner Flutter que no se pudo ejecutar.
 
-Los cambios 7D quedan locales: **sin commit/push ni ejecución CI nueva observada**.
-El único CI de 7C acreditado aquí es 37206437013, success en database/flutter.
-No se atribuye a 7D. Las capacidades ya entregadas siguen válidas hasta 60 s;
+El cierre de 7D cuenta con **evidencia previamente observada** en la
+[ejecución 37218682263](https://github.com/benjvm/certichain/actions/runs/37218682263),
+database y flutter completed/success. La consulta de sus jobs durante 8A confirmó
+esos estados; no se ejecutó un nuevo CI ni se atribuye esa ejecución a 8A.
+Las capacidades ya entregadas siguen válidas hasta 60 s;
 la limpieza sigue siendo operativa explícita y requiere volver a conciliar subidas
 tardías. No se añade limitación de tasa distribuida. QR/verificación pública,
 blockchain y un nuevo flujo de revocación permanecen fuera de alcance.
+
+## Incremento 8A — backend público del registro
+
+Completado localmente el 04/10/2026 desde HEAD
+`dcda200fa9afb5b5e24f2733b91a1bcc8176da32`, repositorio inicialmente limpio.
+Se añadieron archivos y una migración; no se retrocedió el checkout ni se
+modificaron migraciones compartidas. No hay cambios Flutter ni dependencias nuevas.
+
+Entorno: Windows, Node 22.14.0, Supabase CLI 2.117.0, Deno 2.2.12,
+PostgreSQL 17.6 local. Se crearon stacks independientes fuera del repositorio,
+con project_id propio y puertos 55320–55329/9083; el habitual certichain siguió
+activo en 54321/54322. Start y db reset reconstruyeron nueve migraciones. El
+preparador final se ejecutó con -Start y validó reconstrucción/HTTP en otro
+proyecto aislado nuevo. No se reseteó ni se aplicó 8A al entorno habitual.
+
+| Comprobación ejecutada | Resultado real local |
+|---|---|
+| Reconstrucción / reset | PASS, nueve migraciones; seed.sql ausente, sin datos inventados |
+| Suite SQL completa | **557 PASS**, conserva 500 y añade 57 de 8A |
+| Deno fmt --check / lint / check frozen / test | PASS, **44 tests** (28 anteriores + 16 nuevos); tres entrypoints comprobados |
+| public_verification_http.mjs | **296 aserciones PASS**, petición real sin sesión, Authorization ni apikey |
+| issuance_http.mjs | **368 aserciones PASS**, Auth/Edge/Storage/recuperación anteriores |
+| issuance_hardening.mjs | **135 aserciones PASS**, 14 publicaciones, corpus/carga 8 457 193 bytes, 16,96 s |
+| private_storage.mjs | PASS, denegación anon/authenticated, MIME/límite, objeto y bytes conservados |
+| certificate_pdf_http.mjs | **92 aserciones PASS**, autorización, firmas independientes y caducidad real de capacidad |
+| institution_concurrency.mjs | **14 carreras PASS**, ocho institucionales y seis de emisión |
+| Preservación migraciones 5 / 7A / 8A | PASS, los tres scripts; históricos/códigos/datos privados/Storage intactos |
+| Lint public,certichain_private | PASS con fail-on warning, sin incidencias propias |
+| Reconciliador local | PASS, cola vacía; 0 cleaned/protected/busy/pending |
+| Preparador descartable | PASS, -Start real, código de funciones copiado sin cambiar bytes, sin estado CLI privado |
+| node --check / git diff --check | PASS |
+
+La suite nueva SQL ejerce grants y roles reales, SELECT técnico, ausencia mínima,
+históricos/finalizing/hash incoherente, prioridad y frontera exacta de expiración
+con microsegundos. Los vínculos ilegales se rechazan por las guardas existentes;
+no se desactivan para crear casos de revocación/caducidad. Los fixtures de fechas
+pasadas se insertan en secuencia finalizing → completed con fechas coherentes.
+La clasificación usa el mismo helper privado que prueba la igualdad exacta.
+
+El harness HTTP reutiliza el fixture de 7D, pero consulta el endpoint con fetch
+sin cabeceras de autenticación. Prueba campo cerrado, UUID/caso/MIME/JSON/tipos,
+stream excesivo sin Content-Length, OPTIONS/métodos/CORS/no-store, metadatos
+privados ausentes, fechas y todos los resultados. PostgreSQL retiene el lock
+de la fila del limitador y se observan **cuatro backends esperando realmente**
+antes de liberar: uno obtiene el último cupo y tres 429. Se comprueban 60
+concesiones exactas, agotamiento, Retry-After, renovación moviendo el reloj del
+fixture y ausencia de evasión por query/cabeceras/cuerpo. No hay pausas largas
+para probar ventanas. El test de TTL PDF anterior conserva su espera real.
+
+Revocar temporalmente EXECUTE técnico del lookup y retirar la fila del presupuesto
+producen 503 HTTP mínimo; no not_found ni permiso ilimitado. Grants/fila se restauran
+en finally. Estos cambios de fixture requieren CERTICHAIN_TEST_DISPOSABLE=1 y API
+loopback comprobada; no existen hooks de fallos nuevos en el endpoint público.
+Se comparan la fila completa del certificado/legado y bytes privados antes/después;
+el teardown existente comprueba ausencia de recursos propios. Los harness serve
+son secuenciales. Una primera ejecución de preservación 7A se solapó por error
+con emisión y abortó por deadlock; se repitieron los tres scripts secuencialmente
+con éxito. Ese intento no se cuenta como PASS.
+
+Durante revisión se detectó que `$` en RegExp JavaScript puede aceptar un salto
+final; se añadió longitud exacta 36 tanto en contrato como SQL y regresiones
+unitarias/SQL/HTTP. Un cuerpo upstream excesivo se trata como fallo técnico 503,
+no como 413 del solicitante. Las últimas cifras corresponden a estas correcciones.
+
+Reproducción y comandos completos en
+[PUBLIC_VERIFICATION.md](PUBLIC_VERIFICATION.md). Para calidad de funciones desde
+la raíz original, usar los comandos exactos de `.github/workflows/database.yml`:
+incluyen el nuevo entrypoint y harness y conservan versiones/SHA fijados,
+lock frozen, SQL, emisión, Storage, PDF, preservación, concurrencia y todos los
+checks Flutter anteriores. El harness público se añade como paso secuencial en
+el stack efímero del runner con la marca descartable explícita. No usa secretos
+remotos ni desactiva JWT de otros endpoints.
+
+No se volvió a ejecutar Flutter/E2E Web/nativos en esta entrega porque sus
+archivos no cambian; sus checks CI se conservan y la evidencia 7D previamente
+observada está documentada arriba. No se atribuye esa ejecución a 8A. No se
+ejecutó push, merge, despliegue ni nuevo GitHub Actions. 8B–8D quedan pendientes.
+Presupuesto global solo para demo local; verificación normal comprueba evidencia
+persistida, no bytes actuales de Storage, identidad del presentador ni blockchain.

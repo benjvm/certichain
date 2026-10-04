@@ -94,7 +94,7 @@ terminó correctamente. No se ha aplicado
 a un proyecto remoto ni asignado un administrador real. Las comprobaciones
 operativas/manuales del bootstrap siguen a cargo del operador.
 
-### Fase 7 — Emisión segura sin blockchain (en curso)
+### Fase 7 — Emisión segura sin blockchain (entregada)
 
 Depende de la administración institucional de fase 6. 7A y 7B entregan backend
 autorizado, PDF privado con validación real y límites, SHA-256 de bytes finales,
@@ -153,18 +153,36 @@ véase [SECURE_ISSUANCE.md](SECURE_ISSUANCE.md). No incluye todavía blockchain.
   simultáneas. Corregida la entrega de lecturas institucionales tras cambiar o
   renovar sesión, con regresiones unitarias y respuestas reales retenidas.
   Build Android y diálogos nativos en emulador comprobados; iOS, dispositivos
-  físicos y emisión completa nativa no verificados. Workflow ampliado, CI de 7D
-  todavía no observado. Evidencias, comandos y límites en [TESTING.md](TESTING.md).
+  físicos y emisión completa nativa no verificados. Workflow ampliado; cierre de
+  7D acreditado por evidencia previamente observada:
+  [ejecución 37218682263](https://github.com/benjvm/certichain/actions/runs/37218682263),
+  database/flutter success. No es CI de 8A.
+  Evidencias, comandos y límites en [TESTING.md](TESTING.md).
   Sin migraciones nuevas ni despliegue remoto; QR, verificación pública,
   blockchain y nuevo flujo de revocación siguen fuera del alcance.
 
+### Fase 8 — Verificación pública incremental
+
+- **8A — contrato y backend público seguro: completada localmente el 04/10/2026.**
+  Reutiliza credential_code UUID único/inmutable, consulta técnica service_role
+  con evidencia completed/coherente, DTO v1 cerrado y sin titular/PDF/hash.
+  Prioridad revoked > expired inclusivo > issuer_unavailable > valid; ausencia
+  uniforme. POST público sin JWT/apikey y presupuesto global atómico 60/60 s,
+  fail closed, una fila privada sin IP/eventos. SQL/Deno/HTTP y workflow ampliados.
+  No se despliega al remoto. Contrato: [PUBLIC_VERIFICATION.md](PUBLIC_VERIFICATION.md).
+  Reconstrucción de nueve migraciones; 557 SQL (500 anteriores + 57), 44 Deno
+  (28 anteriores + 16), 296 aserciones HTTP públicas, regresiones HTTP 7B/7C/7D,
+  Storage, 14 carreras, tres pruebas de preservación y lint propio superados.
+  Entorno habitual preservado; no hay CI nuevo de 8A observado, push ni merge.
+- **8B pendiente:** pantalla de consulta por código y tratamiento UX del contrato.
+- **8C pendiente:** QR, enlaces navegables y escáner.
+- **8D pendiente:** comparación privada de copia PDF y pruebas integrales del flujo.
+
 ### Orden recomendado de los incrementos posteriores (pendientes)
 
-1. Fase 7: emisión segura sin blockchain: backend autorizado, PDF privado, validación
-   real, SHA-256 de bytes finales, idempotencia y recuperación de fallos parciales.
-2. Verificación pública y QR: interfaz mínima, privacidad y límites de abuso.
-3. Anclaje blockchain: contrato, adaptador de backend, estados e idempotencia.
-4. Revocación completa y endurecimiento: backend, sincronización blockchain,
+1. Completar 8B–8D: interfaz pública, QR/copia, privacidad y límites de abuso.
+2. Anclaje blockchain: contrato, adaptador de backend, estados e idempotencia.
+3. Revocación completa y endurecimiento: backend, sincronización blockchain,
    reconciliación, seguridad, recuperación y pruebas del recorrido completo.
 
 ## Etapas conceptuales del MVP

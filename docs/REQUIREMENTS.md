@@ -7,8 +7,10 @@ Las empresas verifican credenciales mediante documentos fáciles de alterar y pr
 ## Actores
 
 Las capacidades siguientes describen el MVP objetivo. Tras Fase 6 se conservan
-Auth y las lecturas de wallet/detalle 4D; emisión y revocación siguen cerradas
-en la API de tablas, y sus flujos de backend permanecen pendientes.
+Auth y las lecturas de wallet/detalle 4D. 7A–7D entregan emisión autenticada,
+PDF privado, recuperación y cliente institucional. Escrituras directas siguen
+cerradas; el flujo de revocación permanece pendiente. 8A añade backend público
+por código, todavía sin pantalla, QR ni blockchain.
 
 | Actor | Capacidades del MVP |
 |---|---|
@@ -74,11 +76,17 @@ en la API de tablas, y sus flujos de backend permanecen pendientes.
 
 ### RF-05 Verificación pública
 
-- Buscar por código o URL obtenida del QR.
-- Responder `valid`, `revoked`, `expired`, `pending`, `not_found` o `integrity_mismatch`.
-- Mostrar únicamente los campos públicos aprobados.
+- 8A: POST público por `credential_code` UUID, sin cuenta o sesión.
+- Responder `revoked`, `expired`, `issuer_unavailable`, `valid` en ese orden
+  para publicaciones elegibles; `not_found` para evidencia ausente/incompleta.
+- Mostrar exclusivamente el contrato v1 de [PUBLIC_VERIFICATION.md](PUBLIC_VERIFICATION.md).
+- Un instante servidor para caducidad y checked_at; expiración inclusiva.
+- Presupuesto compartido global 60 POST/60 s, incluso entradas inválidas;
+  agotamiento 429 y fallo técnico 503, nunca ausencia fabricada.
 - No requerir descarga del PDF para una comprobación normal.
-- Permitir opcionalmente subir una copia para comparar su SHA-256 sin conservarla.
+- 8B–8D pendientes: pantalla pública, QR/enlaces/escáner y comparación de copia
+  sin conservarla. `integrity_mismatch` requerirá su contrato posterior;
+  `pending` no existe sin un proceso blockchain real.
 
 ### RF-06 Revocación
 

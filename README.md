@@ -1,6 +1,6 @@
 # CertiChain
 
-Aplicación móvil para emitir, custodiar y verificar títulos y certificados digitales. Los documentos y metadatos privados viven fuera de la blockchain; la cadena almacena únicamente la prueba de integridad y el estado de revocación.
+Aplicación móvil para emitir, custodiar y verificar títulos y certificados digitales. Los documentos y metadatos privados viven fuera de la blockchain; el futuro anclaje EVM registrará únicamente evidencia de integridad y revocación.
 
 ## Objetivo del MVP
 
@@ -65,21 +65,26 @@ flutter create --org com.benjvm --project-name certichain .
 - [Modelo de datos](docs/DATABASE.md)
 - [Integración blockchain](docs/BLOCKCHAIN.md)
 - [Seguridad](docs/SECURITY.md)
-- [Contrato futuro de emisión y revocación confiables](docs/SECURE_ISSUANCE.md)
+- [Contrato vigente de emisión y acceso privado al PDF](docs/SECURE_ISSUANCE.md)
+- [Contrato y backend público de verificación 8A](docs/PUBLIC_VERIFICATION.md)
 - [Pruebas](docs/TESTING.md)
 - [Flujo de desarrollo](docs/DEVELOPMENT.md)
 - [Hoja de ruta](docs/ROADMAP.md)
 - [Wallet y detalle autenticados](docs/STUDENT_WALLET.md)
 - [Fundamentos visuales Flutter y referencia Figma](docs/FLUTTER_UI_FOUNDATIONS.md)
-- [Registro de decisiones](docs/adr/README.md)
+- [Registro de decisiones](docs/ADR_README.md)
 
 ## Estado
 
-Entregadas la fase 4D de Flutter y la Fase 5 de autorización. 4D: autenticación,
-Inicio, wallet y consulta de perfil
-con datos reales; fundamentos visuales de Figma y detalle del certificado
-restringido al titular. Emisión, aprobación institucional, PDF, QR, verificación
-pública y blockchain siguen pendientes. Fase 5 cierra emisión y revocación
-directas en Supabase, conserva lecturas y documenta el backend futuro; no
-implementa esos flujos. El objetivo del MVP superior describe
-el producto futuro; no afirma que esos flujos ya funcionen.
+Entregadas Auth/wallet/detalle, autorización, administración institucional y
+7A–7D: emisión autenticada sin blockchain, PDF privado, SHA-256, idempotencia,
+recuperación, interfaz institucional y descarga autorizada. El cierre de 7D
+cuenta con evidencia de CI previamente observada en la
+[ejecución 37218682263](https://github.com/benjvm/certichain/actions/runs/37218682263).
+Esa ejecución no acredita los cambios nuevos de 8A.
+
+8A añade backend público por `credential_code`, proyección mínima y presupuesto
+global PostgreSQL, exclusivamente local. Estado y pruebas en
+[PUBLIC_VERIFICATION.md](docs/PUBLIC_VERIFICATION.md) y [TESTING.md](docs/TESTING.md).
+Pantalla, QR/enlaces, escáner/comparación de copia (8B–8D), blockchain y nuevo
+flujo de revocación siguen pendientes. No se han desplegado estos cambios.
