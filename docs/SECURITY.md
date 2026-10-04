@@ -210,3 +210,11 @@ filenames ni metadatos personales. Son preferencias sin cifrado, evidencia míni
 que se descarta al vencer. La UI destruye datos visibles al cambiar de
 cuenta/401 y no inicia una emisión nueva como si fuera recuperación exacta.
 Detalles y riesgos en [ADR-0010](adr/0010-institutional-client-and-document-capabilities.md).
+
+7D añade barreras de sesión a las lecturas institucionales: una identidad o token
+distintos, o sesión vencida, impiden devolver resultados obtenidos previamente.
+El E2E local conserva respuestas reales durante cambios de institución, cuenta
+y renovación para comprobar que no se presentan datos anteriores. No amplía
+permisos ni altera la ventana de una capacidad PDF ya entregada. Los fixtures
+privilegiados, firma de JWT vencido y conciliación se ejecutan exclusivamente
+en el runner local; claves administrativas y de firma nunca llegan al cliente.

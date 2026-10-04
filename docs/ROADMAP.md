@@ -139,10 +139,24 @@ véase [SECURE_ISSUANCE.md](SECURE_ISSUANCE.md). No incluye todavía blockchain.
   (las 493 anteriores + 7), 28 tests Deno, 368 aserciones HTTP de 7B, 86 nuevas
   del PDF, Storage, 14 carreras y preservación histórica. Flutter incluye pruebas
   de dominio, adaptadores, widgets y tamaños/texto ampliado; resultados de Chrome
-  y build en [TESTING.md](TESTING.md). Workflow ampliado, sin CI observado de
-  estos cambios 7C ni despliegue remoto. Decisiones en
+  y build en [TESTING.md](TESTING.md). CI observado el 04/10/2026 para el commit
+  `7830bf56af61344ee7011bac9b594630bea11c00`:
+  [ejecución 37206437013](https://github.com/benjvm/certichain/actions/runs/37206437013),
+  jobs `database` y `flutter` completed/**success**. Sin despliegue remoto. Decisiones en
   [ADR-0010](adr/0010-institutional-client-and-document-capabilities.md).
-- **7D — pruebas integrales y endurecimiento del flujo: pendiente.**
+- **7D — pruebas integrales y endurecimiento del flujo: entregada localmente
+  el 04/10/2026.** Flutter Web usa Auth, Edge y Storage reales: estados
+  institucionales, validación, envío único, pérdida de respuesta, recibo y
+  reconstrucción con la misma clave, wallet correcta y PDF privado íntegro.
+  Barreras de PostgreSQL para doble envío/takeover; comprobación de filas,
+  objetos y hashes finales; compatibilidad PDF y carga de hasta cuatro peticiones
+  simultáneas. Corregida la entrega de lecturas institucionales tras cambiar o
+  renovar sesión, con regresiones unitarias y respuestas reales retenidas.
+  Build Android y diálogos nativos en emulador comprobados; iOS, dispositivos
+  físicos y emisión completa nativa no verificados. Workflow ampliado, CI de 7D
+  todavía no observado. Evidencias, comandos y límites en [TESTING.md](TESTING.md).
+  Sin migraciones nuevas ni despliegue remoto; QR, verificación pública,
+  blockchain y nuevo flujo de revocación siguen fuera del alcance.
 
 ### Orden recomendado de los incrementos posteriores (pendientes)
 

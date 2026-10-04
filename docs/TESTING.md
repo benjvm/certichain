@@ -594,12 +594,205 @@ adaptadores nativos; decisiones/alternativas en FLUTTER_ARCHITECTURE.md.
 
 CI ampliado conserva el job de base local y añade endpoint PDF; otro job Flutter
 fija SDK al commit anterior, pub get --enforce-lockfile, formato/analyze/tests,
-tests Chrome y ambos builds. No exige credenciales Supabase remotas. Solo se ha
-observado CI exitoso de 7B (enlace anterior); **no se afirma CI de 7C**, cambios
-sin push. No se ejecutó despliegue, migración remota ni almacenamiento remoto.
+tests Chrome y ambos builds. No exige credenciales Supabase remotas. El 04/10/2026
+se consultaron los jobs de la [ejecución 37206437013](https://github.com/benjvm/certichain/actions/runs/37206437013)
+mediante el conector GitHub: `database` y `flutter`, completed/**success**, con
+todos sus pasos de validación correctos, para el commit 7C publicado
+`7830bf56af61344ee7011bac9b594630bea11c00`. Esta evidencia sustituye la falta de CI
+registrada al entregar 7C; no acredita cambios posteriores de 7D.
+No se ejecutó despliegue, migración remota ni almacenamiento remoto.
 
 No se probaron dispositivos físicos Android/iOS, builds APK/IPA, diálogos nativos
 reales, lectores de pantalla ni el recorrido humano completo con varias cuentas
 en un navegador. 7D debe añadir E2E completo, pruebas nativas, carga/abuso,
 compatibilidad PDF y endurecimiento operativo. QR, verificación pública,
 blockchain, invitaciones por email y revocación no forman parte de 7C.
+
+## Incremento 7D — recorrido completo y endurecimiento local
+
+Ejecutado el 04/10/2026 desde main `7830bf56af61344ee7011bac9b594630bea11c00`:
+Windows, Flutter/Dart 3.47.4/3.13.3, Node 22.14.0, CLI 2.117.0, Deno 2.2.12,
+Chrome headless aislado y Supabase local. No hay migraciones nuevas ni despliegue
+remoto. La evidencia de CI de 7C está en el apartado anterior; estos resultados
+7D corresponden a ejecución local.
+
+### Cobertura y reproducción
+
+`local_issuance_fixture.mjs` crea usuarios por Auth y obtiene sesiones con password
+real, ejecuta `admin/grant_platform_admin.sql` con UUID confirmado/contador y usa
+RPC administrativos para instituciones verified/pending/suspended y miembros.
+Todo es sintético y solo se acepta API loopback:54321. Arranca su propio
+`functions serve` con JWT habilitado. El token de fallos vive en un archivo temporal
+fuera del repo; credenciales/JWK permanecen en memoria del runner. El navegador
+recibe clave pública, cuentas sintéticas y un JWT vencido de prueba, nunca claves
+técnicas ni de firma. La firma original ES256 de Auth se verifica con su clave
+del contenedor local antes de cambiar exp y firmar el fixture vencido.
+
+`mobile/tool/secure_issuance_browser.dart` monta **CertiChainApp y adaptadores de
+producción**, no mocks. LiveWidgetController pulsa controles y introduce texto
+por EditableText; DataTransfer alimenta el selector HTML real. El transporte
+observa peticiones y retiene/descarta respuestas reales, sin fabricarlas:
+
+- Estados institucionales bloqueados; ID inexistente, PDF inválido rechazado por
+  el parser real y +1 byte sobre 8 MiB bloqueado antes de HTTP, con estados UI.
+- Dos pulsaciones, respuesta de publicación descartada y recibo persistido;
+  reconstrucción incorrecta bloqueada, reconstrucción exacta obtiene completed
+  con la misma clave/ID y elimina el recibo. Una sola fila/operación/objeto final,
+  SHA-256 y huella Dart/backend coincidentes, metadatos y wallet del titular correctos.
+- INSERT directo en certificates y create/replace/delete Storage denegados para
+  emisor, titular y ajeno; filas y bytes posteriores intactos. Un DELETE 200 vacío
+  de Storage se evalúa por su efecto real, no como autorización.
+- Respuesta de listado retenida al cambiar institución; respuesta del backend
+  retenida al cambiar identidad y membresías retenidas al renovar token. No
+  reaparecen resultados anteriores. Baja de miembro elimina listado; ajeno no
+  recibe detalle/PDF ni acceso institucional.
+- Titular ve emisión y legado propio; legado sin PDF tiene estado indisponible.
+  Tras suspensión, dos acciones solicitan autorización nueva y guardan Blob con
+  bytes exactos, sin navegar ni enviar JWT a la capacidad. Un JWT correctamente
+  firmado pero vencido obtiene 401 del gateway y destruye sesión/rutas visibles.
+
+El runner `.mjs` sirve exclusivamente loopback, crea Chrome con perfil temporal,
+comprueba estado final en PostgreSQL y Storage y escanea el build por la clave
+service_role local. Los fallos de interfaz se diagnostican solo con etiquetas
+de prueba, sin cuerpos, capacidades ni credenciales. Espera estados reales de UI,
+fin de animación, hit testing y llegada de respuestas; no usa pausas como evidencia
+de éxito. Plazo global Web 240 s; cada espera UI/barrera <=25 s.
+
+`issuance_hardening.mjs` conserva la batería HTTP 7B y añade negativos con
+institución pending/suspended, sin membresía, plataforma sin membresía y rol global
+institution_admin insuficiente, titular inexistente/no holder/no confirmado,
+documento inválido, +1 byte y JWT vencido. No existe un rol institucional inferior
+a issuer en este esquema; no se inventa uno para la prueba.
+
+Dos barreras de fila institucional detienen cuatro solicitudes cada una: emisión
+con la misma clave y takeover tras upload con lease vencido. Se observan **los
+cuatro backends esperando lock en pg_stat_activity** antes de liberar. Estado final:
+un certificado/operación/objeto por clave, enlaces/actor/titular y hashes correctos;
+el takeover conserva ID/huella/bytes y cambia token. Cambiar metadatos o PDF causa
+conflicto sin reemplazo. Limpieza fallida mantiene objeto y cleanup_pending;
+reintento del reconciliador deja failed, cero certificados y ausencia real del
+objeto. Se espera que acaben todas las peticiones antes del teardown.
+
+Compatibilidad sintética: xref clásico PDF 1.4/1.7 con texto Helvetica e Info
+Unicode, 100 páginas y Flate de 16 MiB descomprimidos aceptados; 101 páginas,
+16 MiB +1 descomprimidos y PDF 2.0 rechazados. La batería 7B conserva cifrado,
+acciones/adjuntos, corrupción, codecs/object streams y 8 MiB exactos/+1.
+Carga nueva: 12 solicitudes inválidas en lotes de cuatro y ocho válidas de 1 MiB
+en dos lotes de cuatro. Presupuesto: <=4 simultáneas, <16 MiB enviados en el
+corpus/carga medido y <180 s, timeout HTTP 30 s. No es un rate limiter ni una prueba
+de denegación de servicio sostenida, antivirus o compatibilidad universal.
+
+`certificate_pdf_http.mjs` añade firma posterior al iat real (otra URL), y comprueba
+que una capacidad ya concedida conserva bytes después de la baja hasta su TTL.
+Storage firma a segundos: firmas independientes en el mismo segundo pueden ser
+iguales. Se mantienen respuesta mínima, no-store del endpoint, permisos actuales,
+TTL real de 60 s y rechazo HTTP tras 64 s. No se promete revocación instantánea.
+
+Teardown: Storage DELETE por API para rutas de operaciones fixture, SQL confiable
+local con locks exclusivos/guardas restauradas para retirar solo UUID propios,
+Auth DELETE con confirmación de ausencia (también si su respuesta se pierde).
+Se comprueban cero certificados, operaciones, objetos, instituciones y usuarios
+del fixture. Nunca se modifica storage.objects por SQL. Se retiran token temporal
+y perfil Chrome aun si falla la prueba; el reset limpio elimina restos de intentos
+de desarrollo anteriores. Los harness de funciones se ejecutan secuencialmente.
+
+Desde la raíz, después de arrancar el stack local:
+
+```powershell
+npx --no-install supabase db reset --local
+npx --no-install supabase test db --local
+npx --yes deno@2.2.12 fmt --check supabase/functions supabase/tests/*.mjs supabase/scripts/local_supabase.mjs supabase/admin/reconcile_issuance.mjs mobile/tool/secure_issuance_browser.mjs
+npx --yes deno@2.2.12 lint supabase/functions
+npx --yes deno@2.2.12 check --frozen --config supabase/functions/deno.json supabase/functions/issue-certificate/index.ts supabase/functions/certificate-pdf/index.ts
+npx --yes deno@2.2.12 test --frozen --config supabase/functions/deno.json supabase/functions
+node supabase/tests/issuance_http.mjs
+node supabase/tests/issuance_hardening.mjs
+node supabase/tests/private_storage.mjs
+node supabase/tests/certificate_pdf_http.mjs
+node supabase/tests/institution_concurrency.mjs
+powershell -NoProfile -ExecutionPolicy Bypass -File supabase/tests/verify_certificate_migration.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File supabase/tests/verify_private_issuance_migration.ps1
+npx --no-install supabase db lint --local --schema 'public,certichain_private' --level warning --fail-on warning
+node supabase/admin/reconcile_issuance.mjs --local
+cd mobile
+dart format --output=none --set-exit-if-changed lib test tool
+flutter analyze
+flutter test
+flutter build web --no-web-resources-cdn --target=tool/secure_issuance_browser.dart --output=build/secure-issuance-e2e
+node tool/secure_issuance_browser.mjs
+flutter build web
+flutter build apk --debug
+```
+
+El comando fmt equivalente con lista explícita, sin expansión de wildcard, está
+en database.yml y se ejecutó así en Windows. `node --check` en scripts afectados
+y `git diff --check` completan la comprobación. No usar --linked ni claves remotas.
+
+### Resultados finales ejecutados
+
+| Comprobación | Evidencia local |
+|---|---|
+| Reset / SQL | Exit 0, ocho migraciones y **500/500 PASS** |
+| Deno formato/lint/check frozen/tests | Exit 0, **28/28**, conserva todos los anteriores |
+| Emisión HTTP 7B | Exit 0, **368 aserciones** |
+| Hardening 7D | Exit 0, **135 aserciones**, 14 publicaciones/objetos íntegros; 8 457 193 bytes en corpus/carga; 17,2 s; lotes 4×1 MiB: 1,30/1,26 s |
+| Storage privado | Exit 0, denegaciones API, límites y bytes intactos |
+| PDF HTTP | Exit 0, **92 aserciones**, firma nueva y vencimiento efectivo incluidos |
+| Concurrencia institucional/emisión | Exit 0, **14 carreras**, locks observados y denegación/aborto comprobados |
+| Preservación histórica (ambos scripts) | Exit 0, filas históricas intactas y revocación histórica posible |
+| Lint public,certichain_private / reconciliador | Exit 0, sin incidencias propias / cola vacía |
+| Flutter unitarias/adaptadores/widgets | Exit 0, **121 PASS**, una antigua opt-in omitida; cinco regresiones nuevas de sesión |
+| Flutter Web E2E | Exit 0, **69 aserciones Flutter +29 host**, backend real, estado final y teardown comprobados |
+| Formato/análisis Dart y Web de main | Exit 0, 79 archivos sin cambios de formato, análisis sin incidencias y build Web de producción |
+| Probe Chrome anterior de 7C | Exit 0 sobre build real: selector/cancelación, 8 MiB exactos/+1, bytes, Blob, sin navegación y revocación de URL |
+| Android build de main | Exit 0, APK debug; adaptadores nativos compilados |
+| Android diálogos reales | Exit 0 en Pixel_2, Android API 34; cancelación, selección, guardado y bytes finales exactos |
+
+La regresión de readIssued falló antes de la corrección: devolvía CertificateWallet
+después de logout/renovación. También iniciaba HTTP sin sesión y readMemberships
+aceptaba la respuesta de un token anterior del mismo usuario. Ahora se compara
+identidad/token/caducidad al iniciar y recibir; no cambian SELECT ni permisos.
+Los tests anteriores y la UI permanecen; no se añadieron dependencias.
+
+### Android e iOS: alcance efectivo
+
+Se detectó Pixel_2 y se arrancó sin ventana. El probe nativo usa **adapters y
+diálogos reales**, sin sustituir file_picker. Es un vector sintético de diez bytes
+con extensión .pdf para probar transporte/guardado; no valida estructura PDF ni
+reproduce Auth/emisión nativa. UIAutomator pulsa el diálogo del sistema y ADB
+extrae el archivo guardado para compararlo. Solo se instala si com.example.mobile
+no existía; se elimina ese probe y sus archivos UUID propios al terminar.
+
+Con dispositivo de prueba ya arrancado y desde mobile:
+
+```powershell
+flutter build apk --debug --target=tool/pdf_native_smoke.dart
+./tool/pdf_native_smoke.ps1 -Serial emulator-5554
+```
+
+El script es opt-in local, requiere ADB y sistema en inglés, no forma parte del CI
+Linux sin dispositivo. No se comprobaron teléfonos físicos, permisos/diálogos de
+otros fabricantes, emisión completa Android, iOS/build IPA/diálogos iOS (sin
+macOS/Xcode/dispositivo), lectores de pantalla ni todos los generadores/lectores PDF.
+Estas comprobaciones **no se declaran PASS**. La prueba nativa de adaptadores
+unitaria con sustituto del plugin se conserva, diferenciada del probe real.
+
+### CI 7D y límites pendientes
+
+database.yml conserva reset, SQL, funciones, HTTP, Storage, PDF/TTL, concurrencia,
+preservación y lint; añade hardening y el build/E2E Flutter Web sobre **ese mismo
+stack local**. Mantiene el job Flutter separado con pruebas, Chrome y builds
+anteriores. Fija el mismo SDK/CLI/Node/Deno y no necesita secretos remotos.
+El job database dispone de 40 minutos por la instalación adicional del SDK.
+
+El runner Flutter `--platform chrome` se conserva para CI Linux; no se volvió a
+ejecutar en Windows por la limitación CanvasKit descrita en 7C. Chrome sí ejecutó
+los builds locales del harness E2E y del probe de adaptadores. No se confunden
+esas ejecuciones con una prueba del runner Flutter que no se pudo ejecutar.
+
+Los cambios 7D quedan locales: **sin commit/push ni ejecución CI nueva observada**.
+El único CI de 7C acreditado aquí es 37206437013, success en database/flutter.
+No se atribuye a 7D. Las capacidades ya entregadas siguen válidas hasta 60 s;
+la limpieza sigue siendo operativa explícita y requiere volver a conciliar subidas
+tardías. No se añade limitación de tasa distribuida. QR/verificación pública,
+blockchain y un nuevo flujo de revocación permanecen fuera de alcance.

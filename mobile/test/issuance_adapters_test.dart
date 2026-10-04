@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -107,6 +108,9 @@ void main() {
           200,
           headers: {'content-type': 'application/json'},
         );
+      }
+      if (request.url.path.endsWith('/logout')) {
+        return http.Response('{}', 200);
       }
       final response = await action(request);
       return http.Response.bytes(
@@ -329,6 +333,48 @@ void main() {
         .readIssued(institutionId);
     expect(result.total, 72);
     expect(result.certificates.single.holderId, holderId);
+  });
+  for (final memberships in [false, true]) {
+    for (final change in ['logout', 'renewal']) {
+      test(
+        'institutional ${memberships ? 'memberships' : 'issued'} discards response after $change',
+        () async {
+          final arrived = Completer<void>();
+          final release = Completer<http.Response>();
+          action = (_) {
+            arrived.complete();
+            return release.future;
+          };
+          final repository = SupabaseInstitutionRepository(client);
+          final result = memberships
+              ? repository.readMemberships(actorId)
+              : repository.readIssued(institutionId);
+          final denied = expectLater(result, throwsFormatException);
+          await arrived.future;
+          if (change == 'logout') {
+            await client.auth.signOut(scope: SignOutScope.local);
+          } else {
+            token = '${token}renewed';
+            await client.auth.signInWithPassword(
+              email: 'fixture@example.invalid',
+              password: 'synthetic',
+            );
+          }
+          release.complete(
+            http.Response('[]', 200, headers: {'content-range': '*/0'}),
+          );
+          await denied;
+        },
+      );
+    }
+  }
+  test('issued list without a valid session never starts HTTP', () async {
+    await client.auth.signOut(scope: SignOutScope.local);
+    action = (_) async => throw StateError('Must not query');
+    await expectLater(
+      SupabaseInstitutionRepository(client).readIssued(institutionId),
+      throwsFormatException,
+    );
   });
   test('document requests a fresh URL every action, exact bytes, no JWT on capability GET', () async {
     var signs = 0;

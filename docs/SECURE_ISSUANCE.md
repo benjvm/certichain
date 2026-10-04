@@ -1,4 +1,4 @@
-# Emisión privada autenticada — Fases 7B y 7C
+# Emisión privada autenticada — Fases 7B, 7C y 7D
 
 ## Estado y límite de confianza
 
@@ -304,3 +304,32 @@ pide una nueva, descarga bytes y la descarta. Chrome descarga un Blob temporal
 sin navegar a la URL firmada; Android/iOS usan el diálogo de guardado nativo.
 No se persiste ni se añade a modelo/ruta/historial. No se ofrece una preview.
 Véase [ADR-0010](adr/0010-institutional-client-and-document-capabilities.md).
+
+## Endurecimiento y evidencia local 7D
+
+Las lecturas de membresías y certificados emitidos capturan identidad y token
+vigentes antes de la petición y los comprueban, junto con la caducidad, después.
+Una respuesta obtenida bajo otra sesión, incluso del mismo usuario tras renovar
+el token, se descarta. El widget sustituye futuros al refrescar o seleccionar
+otra institución; el navegador ligado a identidad elimina las rutas anteriores.
+Esto no cambia SELECT/RLS ni revoca datos ya descargados por un usuario autorizado.
+
+La prueba Web usa el mismo cliente, UI, repositorios, preferencias y adaptadores
+de producción con cuentas sintéticas. El runner local ejecuta el bootstrap
+administrativo y comprueba PostgreSQL/Storage, sin enviar claves técnicas a Flutter.
+Solo retiene o descarta respuestas **ya obtenidas del backend real** para probar
+aislamiento y recuperación; no fabrica respuestas ni sustituye servicios.
+
+Compatibilidad y carga son pruebas del subconjunto PDF documentado, con fixtures
+sintéticos y límites explícitos, no un benchmark de producción ni una promesa
+para todos los generadores PDF. Los leases se vencen mediante SQL confiable del
+fixture; el valor de producción continúa en 120 segundos. El caso de JWT vencido
+conserva claims/algoritmo/kid de Auth real y verifica la firma original antes de
+firmar una expiración pasada con la clave del **contenedor local**, solo en memoria
+del runner. El gateway real rechaza ese token; no se desactiva verify_jwt.
+
+Las nuevas descargas siempre solicitan autorización/firma. Storage firma con
+precisión de segundos: dos firmas dentro del mismo segundo pueden producir la
+misma cadena; cruzando el `iat` real se comprueba otra URL, TTL de 60 segundos,
+no-store del endpoint y caducidad efectiva. No se amplía el alcance de esa capacidad.
+Comandos, resultados, límites de plataformas y CI observado en [TESTING.md](TESTING.md).

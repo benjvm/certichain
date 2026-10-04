@@ -8,6 +8,7 @@ import {
   sql,
 } from "../scripts/local_supabase.mjs";
 import { pdfFixture } from "./pdf_fixture.mjs";
+import { until } from "./local_issuance_fixture.mjs";
 
 const local = localStatus();
 const run = randomUUID();
@@ -216,6 +217,28 @@ try {
     );
     capability = r.data.signed_url;
   }
+  const firstFresh = await document(holder, id);
+  const firstClaims = JSON.parse(
+    Buffer.from(
+      new URL(firstFresh.data.signed_url, local.API_URL).searchParams.get(
+        "token",
+      ).split(".")[1],
+      "base64url",
+    ),
+  );
+  // Storage signs at second precision; independent sign requests within one
+  // second may yield equal JWTs. Cross the actual iat, then prove freshness.
+  await until(
+    () => Math.floor(Date.now() / 1000) > firstClaims.iat,
+    "new capability signing second",
+    3000,
+  );
+  const nextFresh = await document(holder, id);
+  check(
+    nextFresh.response.status === 200 &&
+      nextFresh.data.signed_url !== firstFresh.data.signed_url,
+    "New authorization produces a fresh capability, no cached previous URL",
+  );
   const foreign = await document(outsider, id),
     missing = await document(holder, randomUUID());
   const legacy = randomUUID();
@@ -253,6 +276,12 @@ try {
   check(
     (await document(issuer, id)).response.status === 404,
     "Removed member denied fresh URL",
+  );
+  const previousCapability = await fetch(new URL(capability, local.API_URL));
+  check(
+    previousCapability.ok &&
+      Buffer.from(await previousCapability.arrayBuffer()).equals(pdfFixture()),
+    "Already issued capacity remains valid after member removal until its TTL",
   );
   await rpc("set_institution_status", {
     p_institution: inst,

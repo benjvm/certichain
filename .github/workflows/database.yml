@@ -11,7 +11,7 @@ permissions:
 jobs:
   database:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -33,14 +33,19 @@ jobs:
         run: supabase test db --local
       - name: Function formatting, lint, types and unit tests
         run: |
-          npx --yes deno@2.2.12 fmt --check supabase/functions supabase/tests/issuance_http.mjs supabase/tests/certificate_pdf_http.mjs supabase/scripts/local_supabase.mjs supabase/tests/pdf_fixture.mjs supabase/tests/institution_concurrency.mjs supabase/tests/private_storage.mjs supabase/admin/reconcile_issuance.mjs
+          npx --yes deno@2.2.12 fmt --check supabase/functions supabase/tests/issuance_http.mjs supabase/tests/certificate_pdf_http.mjs supabase/scripts/local_supabase.mjs supabase/tests/pdf_fixture.mjs supabase/tests/institution_concurrency.mjs supabase/tests/private_storage.mjs supabase/admin/reconcile_issuance.mjs supabase/tests/local_issuance_fixture.mjs supabase/tests/issuance_hardening.mjs mobile/tool/secure_issuance_browser.mjs
           npx --yes deno@2.2.12 lint supabase/functions
           npx --yes deno@2.2.12 check --frozen --config supabase/functions/deno.json supabase/functions/issue-certificate/index.ts supabase/functions/certificate-pdf/index.ts
           npx --yes deno@2.2.12 test --frozen --config supabase/functions/deno.json supabase/functions
           node --check supabase/tests/issuance_http.mjs
           node --check supabase/admin/reconcile_issuance.mjs
+          node --check supabase/tests/local_issuance_fixture.mjs
+          node --check supabase/tests/issuance_hardening.mjs
+          node --check mobile/tool/secure_issuance_browser.mjs
       - name: Issuance HTTP and recovery with real local Auth
         run: node supabase/tests/issuance_http.mjs
+      - name: Issuance barriers, PDF compatibility and bounded abuse
+        run: node supabase/tests/issuance_hardening.mjs
       - name: Private Storage HTTP tests
         run: node supabase/tests/private_storage.mjs
       - name: Authorized PDF HTTP and actual capability expiry
@@ -55,6 +60,17 @@ jobs:
         run: ./supabase/tests/verify_private_issuance_migration.ps1
       - name: Lint project schemas
         run: supabase db lint --local --schema public,certichain_private --level warning --fail-on warning
+      - name: Install pinned Flutter for the full local UI journey
+        run: |
+          git clone --depth 1 --branch 3.47.4 https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter"
+          test "$(git -C "$RUNNER_TEMP/flutter" rev-parse HEAD)" = 9584c6713b324636289d067944a46fd6b49df14b
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+      - name: Flutter Web UI, real Auth, Edge, Storage and PostgreSQL
+        working-directory: mobile
+        run: |
+          flutter pub get --enforce-lockfile
+          flutter build web --no-web-resources-cdn --target=tool/secure_issuance_browser.dart --output=build/secure-issuance-e2e
+          node tool/secure_issuance_browser.mjs
       - name: Diff whitespace
         run: git diff --check
       - name: Stop local Supabase

@@ -61,3 +61,13 @@ recuperación puede mejorar el recorrido, pero no es imprescindible para este MV
 No se implementan aprobación institucional en Flutter, revocación, verificación pública,
 QR, blockchain, invitaciones ni publicación remota. Validación local y límites de
 dispositivos/CI en [TESTING.md](../TESTING.md).
+
+## Validación adicional 7D — 04/10/2026
+
+La decisión se conserva. Se cierra una carencia de implementación en el adaptador
+institucional: readIssued no comprobaba sesión al recibir la respuesta y
+readMemberships solo comparaba usuario. Ambas lecturas ahora capturan token e
+identidad y descartan respuestas si cambian o caducan. El E2E Web retiene respuestas
+del backend local real y verifica cambio de institución/cuenta/renovación, además
+de respuesta de emisión perdida, reconstrucción del recibo y descarga íntegra.
+No se añade otra capa ni dependencia; pruebas y límites reales en TESTING.md.
