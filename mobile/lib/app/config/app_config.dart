@@ -6,6 +6,18 @@ class AppConfig {
     required this.supabasePublishableKey,
     bool allowLocalHttp = false,
   }) {
+    validateBackendUrl(supabaseUrl, allowLocalHttp: allowLocalHttp);
+    if (!_isPublicKey(supabasePublishableKey)) {
+      throw const FormatException(
+        'SUPABASE_PUBLISHABLE_KEY ausente o no válida; usa una clave pública publishable/anon.',
+      );
+    }
+  }
+
+  static void validateBackendUrl(
+    String supabaseUrl, {
+    bool allowLocalHttp = false,
+  }) {
     final uri = Uri.tryParse(supabaseUrl);
     final local =
         uri != null &&
@@ -19,11 +31,6 @@ class AppConfig {
             !(allowLocalHttp && local && uri.scheme == 'http'))) {
       throw const FormatException(
         'SUPABASE_URL ausente o no válida; usa HTTPS o HTTP local en debug.',
-      );
-    }
-    if (!_isPublicKey(supabasePublishableKey)) {
-      throw const FormatException(
-        'SUPABASE_PUBLISHABLE_KEY ausente o no válida; usa una clave pública publishable/anon.',
       );
     }
   }

@@ -135,3 +135,30 @@ explícito sin previsualización ficticia. Los ID largos son seleccionables y se
 ajustan; scroll y Wrap mantienen acciones accesibles en 390×844, 360×800 y
 320×568 con texto ×1/×2. Capturas con Inter real en
 mobile/build/phase7c-review/ (ignoradas); resultados en [TESTING.md](TESTING.md).
+
+## Pantalla pública y QR — 8B
+
+Se conserva Inter local, AppTheme/tokens, AppTopBar, AppButton y ReadLoading.
+Se revisaron la captura de detalle Figma 4:176 y el collage original: el QR
+ilustrativo se sustituye por un enlace real; no hay preview de PDF ni prueba
+blockchain inventada. La pantalla pública conserva cabecera, espacios y tarjeta
+de resultado, sin navegación privada de estudiante.
+
+Formulario con UUID, foco/teclado, carga, resultado y errores separados.
+Resultados con palabra e icono además de color; verde oscuro de tokens para
+vigencia. Fechas UTC explicadas y código seleccionable. Verificar, Actualizar
+comprobación y Consultar otro código son explícitos y alcanzables por scroll.
+Estados y confirmación de copia son regiones semánticas vivas.
+
+Panel del detalle con QR negro/blanco, máximo 280 px, zona libre de cuatro
+módulos, código/enlace seleccionables y confirmación de copia. Se elimina con
+cambios de sesión o al salir. Sin hoja nativa, QR ficticio o detalles técnicos
+en el producto.
+
+Pruebas con Inter: 320×568, 360×800, 390×844 y 1280×900, texto ×1/×2, sin overflow
+y acciones alcanzables. Capturas Chrome reales a 390×844 revisadas en
+mobile/build/public-verification-e2e/public-390.png y share-390.png; QR
+decodificado independientemente. No se afirma auditoría con lectores de
+pantalla ni revisión en dispositivos físicos. Este apartado sustituye los
+pendientes QR/compartir/verificación pública históricos de 4D/7C. Escáner y
+comparación de copia quedan en 8C.

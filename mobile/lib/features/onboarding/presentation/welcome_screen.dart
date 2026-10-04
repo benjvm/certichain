@@ -12,9 +12,10 @@ import '../../../core/widgets/certichain_logo.dart';
 import 'widgets/welcome_illustration.dart';
 
 class WelcomeScreen extends StatelessWidget {
-  const WelcomeScreen({super.key, this.onStart});
+  const WelcomeScreen({super.key, this.onStart, this.onVerify});
 
   final VoidCallback? onStart;
+  final VoidCallback? onVerify;
 
   @override
   Widget build(BuildContext context) {
@@ -60,6 +61,11 @@ class WelcomeScreen extends StatelessWidget {
                       ),
                       const Spacer(),
                       const _PageIndicator(),
+                      if (onVerify != null)
+                        TextButton(
+                          onPressed: onVerify,
+                          child: const Text('Verificar certificado'),
+                        ),
                       const SizedBox(height: AppSpacing.large),
                       SizedBox(
                         width: double.infinity,

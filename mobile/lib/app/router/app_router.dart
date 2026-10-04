@@ -7,6 +7,8 @@ import '../../features/auth/domain/auth_repository.dart';
 import '../../features/certificates/domain/certificate_repository.dart';
 import '../../features/certificates/presentation/certificate_detail_screen.dart';
 import '../../features/certificates/domain/certificate_document_repository.dart';
+import '../../features/verification/domain/verification_repository.dart';
+import '../../features/verification/domain/verification_link.dart';
 
 enum AuthenticatedSection { home, wallet, profile }
 
@@ -24,6 +26,9 @@ abstract final class AppRouter {
     required CertificateRepository repository,
     CertificateDocumentRepository? documents,
     VoidCallback? onSessionExpired,
+    CredentialRepository? credentials,
+    VerificationLink? verificationLink,
+    Listenable? sessionChanges,
   }) => MaterialPageRoute<void>(
     settings: RouteSettings(
       name: certificateDetailRoute,
@@ -35,19 +40,23 @@ abstract final class AppRouter {
       repository: repository,
       documents: documents,
       onSessionExpired: onSessionExpired,
+      credentials: credentials,
+      verificationLink: verificationLink,
+      sessionChanges: sessionChanges,
     ),
   );
 
   static Route<void> onGenerateRoute(
     RouteSettings settings,
-    AuthRepository repository,
-  ) {
+    AuthRepository repository, {
+    VoidCallback? onVerify,
+  }) {
     return MaterialPageRoute<void>(
       settings: settings,
       builder: (_) => switch (settings.name) {
         loginRoute => LoginScreen(repository: repository),
         registerRoute => RegisterScreen(repository: repository),
-        _ => const WelcomeScreen(),
+        _ => WelcomeScreen(onVerify: onVerify),
       },
     );
   }

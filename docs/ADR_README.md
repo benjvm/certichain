@@ -64,6 +64,9 @@ Decisiones aceptadas de emisión y documentos:
 Verificación pública del registro y presupuesto compartido:
 [ADR-0011](adr/0011-public-registry-verification.md).
 
+Navegación pública Web y compartición autorizada 8B:
+[ADR-0012](adr/0012-public-web-navigation-and-credential-sharing.md).
+
 1. `0001-use-supabase-initially.md`.
 2. `0002-feature-first-clean-boundaries.md`.
 3. `0003-version-database-with-migrations.md`.

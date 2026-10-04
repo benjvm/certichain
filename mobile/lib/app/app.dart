@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/constants/app_constants.dart';
 import 'router/app_router.dart';
+import 'router/public_router.dart';
 import 'theme/app_theme.dart';
 import '../features/auth/domain/auth_repository.dart';
 import '../features/auth/presentation/auth_controller.dart';
@@ -11,109 +12,156 @@ import 'authenticated_area.dart';
 import '../features/institutions/domain/institution_repository.dart';
 import '../features/issuance/domain/issuance_repository.dart';
 import '../features/certificates/domain/certificate_document_repository.dart';
+import '../features/verification/domain/verification_repository.dart';
+import '../features/verification/domain/verification_link.dart';
 
 class CertiChainApp extends StatefulWidget {
   const CertiChainApp({
-    required this.authRepository,
-    required this.profileRepository,
-    required this.certificateRepository,
+    this.authRepository,
+    this.profileRepository,
+    this.certificateRepository,
     this.institutionRepository,
     this.issuanceRepository,
     this.pdfPicker,
     this.pendingStore,
     this.documents,
+    this.verification,
+    this.credentials,
+    this.verificationLink,
+    this.startupMessage,
     super.key,
   });
-  final AuthRepository authRepository;
-  final ProfileRepository profileRepository;
-  final CertificateRepository certificateRepository;
+  final AuthRepository? authRepository;
+  final ProfileRepository? profileRepository;
+  final CertificateRepository? certificateRepository;
   final InstitutionRepository? institutionRepository;
   final IssuanceRepository? issuanceRepository;
   final PdfPicker? pdfPicker;
   final PendingAttemptStore? pendingStore;
   final CertificateDocumentRepository? documents;
-
+  final VerificationRepository? verification;
+  final CredentialRepository? credentials;
+  final VerificationLink? verificationLink;
+  final String? startupMessage;
   @override
   State<CertiChainApp> createState() => _CertiChainAppState();
 }
 
 class _CertiChainAppState extends State<CertiChainApp> {
-  late AuthController _auth;
-
+  AuthController? _auth;
+  late final PublicRouter _router;
+  GlobalKey<NavigatorState> _privateKey = GlobalKey<NavigatorState>();
+  Object? _privateIdentity;
   @override
   void initState() {
     super.initState();
-    _auth = AuthController(widget.authRepository);
+    if (widget.authRepository != null) {
+      _auth = AuthController(widget.authRepository!);
+    }
+    _router = PublicRouter(root: _root, repository: () => widget.verification);
   }
 
   @override
   void didUpdateWidget(CertiChainApp oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.authRepository != widget.authRepository) {
-      _auth.dispose();
-      _auth = AuthController(widget.authRepository);
+      _auth?.dispose();
+      _auth = widget.authRepository == null
+          ? null
+          : AuthController(widget.authRepository!);
     }
   }
 
   @override
   void dispose() {
-    _auth.dispose();
+    _auth?.dispose();
+    _router.dispose();
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => MaterialApp.router(
+    title: AppConstants.appName,
+    debugShowCheckedModeBanner: false,
+    theme: AppTheme.light,
+    routerDelegate: _router,
+    routeInformationParser: const PublicRouteParser(),
+  );
+
+  Widget _root(BuildContext context) {
+    final auth = _auth;
+    if (auth == null) {
+      return _unavailable(
+        widget.startupMessage ?? 'Preparando acceso privado…',
+      );
+    }
     return ListenableBuilder(
-      listenable: _auth,
-      builder: (context, _) => MaterialApp(
-        // Replacing the navigator discards every route and form from the old session.
-        key: ValueKey((_auth.status, _auth.session?.userId)),
-        title: AppConstants.appName,
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.light,
-        initialRoute: AppRouter.initialRoute,
-        onGenerateRoute: _auth.status == AuthStatus.unauthenticated
-            ? (settings) =>
-                  AppRouter.onGenerateRoute(settings, widget.authRepository)
-            : null,
-        home: switch (_auth.status) {
-          AuthStatus.unauthenticated => null,
-          AuthStatus.authenticated => AuthenticatedArea(
-            controller: _auth,
-            userId: _auth.session!.userId,
-            profiles: widget.profileRepository,
-            certificates: widget.certificateRepository,
-            institutions: widget.institutionRepository,
-            issuance: widget.issuanceRepository,
-            picker: widget.pdfPicker,
-            pendingStore: widget.pendingStore,
-            documents: widget.documents,
-          ),
-          AuthStatus.initializing => const Scaffold(
-            body: Center(
-              child: CircularProgressIndicator(
-                semanticsLabel: 'Restaurando sesión',
-              ),
-            ),
-          ),
-          AuthStatus.error => Scaffold(
-            body: SafeArea(
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(_auth.message ?? 'No se pudo restaurar la sesión.'),
-                    TextButton(
-                      onPressed: _auth.inspectSession,
-                      child: const Text('Reintentar'),
-                    ),
-                  ],
+      listenable: auth,
+      builder: (context, _) {
+        final identity = (auth.status, auth.session?.userId);
+        if (_privateIdentity != identity) {
+          _privateIdentity = identity;
+          _privateKey = GlobalKey<NavigatorState>();
+        }
+        _router.privateNavigator = _privateKey;
+        return Navigator(
+          key: _privateKey,
+          onGenerateRoute: (settings) {
+            if (auth.status == AuthStatus.unauthenticated) {
+              return AppRouter.onGenerateRoute(
+                settings,
+                widget.authRepository!,
+                onVerify: widget.verification == null
+                    ? null
+                    : _router.showVerification,
+              );
+            }
+            return MaterialPageRoute<void>(
+              settings: settings,
+              builder: (_) => switch (auth.status) {
+                AuthStatus.authenticated => AuthenticatedArea(
+                  controller: auth,
+                  userId: auth.session!.userId,
+                  profiles: widget.profileRepository!,
+                  certificates: widget.certificateRepository!,
+                  institutions: widget.institutionRepository,
+                  issuance: widget.issuanceRepository,
+                  picker: widget.pdfPicker,
+                  pendingStore: widget.pendingStore,
+                  documents: widget.documents,
+                  credentials: widget.credentials,
+                  verificationLink: widget.verificationLink,
+                  onVerify: _router.showVerification,
                 ),
-              ),
-            ),
-          ),
-        },
-      ),
+                AuthStatus.initializing => _unavailable('Restaurando sesión'),
+                _ => _unavailable(
+                  auth.message ?? 'No se pudo restaurar la sesión.',
+                  retry: auth.inspectSession,
+                ),
+              },
+            );
+          },
+        );
+      },
     );
   }
+
+  Widget _unavailable(String message, {VoidCallback? retry}) => Scaffold(
+    body: SafeArea(
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(message),
+            if (retry != null)
+              TextButton(onPressed: retry, child: const Text('Reintentar')),
+            TextButton(
+              onPressed: _router.showVerification,
+              child: const Text('Verificar certificado'),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }

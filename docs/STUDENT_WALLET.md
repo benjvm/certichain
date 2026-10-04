@@ -153,3 +153,31 @@ La navegación destruye borradores/URLs visibles ante cambio de cuenta o 401.
 Solo hay recibos mínimos de emisión pendientes separados por identidad;
 recuperación y límites en [SECURE_ISSUANCE.md](SECURE_ISSUANCE.md).
 Pruebas locales actuales y limitaciones de dispositivos en [TESTING.md](TESTING.md).
+
+## Compartición propia y verificación pública — 8B
+
+Inicio autenticado y bienvenida ofrecen Verificar certificado. /verify y
+/verify/<credential_code> son públicos con/sin sesión, con hash en Web y sin
+navegación privada. Router exterior conserva URL/resultado durante Auth;
+Navigator privado se destruye por identidad/estado. Logout no permite recuperar
+rutas, formularios ni QR privados mediante atrás.
+
+Detalle ofrece Mostrar QR y enlace con base Web válida. CredentialRepository
+obtiene id, holder_id, credential_code e issuance_operation_id con filtros
+explícitos id/holder_id. Revalida usuario/token/vencimiento antes y después; no
+consulta perfiles ajenos ni operación técnica. El vínculo protegido de 7B
+habilita compartición; legados sin vínculo no reciben enlace. El código público
+difiere de certificates.id. Caducidad/revocación/suspensión no cambian el UUID;
+el endpoint devuelve estado y elegibilidad definitivos al abrirlo.
+
+QR, código y enlace seleccionable en el detalle; Copiar enlace confirma
+semánticamente. Cambiar cuenta/token/sesión retira el panel y descarta lectura
+anterior. Sin persistencia de códigos o respuestas. PDF con bytes intactos.
+La selección separada no cambia las lecturas de wallet/detalle ni sus grants.
+
+Sin PUBLIC_VERIFICATION_BASE_URL válido se explica la indisponibilidad de
+compartir; consulta manual pública disponible. Sin QR ficticio ni ID interno
+sustituto. Web local con puerto 7357, localhost solo en ese equipo. Sin Universal
+Links/App Links nativos. Pendientes actuales: escáner/comparación de copia (8C),
+endurecimiento completo (8D), paginación, categorías, edición de perfil,
+revocación nueva y blockchain.

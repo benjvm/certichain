@@ -877,3 +877,120 @@ observada está documentada arriba. No se atribuye esa ejecución a 8A. No se
 ejecutó push, merge, despliegue ni nuevo GitHub Actions. 8B–8D quedan pendientes.
 Presupuesto global solo para demo local; verificación normal comprueba evidencia
 persistida, no bytes actuales de Storage, identidad del presentador ni blockchain.
+
+## Incremento 8B — interfaz pública, enlaces Web y QR local
+
+Completado localmente el 04/10/2026 sobre el checkout actual que partía limpio de
+`e3f42255c459e57e73f16b9677722add7590227e`. Se conserva la evidencia 8A anterior.
+El reparto autorizado sitúa pantalla/enlace/QR en 8B, escáner y comparación de
+copia en 8C, pruebas integrales/endurecimiento completo en 8D. Estos dos últimos
+incrementos permanecen pendientes. No hay nuevas migraciones, cambios del
+contrato v1, permisos o límite global 60/60 s. El PDF publicado no se transforma.
+
+Entorno ejecutado: Windows, Flutter 3.47.4/Dart 3.13.3, Node 22.14.0,
+Supabase CLI 2.117.0, Deno 2.2.12 y Chrome headless real. Backend en un proyecto
+descartable distinto, puerto API 55321, nueve migraciones de fuentes locales.
+El stack habitual certichain sigue en 54321; no se reseteó ni se modificaron sus
+datos, reloj o presupuesto. Los harness de funciones se ejecutaron secuencialmente.
+
+| Comprobación ejecutada | Resultado local |
+|---|---|
+| dart format / flutter analyze | PASS, sin incidencias |
+| flutter test completo | **157 PASS**, un test opt-in anterior omitido; conserva regresiones Auth, wallet, emisión y PDF |
+| Diseño con Inter local | PASS en 320×568, 360×800, 390×844 y 1280×900, escala ×1/×2, scroll y acciones alcanzables |
+| QR renderizado, decoder independiente jsqr | PASS, recupera exactamente la URL esperada |
+| Harness público Web + adaptadores de producción | **52 aserciones PASS**, 14 POST públicos observados en Chrome real |
+| Regresión Web 7D sobre el stack descartable | **69 aserciones Flutter y 29 del host PASS**, Auth/Edge/PostgreSQL/Storage/PDF reales |
+| Probe Web anterior de PDF | PASS, selector/cancelación/8 MiB/bytes/Blob/revocación URL, sin navegación |
+| Build Web release de main.dart | PASS, sin depender de CDN para recursos Web |
+| SQL completo | **557 PASS** |
+| Funciones fmt/lint/check frozen/test | PASS, **44 tests**; los tres entrypoints |
+| Regresión HTTP pública 8A | **296 aserciones PASS**, también repetida después de ajustar el helper de preparación |
+| Lint de public y certichain_private | PASS, sin incidencias |
+| Preparador final con -Start en Windows PowerShell 5.1 | PASS, nuevo proyecto; fuentes de funciones/migraciones idénticas, cierre sin backup |
+
+Las pruebas nuevas unitarias usan fakes/MockClient deliberadamente para fechas,
+contratos malformados, tamaño, timeout/red/429/503, ausencia de cabeceras privadas,
+UUID y base Web; controlador y widgets cubren doble envío, edición, respuestas
+fuera de orden, dispose, reintento manual, espera Retry-After, copia semántica,
+histórico sin enlace y cambio de cuenta/token/caducidad. El adaptador autenticado
+se ejerce con SupabaseClient real y transporte sustituido, verificando proyección
+y ambos filtros. Estas pruebas no se presentan como HTTP integral.
+
+El harness nuevo sí monta CertiChainApp y los repositorios de producción con
+Auth/Edge/PostgreSQL/Storage reales. Publica un PDF sintético con el endpoint 7B,
+consulta como anónimo, prueba ausencia, expiración histórica válida, emisor
+suspendido y revocación mediante fixtures SQL autorizados y con constraints.
+Un EXECUTE retirado/restaurado en finally provoca 503; la sesión privada sigue
+vigente. No hay endpoint público simulado ni cambio de reloj/contador en este
+harness. Se comparan los bytes privados originales al terminar.
+
+Chrome captura las cabeceras de red efectivas: cada POST contiene exclusivamente
+credential_code, sin Authorization, apikey ni Cookie. El titular obtiene un
+código diferente de certificates.id, muestra QR, copia realmente al clipboard y
+abre el enlace en otro BrowserContext sin sesión. Un decoder independiente
+recupera el enlace del QR pintado por Flutter. Se comprueban entrada directa,
+recarga, atrás/adelante, restauración/Auth existente, rebuild sin HTTP adicional,
+logout sin recuperar detalle privado, histórico sin QR y exclusión de otro titular.
+Las capturas public-390.png/share-390.png fueron inspeccionadas visualmente.
+
+Además sirve un build debug de **main.dart real**, sin SUPABASE_PUBLISHABLE_KEY,
+en /production/; la pantalla pública funciona con SUPABASE_URL válido y conserva
+código/resultado tras recarga. Se comprueba semántica del resultado y un único
+POST por arranque/recarga. Esta prueba se distingue del entrypoint instrumentado.
+
+El runner `flutter test --platform chrome` se intentó en Windows y se interrumpió
+al no completar la inicialización de suites; **no se declara PASS**. Se mantiene
+en CI Linux, ahora también para el contrato/adaptador público. La limitación de
+CanvasKit del SDK Windows ya está registrada en 7C. Los builds/harness Chrome
+anteriores sí completaron sus comprobaciones, sin modificar el SDK. Android,
+iOS y lectores de pantalla humanos no se ejecutaron en 8B ni se declaran PASS.
+
+El helper compartido espera ahora que issue-certificate responda 400 a un cuerpo
+vacío autenticado antes de iniciar fixtures: calienta imports sin reservar,
+publicar o consultar el endpoint público. Corrige fallos de arranque frío
+observados en los intentos iniciales; no aumenta los timeouts de producción.
+El preparador transmite el resolver de CLI por stdin para conservar comillas
+con Windows PowerShell 5.1. Solo cambian herramientas de pruebas, no backend.
+
+### Reproducción de las pruebas nuevas
+
+Desde mobile, las pruebas unitarias y el decoder:
+
+```powershell
+flutter pub get --enforce-lockfile
+dart format --output=none --set-exit-if-changed lib test tool
+flutter analyze
+$env:CERTICHAIN_QR_CAPTURE='build/phase8b-qr.png'
+flutter test
+Push-Location tool
+npm ci --ignore-scripts
+node verify_qr.mjs ../build/phase8b-qr.png http://localhost:7357/#/verify/e42f105a-a36b-40de-8326-47da5749eae3
+Pop-Location
+flutter build web --no-web-resources-cdn
+```
+
+Preparar/arrancar un **nuevo** stack con prepare_disposable_local.ps1 según
+PUBLIC_VERIFICATION.md. No usar el habitual para los siguientes fixtures. Desde
+mobile, con el path devuelto por el preparador en la variable de entorno:
+
+```powershell
+$env:CERTICHAIN_TEST_DISPOSABLE='1'
+$env:CERTICHAIN_TEST_BACKEND_ROOT='C:/ruta/al/stack-descartable'
+flutter build web --no-web-resources-cdn --target=tool/public_verification_browser.dart --output=build/public-verification-e2e
+flutter build web --debug --no-web-resources-cdn --base-href=/production/ --dart-define=SUPABASE_URL=http://127.0.0.1:55321 --dart-define=PUBLIC_VERIFICATION_BASE_URL=http://127.0.0.1:7357/production/ --output=build/public-verification-main
+node tool/public_verification_browser.mjs
+```
+
+Requiere npm ci anterior y Chrome instalado (CHROME_EXECUTABLE opcional).
+El runner usa puerto fijo 7357, sirve solo loopback, levanta/termina functions
+serve y elimina su perfil Chrome/fixtures propios. El stack se detiene con
+`supabase stop --no-backup --workdir C:/ruta/al/stack-descartable`; no elimina el
+checkout del usuario. En CI el stack efímero original usa 54321: el workflow
+conserva todas las comprobaciones previas y configura ese puerto en el build de
+main. No se ejecutó un GitHub Actions nuevo, push, merge o despliegue remoto.
+
+Para uso manual con una publicación propia, comandos de Chrome y pasos en
+[PUBLIC_VERIFICATION.md](PUBLIC_VERIFICATION.md) y README. La clave local es
+publishable/anon, nunca service_role. localhost solo sirve en el mismo equipo;
+no se entregan enlaces móviles nativos, escáner ni comparación de archivos.

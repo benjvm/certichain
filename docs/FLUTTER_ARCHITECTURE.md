@@ -142,3 +142,36 @@ la app no copia el PDF a preferencias. La recuperación requiere reselección de
 original. Los harness Web utilizan los mismos adaptadores de producción y APIs DOM estándar. Revisar seguridad/compatibilidad y probar Chrome,
 Android/iOS al cambiar versiones; límites y decisión estructural en
 [ADR-0010](adr/0010-institutional-client-and-document-capabilities.md).
+
+## Verificación y compartición — 8B
+
+features/verification separa dominio Dart puro (resultado, registro, fallos,
+VerificationRepository, CredentialRepository, normalización y VerificationLink),
+data (HttpVerificationRepository y SupabaseCredentialRepository) y presentation
+(VerificationController, VerificationScreen y CredentialShare/VerificationQr).
+main compone el HTTP público antes de inicializar Auth y actualiza dependencias
+privadas del mismo CertiChainApp. No cambia framework: ChangeNotifier,
+StatefulWidget/FutureBuilder como los recorridos existentes.
+
+MaterialApp.router/RouterDelegate/RouteInformationParser estándar controlan dos
+rutas públicas Web con hash e historial. El Navigator privado queda anidado,
+ligado a estado/identidad; el Router delega atrás al Navigator privado cuando
+corresponde. Auth cambia ese navegador, nunca el público. El cambio estructural
+se documenta en [ADR-0012](adr/0012-public-web-navigation-and-credential-sharing.md).
+
+Transporte público independiente del SDK: body cerrado, petición abortable de
+15 segundos y respuesta real máxima 8192 bytes. Errores públicos no invalidan Auth.
+Generaciones protegen ediciones, respuestas fuera de orden y dispose. Fechas
+UTC, estado del servidor y sin preferencias de consultas.
+
+El código se obtiene con SELECT propio de cuatro campos, filtros id/holder_id
+y barrera usuario/token/caducidad. El vínculo 7B diferencia legados; no se consulta
+su tabla técnica. QR en panel del detalle ligado a la sesión. Base Web separada,
+validada y URL hash centralizada; falta de base no bloquea el formulario público.
+
+Nueva dependencia: **qr 4.0.0** exacta, generador Dart mantenido; el painter solo
+representa su matriz/margen de cuatro módulos. Flutter no incluye codificador QR;
+mantener uno propio sería innecesario. Sin cámara/escáner. tool/package.json/lock
+fijan jsqr 1.4.0/pngjs 7.0.0 para decodificación independiente, fuera del binario.
+Actualizar exige comprobar decodificación, margen, contraste y Web. Fuentes y
+alternativas en ADR-0012.

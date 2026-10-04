@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -12,48 +14,102 @@ import 'features/issuance/data/supabase_issuance_repository.dart';
 import 'features/issuance/data/platform_pdf_picker.dart';
 import 'features/issuance/data/pending_attempt_preferences.dart';
 import 'features/certificates/data/supabase_certificate_document_repository.dart';
+import 'features/verification/data/http_verification_repository.dart';
+import 'features/verification/data/supabase_credential_repository.dart';
+import 'features/verification/domain/verification_link.dart';
 
-Future<void> main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  try {
-    final config = AppConfig.fromEnvironment(allowLocalHttp: kDebugMode);
-    final supabase = await Supabase.initialize(
-      url: config.supabaseUrl,
-      publishableKey: config.supabasePublishableKey,
-      debug: false,
-      authOptions: const FlutterAuthClientOptions(detectSessionInUri: false),
+  runApp(const CertiChainBootstrap());
+}
+
+/// Mount public navigation before any private SDK initialization/restoration.
+class CertiChainBootstrap extends StatefulWidget {
+  const CertiChainBootstrap({super.key});
+  @override
+  State<CertiChainBootstrap> createState() => _CertiChainBootstrapState();
+}
+
+class _CertiChainBootstrapState extends State<CertiChainBootstrap> {
+  HttpVerificationRepository? _verification;
+  VerificationLink? _link;
+  SupabaseAuthRepository? _auth;
+  SupabaseProfileRepository? _profiles;
+  SupabaseCertificateRepository? _certificates;
+  SupabaseInstitutionRepository? _institutions;
+  SupabaseIssuanceRepository? _issuance;
+  SupabaseCertificateDocumentRepository? _documents;
+  SupabaseCredentialRepository? _credentials;
+  final _picker = PlatformPdfPicker();
+  final _store = PendingAttemptPreferences();
+  String? _message;
+  @override
+  void initState() {
+    super.initState();
+    const api = String.fromEnvironment('SUPABASE_URL');
+    try {
+      AppConfig.validateBackendUrl(api, allowLocalHttp: kDebugMode);
+      _verification = HttpVerificationRepository(apiUrl: api);
+    } on FormatException {
+      _message = 'Configuración del servicio no válida.';
+    }
+    _link = VerificationLink.tryCreate(
+      const String.fromEnvironment('PUBLIC_VERIFICATION_BASE_URL'),
+      allowLocalHttp: kDebugMode,
     );
-    runApp(
-      CertiChainApp(
-        authRepository: SupabaseAuthRepository(supabase.client),
-        profileRepository: SupabaseProfileRepository(supabase.client),
-        certificateRepository: SupabaseCertificateRepository(supabase.client),
-        institutionRepository: SupabaseInstitutionRepository(supabase.client),
-        issuanceRepository: SupabaseIssuanceRepository(
-          supabase.client,
-          apiUrl: config.supabaseUrl,
-          publicKey: config.supabasePublishableKey,
-        ),
-        pdfPicker: PlatformPdfPicker(),
-        pendingStore: PendingAttemptPreferences(),
-        documents: SupabaseCertificateDocumentRepository(
-          supabase.client,
-          apiUrl: config.supabaseUrl,
-          publicKey: config.supabasePublishableKey,
-        ),
-      ),
-    );
-  } catch (error) {
-    // Never print SDK payloads or configuration values during failed startup.
-    final message = error is FormatException
-        ? 'Configuración de Auth no válida. Revisa SUPABASE_URL y SUPABASE_PUBLISHABLE_KEY.'
-        : 'No se pudo iniciar la autenticación. Reinicia la aplicación.';
-    runApp(
-      MaterialApp(
-        home: Scaffold(
-          body: SafeArea(child: Center(child: Text(message))),
-        ),
-      ),
-    );
+    unawaited(_initialize());
   }
+
+  Future<void> _initialize() async {
+    try {
+      final config = AppConfig.fromEnvironment(allowLocalHttp: kDebugMode);
+      final sdk = await Supabase.initialize(
+        url: config.supabaseUrl,
+        publishableKey: config.supabasePublishableKey,
+        debug: false,
+        authOptions: const FlutterAuthClientOptions(detectSessionInUri: false),
+      );
+      if (!mounted) return;
+      final client = sdk.client;
+      setState(() {
+        _auth = SupabaseAuthRepository(client);
+        _profiles = SupabaseProfileRepository(client);
+        _certificates = SupabaseCertificateRepository(client);
+        _institutions = SupabaseInstitutionRepository(client);
+        _issuance = SupabaseIssuanceRepository(
+          client,
+          apiUrl: config.supabaseUrl,
+          publicKey: config.supabasePublishableKey,
+        );
+        _documents = SupabaseCertificateDocumentRepository(
+          client,
+          apiUrl: config.supabaseUrl,
+          publicKey: config.supabasePublishableKey,
+        );
+        _credentials = SupabaseCredentialRepository(client);
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(
+          () => _message = 'No se pudo iniciar el acceso privado. La verificación pública sigue disponible si el servicio está configurado.',
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => CertiChainApp(
+    authRepository: _auth,
+    profileRepository: _profiles,
+    certificateRepository: _certificates,
+    institutionRepository: _institutions,
+    issuanceRepository: _issuance,
+    pdfPicker: _picker,
+    pendingStore: _store,
+    documents: _documents,
+    verification: _verification,
+    credentials: _credentials,
+    verificationLink: _link,
+    startupMessage: _message,
+  );
 }

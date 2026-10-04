@@ -174,13 +174,21 @@ véase [SECURE_ISSUANCE.md](SECURE_ISSUANCE.md). No incluye todavía blockchain.
   (28 anteriores + 16), 296 aserciones HTTP públicas, regresiones HTTP 7B/7C/7D,
   Storage, 14 carreras, tres pruebas de preservación y lint propio superados.
   Entorno habitual preservado; no hay CI nuevo de 8A observado, push ni merge.
-- **8B pendiente:** pantalla de consulta por código y tratamiento UX del contrato.
-- **8C pendiente:** QR, enlaces navegables y escáner.
-- **8D pendiente:** comparación privada de copia PDF y pruebas integrales del flujo.
+- **8B — pantalla pública, enlaces Web y QR: completada localmente el 04/10/2026.**
+  Implementación del contrato
+  v1 mediante HTTP independiente de Auth, formulario, estados y errores,
+  navegación hash con recarga/historial y compartición del código propio.
+  Evidencia final y comandos en [TESTING.md](TESTING.md).
+- **8C pendiente:** escáner y comparación privada de una copia del PDF.
+- **8D pendiente:** pruebas integrales y endurecimiento del recorrido completo.
+
+El reparto autorizado de 8B corrige la asignación documental de QR/enlaces a 8C
+introducida en 8A (`e3f42255c459e57e73f16b9677722add7590227e`). Se conserva arriba
+la entrega/evidencia histórica de 8A, sin atribuirle interfaz o CI posterior.
 
 ### Orden recomendado de los incrementos posteriores (pendientes)
 
-1. Completar 8B–8D: interfaz pública, QR/copia, privacidad y límites de abuso.
+1. Completar 8C–8D: escáner, comparación de copia y endurecimiento del recorrido.
 2. Anclaje blockchain: contrato, adaptador de backend, estados e idempotencia.
 3. Revocación completa y endurecimiento: backend, sincronización blockchain,
    reconciliación, seguridad, recuperación y pruebas del recorrido completo.

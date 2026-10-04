@@ -1,4 +1,4 @@
-# Verificación pública — Fase 8A
+# Verificación pública — Backend 8A e interfaz Web 8B
 
 ## Alcance local
 
@@ -220,15 +220,79 @@ de una publicación de 7B consultado por un operador SQL local autorizado. No us
 service_role en el cliente ni --no-verify-jwt global. El stack habitual continúa en
 54321 y no recibe la migración automáticamente por probar en el sandbox.
 
-## Incrementos posteriores
+## Reparto vigente de los incrementos
 
-- **8B pendiente:** pantalla de verificación por código y adaptación al contrato,
-  errores de red/límite y explicación del significado de resultados.
-- **8C pendiente:** QR, enlaces navegables y escáner, con contratos de navegación
-  y exposición voluntaria del código; sin publicar información privada.
-- **8D pendiente:** comparación de PDF elegido, privacidad y recursos; pruebas
-  integrales del recorrido pantalla/QR/copia y endurecimiento adicional.
+- **8B:** pantalla pública, enlaces Web navegables y QR del titular.
+- **8C pendiente:** escáner y comparación de una copia del PDF.
+- **8D pendiente:** pruebas integrales y endurecimiento del recorrido completo.
 
-Blockchain y revocación completa tienen sus propios incrementos. Antes de 8B:
-mantener este v1, definir UX de issuer_unavailable/429/503 y decidir cómo el titular
-obtendrá/compartirá su código con autorización. No ampliar el DTO por conveniencia.
+Este reparto corrige la discrepancia del documento de 8A; su evidencia histórica
+se conserva. Blockchain y revocación completa tienen sus propios incrementos.
+
+## Interfaz Web y compartición local — 8B
+
+`/verify` abre el formulario público; `/verify/<UUID>` consulta una vez el código.
+Web usa `http://localhost:7357/#/verify/<UUID>`. El Router estándar sincroniza
+atrás/adelante/recarga y conserva el código al restaurar Auth. La pantalla está
+disponible con/sin sesión y tras errores del acceso privado. main monta el
+repositorio público antes de esperar Supabase. No se añaden librerías de routing.
+
+El UUID se recorta por fuera y normaliza a minúsculas; se rechazan entradas
+inválidas sin HTTP. Consultar/actualizar son acciones explícitas; no hay polling.
+El estado procede del servidor, sin reclasificación por reloj del dispositivo.
+Se muestran título, emisor, emisión, expiración opcional, código y checked_at,
+con fechas UTC explicadas. not_found no recibe campos ficticios. Se explica que
+se consulta el registro, sin comprobar la identidad del presentador o una copia.
+
+Cliente HTTP independiente, únicamente credential_code; sin JWT/Authorization,
+apikey o cookies deliberadas, tablas privadas ni RPC técnicos. Deadline total
+15 s (petición abortable) y respuesta real limitada a 8 KiB. Lista de claves v1
+cerrada, tipos/versión/fuente/UUID/fechas/resultados validados; lo inesperado es
+error técnico. 400 corrige entrada, red/timeout admiten reintento manual, 503
+indica indisponibilidad y 429 explica la espera. Retry-After entero bloquea
+consultas hasta vencer; si falta/es inválido se espera una ventana completa.
+El contador de pantalla no cambia el presupuesto backend de 60 POST/60 s.
+
+Generaciones descartan respuestas A después de editar/iniciar B y tras dispose.
+Un 429 tardío conserva su espera, sin asociar un resultado viejo al nuevo código.
+No hay historial ni preferencias de consultas. Los cambios de Auth no provocan
+HTTP público ni invalidan la sesión por un fallo público.
+
+Desde el detalle propio, Mostrar QR y enlace hace una lectura autenticada mínima
+de id, holder_id, credential_code e issuance_operation_id, filtrada por id y
+holder_id. Revalida identidad/token/vencimiento al recibir. Sin vínculo 7B no hay
+enlace. Las FK/checks/inmutabilidad existentes protegen el vínculo; el endpoint
+público determina la elegibilidad y estado final. No se leen operaciones privadas,
+PDF/hash/perfiles ajenos ni se abren grants. Caducados/revocados/emisor suspendido
+con vínculo siguen compartibles; el código nunca se reemplaza por certificates.id.
+
+PUBLIC_VERIFICATION_BASE_URL debe apuntar a la app, separado de SUPABASE_URL.
+HTTPS salvo HTTP loopback en debug; sin credenciales/query/fragmento, base con
+path opcional normalizada y URL hash construida centralmente. Ausencia/base
+inválida explica que compartir está indisponible; el formulario sigue funcionando.
+QR local mediante qr 4.0.0, contraste negro/blanco y cuatro módulos de margen.
+Solo contiene la URL y el UUID, nunca JWT/apikey/datos/PDF/hash/capacidad firmada.
+No modifica ni regenera el PDF emitido. Copia con confirmación semántica y enlace
+seleccionable. El panel pertenece al detalle y se elimina al cambiar sesión o
+cuenta y al salir. Decisión: [ADR-0012](adr/0012-public-web-navigation-and-credential-sharing.md).
+
+### Chrome con puerto fijo
+
+Con el stack descartable arrancado y functions serve en otra consola, desde mobile:
+
+```powershell
+flutter run -d chrome --web-hostname=localhost --web-port=7357 --dart-define=SUPABASE_URL=http://127.0.0.1:55321 --dart-define=SUPABASE_PUBLISHABLE_KEY=CLAVE_PUBLICA_LOCAL --dart-define=PUBLIC_VERIFICATION_BASE_URL=http://localhost:7357
+```
+
+Sustituir CLAVE_PUBLICA_LOCAL por la publishable/anon del **stack descartable**;
+no usar service_role. Obtenerla localmente con supabase status, sin versionarla.
+HTTP está autorizado solo en desarrollo debug. La base habitual no recibe un
+reset ni las migraciones automáticamente. El harness descrito en TESTING crea
+identidades/publicaciones sintéticas y limpia sus propios recursos.
+
+Para un certificado propio real: iniciar sesión como titular, abrir wallet y
+detalle, Mostrar QR y enlace, Copiar enlace; abrirlo en un perfil/ventana privada
+sin sesión. Un histórico muestra ausencia y requiere una publicación 7B existente
+o una emisión autorizada. Recargar conserva el UUID. localhost solo es accesible
+en el mismo equipo; un teléfono externo requiere un entorno accesible por red o
+despliegue posterior. Solo enlaces Web: no Universal Links ni Android App Links.

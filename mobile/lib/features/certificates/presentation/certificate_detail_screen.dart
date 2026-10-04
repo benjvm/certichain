@@ -16,6 +16,9 @@ import 'certificate_card.dart';
 import 'status_badge.dart';
 import '../domain/certificate_document_repository.dart';
 import 'document_action.dart';
+import '../../verification/domain/verification_repository.dart';
+import '../../verification/domain/verification_link.dart';
+import '../../verification/presentation/credential_share.dart';
 
 enum CertificateDetailSection { details, blockchain, history }
 
@@ -26,6 +29,9 @@ class CertificateDetailScreen extends StatefulWidget {
     required this.repository,
     this.documents,
     this.onSessionExpired,
+    this.credentials,
+    this.verificationLink,
+    this.sessionChanges,
     super.key,
   });
   final String userId;
@@ -33,6 +39,9 @@ class CertificateDetailScreen extends StatefulWidget {
   final CertificateRepository repository;
   final CertificateDocumentRepository? documents;
   final VoidCallback? onSessionExpired;
+  final CredentialRepository? credentials;
+  final VerificationLink? verificationLink;
+  final Listenable? sessionChanges;
 
   @override
   State<CertificateDetailScreen> createState() =>
@@ -205,16 +214,26 @@ class _CertificateDetailScreenState extends State<CertificateDetailScreen>
         style: AppTypography.caption.copyWith(color: AppColors.textSecondary),
       ),
       const SizedBox(height: AppSpacing.xxl),
-      const Text(
-        'QR y verificación pública: no disponibles todavía.',
-        textAlign: TextAlign.center,
-      ),
-      const SizedBox(height: AppSpacing.lg),
-      const AppButton(
-        label: 'Compartir certificado · No disponible',
-        onPressed: null,
-        style: AppButtonStyle.outline,
-      ),
+      if (widget.credentials != null && widget.sessionChanges != null)
+        CredentialShare(
+          repository: widget.credentials!,
+          holderId: widget.userId,
+          certificateId: certificate.id,
+          link: widget.verificationLink,
+          sessionChanges: widget.sessionChanges!,
+        )
+      else ...[
+        const Text(
+          'QR y verificación pública: no disponibles todavía.',
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        const AppButton(
+          label: 'Compartir certificado · No disponible',
+          onPressed: null,
+          style: AppButtonStyle.outline,
+        ),
+      ],
       const SizedBox(height: AppSpacing.xxl),
       DecoratedBox(
         decoration: const BoxDecoration(

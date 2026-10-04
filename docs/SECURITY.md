@@ -230,3 +230,34 @@ y renovación para comprobar que no se presentan datos anteriores. No amplía
 permisos ni altera la ventana de una capacidad PDF ya entregada. Los fixtures
 privilegiados, firma de JWT vencido y conciliación se ejecutan exclusivamente
 en el runner local; claves administrativas y de firma nunca llegan al cliente.
+
+## Cliente público y compartición autorizada — 8B
+
+HttpVerificationRepository usa cliente independiente sin credenciales
+Supabase/Authorization/apikey ni cookies deliberadas. Fallos públicos no disparan
+requireSignIn/logout. API exclusivamente desde SUPABASE_URL validado, nunca desde
+el enlace. Proyección v1 cerrada y fechas estrictas; abort/15 s/8 KiB y errores
+técnicos separados de not_found. Estado del servidor. Retry-After bloquea
+reintento manual; sin polling o idempotencia pública. Presupuesto global 60/60 s.
+
+La lectura del código propio captura identidad/token/caducidad al iniciar y
+revalida al recibir, aunque RLS autorice otras facetas institucionales. Filtros
+id/holder_id y solo cuatro campos. Sin RPC, permisos, migraciones, perfiles ajenos
+u operaciones privadas nuevos. issuance_operation_id protegido por 7B identifica
+vínculos existentes; endpoint conserva el juicio completo de elegibilidad.
+Históricos sin vínculo no se comparten ni transforman. Compartir expone
+voluntariamente un UUID de registro; no concede PDF ni acceso privado.
+
+PUBLIC_VERIFICATION_BASE_URL separa Web/backend; HTTPS salvo loopback HTTP en
+desarrollo, sin credenciales/query/fragmento. QR solo URL/código, sin nombres,
+correos, hashes, JWT/apikey/capacidades PDF; documento emitido intacto.
+Sin códigos/resultados/historial en preferencias. Panel propiedad de la ruta,
+retirado ante sesión/token/identidad distintos. Navigator privado sustituido
+tras logout; historial Web no lo reconstruye.
+
+Evidencia HTTP/Web con stack descartable, fixtures sintéticos y Auth/Edge reales.
+Secretos administrativos en host, nunca build/QR/petición pública. CDP comprueba
+headers efectivamente transmitidos y un contexto aislado sin sesión. QR
+decodificado independientemente. 8C aborda cámara/archivo elegido/privacidad/
+recursos; 8D endurecimiento integral/abuso operativo. Sin enlaces nativos,
+identidad del presentador, comparación de copia, blockchain o despliegue.

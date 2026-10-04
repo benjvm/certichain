@@ -307,6 +307,31 @@ export async function fixture() {
       p_role: "issuer",
     }, owner.token);
     const legacy = randomUUID();
+    // A gateway 401 only proves JWT rejection, not that a restarted worker has
+    // finished loading its imports. Warm the real authenticated handler with an
+    // invalid JSON body: no reservation, document or publication is created.
+    await until(
+      async () => {
+        const r = await fetch(
+          `${local.API_URL}/functions/v1/issue-certificate`,
+          {
+            method: "POST",
+            headers: {
+              apikey: local.ANON_KEY,
+              Authorization: `Bearer ${owner.token}`,
+              "Content-Type": "application/json",
+            },
+            body: "{}",
+            signal: AbortSignal.timeout(15000),
+          },
+        ).catch(() => null);
+        if (!r) return false;
+        await r.arrayBuffer();
+        return r.status === 400;
+      },
+      "Authenticated issuance worker ready",
+      60000,
+    );
     sql(
       `INSERT INTO public.certificates(id,institution_id,holder_id,issued_by,title,credential_code) VALUES('${legacy}','${verified}','${holder.id}','${owner.id}','7D Legacy','${randomUUID()}');`,
     );

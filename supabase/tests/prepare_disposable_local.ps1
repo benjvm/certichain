@@ -38,7 +38,14 @@ if ($Start) {
     elseif (!$env:SUPABASE_CLI) {
         Push-Location -LiteralPath $source
         try {
-            $env:SUPABASE_CLI = node -e 'const p=require("node:path"); const suffix=process.platform==="win32"?"windows":process.platform==="darwin"?"darwin":"linux"; const root=p.dirname(require.resolve("@supabase/cli-"+suffix+"-"+process.arch+"/package.json")); console.log(p.join(root,"bin","supabase"+(process.platform==="win32"?".exe":"")));'
+            # stdin preserves JavaScript quotes in Windows PowerShell 5.1 too.
+            $resolver = @'
+const p = require("node:path");
+const suffix = process.platform === "win32" ? "windows" : process.platform === "darwin" ? "darwin" : "linux";
+const root = p.dirname(require.resolve("@supabase/cli-" + suffix + "-" + process.arch + "/package.json"));
+console.log(p.join(root, "bin", "supabase" + (process.platform === "win32" ? ".exe" : "")));
+'@
+            $env:SUPABASE_CLI = $resolver | node --input-type=commonjs
             if ($LASTEXITCODE -ne 0) { throw 'Pinned Supabase CLI unavailable.' }
         } finally { Pop-Location }
     }

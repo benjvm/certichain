@@ -21,6 +21,8 @@ import '../features/institutions/domain/institution_repository.dart';
 import '../features/institutions/presentation/institution_workspace.dart';
 import '../features/issuance/domain/issuance_repository.dart';
 import '../features/certificates/domain/certificate_document_repository.dart';
+import '../features/verification/domain/verification_repository.dart';
+import '../features/verification/domain/verification_link.dart';
 
 /// Owned by the session-keyed navigator. Never retained across identities.
 class AuthenticatedArea extends StatefulWidget {
@@ -34,6 +36,9 @@ class AuthenticatedArea extends StatefulWidget {
     this.picker,
     this.pendingStore,
     this.documents,
+    this.credentials,
+    this.verificationLink,
+    this.onVerify,
     super.key,
   });
   final AuthController controller;
@@ -45,6 +50,9 @@ class AuthenticatedArea extends StatefulWidget {
   final PdfPicker? picker;
   final PendingAttemptStore? pendingStore;
   final CertificateDocumentRepository? documents;
+  final CredentialRepository? credentials;
+  final VerificationLink? verificationLink;
+  final VoidCallback? onVerify;
 
   @override
   State<AuthenticatedArea> createState() => _AuthenticatedAreaState();
@@ -190,6 +198,9 @@ class _AuthenticatedAreaState extends State<AuthenticatedArea>
         userId: widget.userId,
         certificateId: id,
         repository: widget.certificates,
+        credentials: widget.credentials,
+        verificationLink: widget.verificationLink,
+        sessionChanges: widget.controller,
         documents: widget.documents,
         onSessionExpired: widget.controller.requireSignIn,
       ),
@@ -280,6 +291,12 @@ class _AuthenticatedAreaState extends State<AuthenticatedArea>
                         },
                       ),
                     const SizedBox(height: AppSpacing.lg),
+                    if (widget.onVerify != null)
+                      AppButton(
+                        label: 'Verificar certificado',
+                        onPressed: widget.onVerify,
+                        style: AppButtonStyle.outline,
+                      ),
                     if (_section != AuthenticatedSection.profile)
                       WalletContent(
                         future: _wallet,

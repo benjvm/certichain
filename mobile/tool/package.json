@@ -1,0 +1,5 @@
+{
+  "private": true,
+  "description": "Local Web harness QR decoder, never bundled into the app",
+  "devDependencies": { "jsqr": "1.4.0", "pngjs": "7.0.0" }
+}
