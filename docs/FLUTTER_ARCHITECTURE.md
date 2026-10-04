@@ -12,7 +12,7 @@ abstracciones hasta que exista un caso de uso que las necesite.
   errores, utilidades, servicios comunes y widgets compartidos. No debe incluir
   comportamiento específico de una feature.
 - `features/` agrupa cada capacidad del producto de forma independiente. Las
-  features iniciales son `auth`, `certificates`, `institutions`, `verification`
+  features iniciales son `auth`, `certificates`, `issuance`, `institutions`, `verification`
   y `profile`.
 
 ## Capas de una feature
@@ -89,3 +89,56 @@ y el desplazamiento del origen; renovar el token del mismo usuario conserva la r
 
 No se alteran límites de capas, backend, RLS ni decisiones estructurales; no
 se necesita un ADR nuevo. Véase [FLUTTER_UI_FOUNDATIONS.md](FLUTTER_UI_FOUNDATIONS.md).
+
+## Instituciones, emisión y PDF — Fase 7C
+
+`main` compone InstitutionRepository, IssuanceRepository, PdfPicker,
+PendingAttemptStore y CertificateDocumentRepository. Sus implementaciones
+Supabase/HTTP, preferencias y archivos están en data; dominio sigue siendo Dart
+puro y no importa Supabase, Flutter, PostgREST ni Web3. No se añade gestor de estado.
+Análisis activa strict-casts, strict-inference y strict-raw-types.
+
+InstitutionRepository lee membresías propias y certificados emitidos con filtro
+explícito de institución, orden estable, count y límite visible de 50. No se
+consulta ningún perfil ajeno. AuthenticatedArea añade un acceso condicional sin
+alterar wallet/perfil personales. Las rutas centralizadas /institutions y
+/institutions/issue llevan identidad e institución, nunca capacidades PDF.
+Los widgets actualizan membresías en reanudación, sesión y temporizador; el
+backend revalida privilegios en toda emisión y acceso al documento.
+
+IssuanceData normaliza metadatos y fecha; SelectedPdf conserva bytes inmutables;
+IssuanceRequest produce la huella v1 compatible con backend. IssuanceController
+coordina estado, recibo antes de HTTP, single-flight y reintentos exactos. La UI
+usa contratos sin construir Storage URLs ni INSERT de certificados. El
+adaptador multipart emplea el JWT real y mensajes públicos traducidos. 401
+llama al flujo Auth existente y cambia el navegador por identidad.
+
+CertificateDocumentRepository ofrece disponibilidad/descarga, sin URL en el
+dominio. El adaptador autoriza de nuevo cada descarga, acepta únicamente la
+capacidad relativa del API configurado, TTL ≤60, bytes PDF limitados y verifica
+identidad después de la red. El guardado usa import condicional: Web Blob y
+anchor sin navegación; plataformas nativas FilePicker.saveFile. La disponibilidad
+no se infiere de columnas técnicas ni de un dibujo. El detalle permanece solo
+del titular; el listado institucional no lo reutiliza.
+
+### Dependencias fijadas y mantenimiento
+
+Versiones exactas en pubspec y lock, actualizaciones deliberadas con estas pruebas:
+
+La API federada y correcciones se verificaron en el
+[changelog del mantenedor de file_picker](https://pub.dev/packages/file_picker/changelog).
+
+| Paquete | Necesidad y alternativa estándar |
+|---|---|
+| file_picker 13.1.0 | Un PDF por selector Android/iOS y guardado nativo con bytes. Flutter no trae selector de archivos común; canales propios por plataforma duplicarían código y mantenimiento. Versión con correcciones posteriores a 10.x, API pública y paquetes nativos federados fijados por lock; no se importan APIs internas. Web usa HTMLInputElement estándar para selección y evita incidencias DOM observadas del plugin. |
+| unorm_dart 0.3.2 | NFC idéntico al backend para idempotencia. Dart no ofrece NFC estándar; conservar texto sin normalizar rompería el contrato. Revisar tablas Unicode/vectores al actualizar. |
+| http 1.6.0 / http_parser 4.1.2 | Multipart, control de errores/Retry-After, transportes inyectables Web/nativo. Ya transitivos del SDK; se declaran directos. dart:io no funciona en Web; el invocador genérico SDK no ofrece este control de respuesta. |
+| crypto 3.0.7 | SHA-256 estándar y huella v1 Dart puro, ya transitivo. No hay SHA-256 en dart:core; evitar implementación criptográfica propia. |
+| shared_preferences 2.5.5 | Recibo mínimo, aislado/acotado; ya transitivo. No es cifrado ni guarda PDF/JWT/datos personales. Memoria sola impediría recuperación tras reinicio. |
+| web 1.1.1 | Interoperabilidad DOM/Blob estándar, ya transitiva. dart:html está obsoleto; no se añade un visor o downloader externo. |
+
+file_picker puede usar caché temporal del sistema al seleccionar archivos nativos;
+la app no copia el PDF a preferencias. La recuperación requiere reselección del
+original. Los harness Web utilizan los mismos adaptadores de producción y APIs DOM estándar. Revisar seguridad/compatibilidad y probar Chrome,
+Android/iOS al cambiar versiones; límites y decisión estructural en
+[ADR-0010](adr/0010-institutional-client-and-document-capabilities.md).

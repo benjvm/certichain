@@ -107,6 +107,31 @@ Capturas reproducibles en `mobile/build/phase4d-review/` (ignoradas por Git);
 fixtures solo en tests. Comandos en [TESTING.md](TESTING.md).
 Datos/permisos y rutas en [STUDENT_WALLET.md](STUDENT_WALLET.md).
 
-El resto de las pantallas de Figma y los flujos de emisión/aprobación, PDF,
+Tras 7C, siguen pendientes aprobación institucional por autoservicio,
 QR/escáner, compartir, verificación pública, blockchain, revocación,
-historial real y notificaciones permanecen pendientes.
+historial real y notificaciones.
+
+## Emisión institucional y documentos — Fase 7C
+
+Se intentó inspeccionar Figma: metadatos generales accesibles, pantallas
+institucionales bloqueadas por el límite de llamadas del plan Starter.
+Se usó el collage/wireframe de CERTICHAIN_UI_IMPLEMENTATION.md y sus vistas
+«Emitir certificado» y «Certificados emitidos», conservando Inter local, AppTopBar,
+AppButton, tokens, tarjetas, separación y estados de lectura. No se bloqueó la
+implementación ni se inventó contexto de Figma.
+
+El acceso «Espacio institucional» aparece por membresía real. Selector de
+institución, nombre, rol y estado proceden de RLS. Se mantiene la navegación
+personal. El formulario de tres pasos usa «ID del titular» con pegar/UUID y ayuda
+de consentimiento; no simula emails, búsqueda de estudiantes, programas o tipos
+ausentes. La expiración muestra su interpretación UTC. Solo Confirmar permite
+emitir. En espera hay texto honesto y botones bloqueados, sin porcentaje.
+El resultado presenta el ID y lleva al listado, sin detalle personal indebido.
+
+Listas muestran título, fecha, vigencia y referencia corta, límite 50 visible,
+carga/vacío/error/reintento. No se inventa el nombre del titular ni una acción
+de revocar. Documento disponible ofrece descarga; legado/ausente tiene mensaje
+explícito sin previsualización ficticia. Los ID largos son seleccionables y se
+ajustan; scroll y Wrap mantienen acciones accesibles en 390×844, 360×800 y
+320×568 con texto ×1/×2. Capturas con Inter real en
+mobile/build/phase7c-review/ (ignoradas); resultados en [TESTING.md](TESTING.md).

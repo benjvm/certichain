@@ -1,4 +1,4 @@
-# Wallet personal y detalle — Fase 4D
+# Wallet personal y detalle — Fases 4D y 7C
 
 ## Navegación y datos reales
 
@@ -38,7 +38,8 @@ conserva la ruta. Cambiar de identidad o salir sustituye todo el navegador.
 - RLS puede ocultar `institutions`: ser titular no concede acceso al emisor.
   Se muestra «Institución no disponible» sin descartar el certificado.
 - No se consultan rutas de documentos, hashes, códigos de credencial, correos,
-  transacciones ni historiales. No se cambia backend, esquema ni RLS.
+  transacciones ni historiales. 7C añade un endpoint PDF separado; las selecciones
+  y políticas de lectura personal permanecen intactas.
 
 Las lecturas del adaptador tienen timeout de 20 segundos. Los mensajes de error
 son fijos y seguros; no se presentan errores crudos del proveedor.
@@ -48,8 +49,12 @@ son fijos y seguros; no se presentan errores crudos del proveedor.
 El detalle relee el certificado en lugar de considerar la tarjeta una fuente
 actualizada. Presenta título, emisor opcional, emisión, expiración opcional y
 vigencia. Si no hay expiración, indica «Sin fecha de expiración».
-El espacio superior del diploma es un placeholder explícito: «Vista previa
-no disponible / El PDF todavía no está disponible». No simula un documento.
+7C consulta la disponibilidad autorizada del documento. Si está disponible
+ofrece «Descargar PDF»; cada pulsación solicita una capacidad nueva de 60 segundos.
+Un certificado histórico sin documento conserva un estado de ausencia explícito.
+No se simula una vista previa. Los errores y la sesión caducada se gestionan sin
+exponer respuestas crudas. Chrome descarga un Blob temporal y Android/iOS usan
+guardado nativo; no se navega ni se persiste la URL firmada.
 
 «Detalles» muestra el ID real. «Blockchain» muestra «Sin datos de blockchain»;
 «Historial» explica que el backend todavía no lo proporciona. Compartir está
@@ -113,8 +118,8 @@ y las 2 nuevas del adaptador están incluidas en ese total.
 
 ## Pendiente
 
-Paginación completa, categorías, edición/configuración de perfil, PDF/Storage,
-descarga, QR/escáner, compartir, emisión, aprobación institucional, revocación
+Paginación completa, categorías, edición/configuración de perfil,
+QR/escáner, compartir, autoservicio de aprobación institucional, revocación
 desde la app, notificaciones, verificación pública y blockchain.
 
 4D no añadió escrituras. La Fase 5 posterior conserva sus políticas SELECT y
@@ -123,3 +128,28 @@ de certificados mediante grants y RLS, también para `platform_admin` y para
 instituciones `verified`. Sus pruebas SQL verifican esas lecturas efectivas;
 no habilita emisión, revocación ni acceso al PDF. El backend futuro deberá
 cumplir [SECURE_ISSUANCE.md](SECURE_ISSUANCE.md).
+
+## Facetas de titular e institución en 7C
+
+Mi perfil incorpora «Copiar mi ID de titular» para perfiles holder. El estudiante
+comparte voluntariamente ese UUID con la institución; no comparte credenciales
+ni concede acceso a su perfil. La institución lo pega como ID, nunca como email.
+La elegibilidad sigue siendo comprobada por el backend; no hay búsqueda global.
+
+Una membresía real añade «Espacio institucional» sin sustituir los tres destinos
+personales. Listado y formulario se filtran por la institución seleccionada y
+su rol/estado real. Registrar la preferencia Institución no concede membresías
+ni cambia la autorización. El detalle personal sigue filtrando holder_id aun
+cuando esa cuenta sea emisora; el éxito de emisión abre el listado institucional.
+
+La nueva descarga comprueba completed, objeto e integridad en servidor: el titular
+conserva acceso aunque se suspenda la institución. Owner/admin/issuer actuales
+de una institución emisora verified pueden descargar desde su listado. Un
+platform_admin sin esa condición no obtiene el PDF. La consulta de disponibilidad
+no guarda capacidades y cada descarga vuelve a autorizar. Una capacidad ya
+entregada puede usarse hasta su vencimiento, incluso tras una baja de membresía.
+
+La navegación destruye borradores/URLs visibles ante cambio de cuenta o 401.
+Solo hay recibos mínimos de emisión pendientes separados por identidad;
+recuperación y límites en [SECURE_ISSUANCE.md](SECURE_ISSUANCE.md).
+Pruebas locales actuales y limitaciones de dispositivos en [TESTING.md](TESTING.md).

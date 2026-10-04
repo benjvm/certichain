@@ -12,7 +12,7 @@
 
 Flutter y cualquier navegador son clientes no confiables. RLS y las operaciones de backend deben volver a comprobar identidad, pertenencia, estado de la institución, propiedad del certificado y validación de entrada.
 
-## Autorización efectiva tras las Fases 5, 6, 7A y 7B
+## Autorización efectiva tras las Fases 5, 6, 7A, 7B y 7C
 
 `certificates` tiene únicamente una política SELECT para `authenticated`:
 titular, miembro de la institución emisora o `platform_admin`. Los grants del
@@ -128,7 +128,7 @@ El nombre completo del estudiante no debe mostrarse públicamente por defecto. U
   ni emails; `upsert: false` e inmutabilidad tras publicar. 7B hace validación
   estructural del PDF, límite de bytes en backend y lectura/hash del objeto
   final antes de publicar. El MIME/límite del bucket no sustituyen esa validación.
-- Descarga futura autorizada mediante URL firmada corta. Los PDF emitidos se
+- Descarga autorizada en 7C mediante URL firmada de 60 segundos. Los PDF emitidos se
   conservan, también si se revocan. El reconciliador local explícito puede borrar
   por API Storage un huérfano confirmado; no hay borrado automático de PDFs
   válidos. La política legal de retención requiere decisión posterior.
@@ -177,3 +177,36 @@ sin PDF público, ruta privada ni huella. Inyección de fallos solo disponible e
 runtime loopback/kong local sin DENO_DEPLOYMENT_ID y con token efímero de prueba;
 no tiene efectos sin esa configuración. No habilita acciones privilegiadas
 adicionales. Contrato y límites: [SECURE_ISSUANCE.md](SECURE_ISSUANCE.md).
+
+## Lectura privada del documento en 7C
+
+certificate-pdf verifica Auth real en cada petición y usa una RPC técnica de
+EXECUTE exclusivo service_role. Requiere operación completed, vínculo/IDs/hash
+coherentes, ruta canónica y objeto disponible con bytes íntegros. Revalida antes
+de firmar. No cambia grants/RLS de perfiles, miembros, instituciones, certificados
+ni Storage. Conocer UUID o profiles.role = platform_admin no autoriza el PDF.
+
+Permiso: titular propio siempre, aun con institución suspendida; o miembro actual
+owner/admin/issuer de la institución emisora verified. Bajas/suspensión deniegan
+URLs nuevas a miembros; otra institución/persona y anónimo no obtienen documento.
+Los casos ajeno/ausente/legado sin PDF/objeto ausente comparten 404 seguro sin
+describir existencia. Se devuelven solo signed_url y expires_in:60, no campos
+document_path/document_hash ni secretos. La URL necesariamente contiene la ruta
+opaca del objeto y su token: es una capacidad reutilizable por cualquiera que
+la posea hasta vencer, aunque cambien permisos tras su entrega. No se promete
+revocación instantánea de capacidades. Cache-Control:no-store; no logging de URLs.
+
+Flutter nunca conserva capacidades en entidades, preferencias, rutas o historial.
+Cada descarga vuelve a solicitar acceso; Chrome usa Blob temporal, Android/iOS
+guardan bytes con selector nativo. El archivo guardado queda bajo control del
+usuario: una baja de membresía no borra copias ya descargadas. El bucket continúa
+privado y bloqueado para operaciones directas anon/authenticated.
+
+El UUID de titular se comparte voluntariamente desde su perfil; no hay búsqueda
+de correo ni SELECT de terceros. La preferencia Institución del registro no es
+autorización. Los recibos de emisión locales guardan clave/huella/fecha y se
+limitan a 20/7 días por claves de identidad e institución; no PDF, JWT, secretos,
+filenames ni metadatos personales. Son preferencias sin cifrado, evidencia mínima
+que se descarta al vencer. La UI destruye datos visibles al cambiar de
+cuenta/401 y no inicia una emisión nueva como si fuera recuperación exacta.
+Detalles y riesgos en [ADR-0010](adr/0010-institutional-client-and-document-capabilities.md).

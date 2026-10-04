@@ -1,0 +1,12 @@
+BEGIN;
+CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
+SELECT no_plan();
+SELECT ok(NOT has_function_privilege('anon', 'public.authorize_certificate_document(uuid,uuid)', 'EXECUTE'), 'Anonymous cannot invoke document authorization');
+SELECT ok(NOT has_function_privilege('authenticated', 'public.authorize_certificate_document(uuid,uuid)', 'EXECUTE'), 'Client cannot supply another actor');
+SELECT ok(has_function_privilege('service_role', 'public.authorize_certificate_document(uuid,uuid)', 'EXECUTE'), 'Technical backend can authorize');
+SELECT is(public.authorize_certificate_document(gen_random_uuid(), gen_random_uuid()), NULL::jsonb, 'Missing/foreign document has uniform absence');
+SELECT ok(NOT has_table_privilege('authenticated', 'public.certificate_issuance_operations', 'SELECT'), 'Operations remain private');
+SELECT ok(NOT has_table_privilege('authenticated', 'public.certificates', 'INSERT'), 'Direct certificate writes remain closed');
+SELECT ok((SELECT NOT public FROM storage.buckets WHERE id='certificates'), 'Document bucket remains private');
+SELECT * FROM finish();
+ROLLBACK;

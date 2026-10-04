@@ -459,3 +459,25 @@ perfil holder. No se amplía SELECT de perfiles para resolver destinatarios.
 Estados, errores, política PDF y comandos de conciliación:
 [SECURE_ISSUANCE.md](SECURE_ISSUANCE.md). Decisión de limpieza terminal:
 [ADR-0009](adr/0009-leased-private-issuance.md).
+
+## Incremento 7C: autorización técnica de documentos
+
+Migración nueva 20260930180000_authorized_certificate_document.sql, sin editar
+migraciones compartidas. Añade authorize_certificate_document(certificate UUID,
+actor UUID), SECURITY DEFINER, search_path vacío, tablas cualificadas y EXECUTE
+exclusivo service_role; PUBLIC/anon/authenticated no pueden invocarla.
+
+Solo devuelve ruta/hash al backend si certificado y operación completed enlazan
+IDs, institución, actor, titular y hashes, y la ruta es canónica. Actor Auth
+vigente, no anónimo/eliminado/bloqueado. Acceso para titular propio independiente
+del estado institucional, o owner/admin/issuer actual de la emisora verified.
+platform_admin por sí solo no concede acceso. Ausencia/legado/ajeno devuelve
+NULL uniforme. El endpoint comprueba además objeto/hash y firma por 60 segundos.
+
+No modifica SELECT ni añade políticas de objetos: el contrato existente de
+lectura de fila puede ser más amplio que el permiso sobre el PDF. Flutter consulta
+membresías propias, instituciones visibles por relación RLS y certificados de una
+institución seleccionada; no necesita perfiles de titulares ajenos. Los históricos
+sin operación/PDF siguen visibles según su RLS pero no obtienen documento.
+Se conservan las 493 comprobaciones previas y se añaden siete pgTAP; escenarios
+completos de autorización/PDF se ejercen por HTTP local con Auth/Storage reales.

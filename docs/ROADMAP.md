@@ -16,8 +16,9 @@ No equivale a completar la fase de blockchain del roadmap conceptual inferior.
 Alcance, permisos y pruebas en [STUDENT_WALLET.md](STUDENT_WALLET.md).
 Referencia y adaptaciones visuales en [FLUTTER_UI_FOUNDATIONS.md](FLUTTER_UI_FOUNDATIONS.md).
 
-Pendiente: acceso al PDF, paginación completa, QR/verificación, emisión,
-aprobación institucional, revocación y blockchain. 4D no añadió escrituras.
+4D no añadió escrituras. Emisión y descarga de PDF se incorporan en 7B/7C;
+siguen pendientes paginación completa, QR/verificación, autoservicio de
+aprobación institucional, revocación y blockchain.
 
 ### Fase 5 — Cierre de autorización y preparación de emisión segura
 
@@ -121,10 +122,26 @@ véase [SECURE_ISSUANCE.md](SECURE_ISSUANCE.md). No incluye todavía blockchain.
   reset, preservación, lint, formato/tipos y diff check. Workflow ampliado y
   corregido para usar CLI instalada. CI de 7A observado: ejecución
   [36696424479](https://github.com/benjvm/certichain/actions/runs/36696424479),
-  fallo del harness Storage tras reset/SQL correctos; no se afirma CI de 7B.
+  fallo del harness Storage tras reset/SQL correctos. El CI del último commit 7B
+  `b7310c8dafda03bd043876d4ebb51a250be2d6e2`, ejecución
+  [36707359039](https://github.com/benjvm/certichain/actions/runs/36707359039),
+  se observó terminado con **success** el 30/09/2026.
   Contrato/límites PDF y recuperación en [SECURE_ISSUANCE.md](SECURE_ISSUANCE.md).
   No se despliega al remoto.
-- **7C — interfaz de emisión y acceso autorizado al PDF: pendiente.**
+- **7C — interfaz de emisión y acceso autorizado al PDF: entregada localmente
+  el 30/09/2026.** Espacio institucional por membresías reales, selección de
+  institución, formulario Datos → Documento → Confirmar, ID de titular compartido
+  voluntariamente, reintentos con solicitud inmutable y recibos acotados por
+  identidad, listado institucional separado de wallet/detalle personal.
+  Endpoint PDF autenticado, titulares y miembros owner/admin/issuer actuales de
+  institución verified; capacidad de 60 segundos y descarga Chrome/Android/iOS.
+  Sin cambios de grants SELECT ni apertura de Storage. Pasan localmente 500 SQL
+  (las 493 anteriores + 7), 28 tests Deno, 368 aserciones HTTP de 7B, 86 nuevas
+  del PDF, Storage, 14 carreras y preservación histórica. Flutter incluye pruebas
+  de dominio, adaptadores, widgets y tamaños/texto ampliado; resultados de Chrome
+  y build en [TESTING.md](TESTING.md). Workflow ampliado, sin CI observado de
+  estos cambios 7C ni despliegue remoto. Decisiones en
+  [ADR-0010](adr/0010-institutional-client-and-document-capabilities.md).
 - **7D — pruebas integrales y endurecimiento del flujo: pendiente.**
 
 ### Orden recomendado de los incrementos posteriores (pendientes)

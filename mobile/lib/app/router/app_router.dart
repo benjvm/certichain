@@ -6,6 +6,7 @@ import '../../features/auth/presentation/register_screen.dart';
 import '../../features/auth/domain/auth_repository.dart';
 import '../../features/certificates/domain/certificate_repository.dart';
 import '../../features/certificates/presentation/certificate_detail_screen.dart';
+import '../../features/certificates/domain/certificate_document_repository.dart';
 
 enum AuthenticatedSection { home, wallet, profile }
 
@@ -14,11 +15,15 @@ abstract final class AppRouter {
   static const String loginRoute = '/login';
   static const String registerRoute = '/register';
   static const String certificateDetailRoute = '/certificates/detail';
+  static const String institutionalWorkspaceRoute = '/institutions';
+  static const String issuanceRoute = '/institutions/issue';
 
   static Route<void> certificateDetail({
     required String userId,
     required String certificateId,
     required CertificateRepository repository,
+    CertificateDocumentRepository? documents,
+    VoidCallback? onSessionExpired,
   }) => MaterialPageRoute<void>(
     settings: RouteSettings(
       name: certificateDetailRoute,
@@ -28,6 +33,8 @@ abstract final class AppRouter {
       userId: userId,
       certificateId: certificateId,
       repository: repository,
+      documents: documents,
+      onSessionExpired: onSessionExpired,
     ),
   );
 

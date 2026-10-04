@@ -56,6 +56,11 @@ No se edita el razonamiento histórico de un ADR aceptado para ocultar un cambio
 Decisión aceptada implementada en Fase 6:
 [0007-managed-institution-administration.md](adr/0007-managed-institution-administration.md).
 
+Decisiones aceptadas de emisión y documentos:
+[ADR-0008](adr/0008-private-issuance-reservations.md),
+[ADR-0009](adr/0009-leased-private-issuance.md) y
+[ADR-0010](adr/0010-institutional-client-and-document-capabilities.md).
+
 1. `0001-use-supabase-initially.md`.
 2. `0002-feature-first-clean-boundaries.md`.
 3. `0003-version-database-with-migrations.md`.

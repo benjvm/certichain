@@ -6,6 +6,7 @@ import {
   sha256,
 } from "./contract.ts";
 import { validatePdf } from "./pdf.ts";
+import { cors } from "../_shared/http.ts";
 
 export interface Config {
   url: string;
@@ -21,11 +22,15 @@ export function handler(
       new Response(JSON.stringify(body), {
         status,
         headers: {
+          ...cors,
           "Content-Type": "application/json",
           "Cache-Control": "no-store",
           ...(status === 409 || status === 503 ? { "Retry-After": "120" } : {}),
         },
       });
+    if (request.method === "OPTIONS") {
+      return new Response(null, { status: 204, headers: cors });
+    }
     if (request.method !== "POST") {
       return respond({ error: "method_not_allowed" }, 405);
     }

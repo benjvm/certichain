@@ -7,6 +7,11 @@ import 'app/config/app_config.dart';
 import 'features/auth/data/supabase_auth_repository.dart';
 import 'features/profile/data/supabase_profile_repository.dart';
 import 'features/certificates/data/supabase_certificate_repository.dart';
+import 'features/institutions/data/supabase_institution_repository.dart';
+import 'features/issuance/data/supabase_issuance_repository.dart';
+import 'features/issuance/data/platform_pdf_picker.dart';
+import 'features/issuance/data/pending_attempt_preferences.dart';
+import 'features/certificates/data/supabase_certificate_document_repository.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,6 +28,19 @@ Future<void> main() async {
         authRepository: SupabaseAuthRepository(supabase.client),
         profileRepository: SupabaseProfileRepository(supabase.client),
         certificateRepository: SupabaseCertificateRepository(supabase.client),
+        institutionRepository: SupabaseInstitutionRepository(supabase.client),
+        issuanceRepository: SupabaseIssuanceRepository(
+          supabase.client,
+          apiUrl: config.supabaseUrl,
+          publicKey: config.supabasePublishableKey,
+        ),
+        pdfPicker: PlatformPdfPicker(),
+        pendingStore: PendingAttemptPreferences(),
+        documents: SupabaseCertificateDocumentRepository(
+          supabase.client,
+          apiUrl: config.supabaseUrl,
+          publicKey: config.supabasePublishableKey,
+        ),
       ),
     );
   } catch (error) {

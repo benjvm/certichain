@@ -253,7 +253,7 @@ pruebas de PDF, Storage, emisión, revocación, verificación pública o blockch
 Usa ubuntu-24.04, permisos contents:read, checkout sin persistir credenciales,
 Supabase local y CLI fijada a 2.117.0. No exige SUPABASE_ACCESS_TOKEN, project ref,
 service_role remoto ni secrets del repositorio; no enlaza un proyecto remoto.
-Ejecuta start, reset, las 493 pruebas SQL (468 de 7A y 25 de 7B), formato/lint/
+Ejecuta start, reset, las 500 pruebas SQL (468 de 7A, 25 de 7B y 7 de 7C), formato/lint/
 tipos/tests de funciones, HTTP de emisión/recuperación y Storage, concurrencia,
 ambos scripts de preservación histórica y
 lint de public/certichain_private con `--fail-on warning`, y detiene el stack
@@ -508,5 +508,98 @@ El workflow actualizado fija Node 22.14.0 (setup-node v4.4.0 al SHA verificado),
 CLI 2.117.0 y Deno 2.2.12, usa lock frozen, añade formato/lint/tipos/unitarios,
 HTTP Auth/Edge/recuperación y diff check; conserva SQL, Storage, concurrencia,
 preservación y lint propio. Todo contra el stack local sin secrets externos.
-**No se ha ejecutado ni observado CI de estos cambios 7B**; no se ha hecho push
-ni deployment remoto. La ejecución de Fase 6 documentada antes permanece válida.
+El 30/09/2026 se observó mediante API GitHub autenticada en memoria el CI del
+último commit 7B `b7310c8dafda03bd043876d4ebb51a250be2d6e2`:
+[ejecución 36707359039](https://github.com/benjvm/certichain/actions/runs/36707359039),
+estado completed, conclusión **success**. Esta observación sustituye la falta
+de evidencia de CI registrada al entregar 7B. No constituye CI de los cambios
+7C actuales. No se ha publicado ni desplegado a Supabase remoto.
+
+## Incremento 7C — cliente institucional y documento privado
+
+Entorno ejecutado el 30/09/2026: Windows, Flutter estable 3.47.4
+(`9584c6713b324636289d067944a46fd6b49df14b`), Dart 3.13.3, Chrome headless
+aislado, Node 22.14.0, Supabase CLI 2.117.0 y Deno 2.2.12. Solo stack local.
+Los scripts HTTP usan identidades sintéticas, Auth/Edge/Storage reales, secretos
+locales en memoria/temporales fuera del repositorio y teardown en finally.
+
+| Comprobación | Resultado local |
+|---|---|
+| db reset --local | PASS, ocho migraciones; bucket privado sin permisos directos nuevos |
+| test db --local | PASS, 500/500; conserva las 493 anteriores y añade 7 |
+| Deno formato/lint/check frozen/tests | PASS; 28 pruebas, 17 previas y 11 del endpoint PDF |
+| issuance_http.mjs | PASS, 368 aserciones; recuperación, autorización y límites 7B conservados |
+| certificate_pdf_http.mjs | PASS, 86 aserciones reales y vencimiento efectivo de capacidad |
+| private_storage.mjs | PASS, bucket privado y denegaciones anon/authenticated |
+| institution_concurrency.mjs | PASS, 14 carreras (8 previas + 6 de 7B) |
+| Preservación histórica, ambos scripts | PASS; conserva certificados legados y revocación histórica |
+| db lint public,certichain_private | PASS, sin warnings propios |
+| dart format lib test tool / flutter analyze | PASS, formato y análisis estricto sin incidencias |
+| flutter test | PASS, 116; 1 omitida opt-in de Auth local, sin acceso remoto |
+| Flutter Web build en Chrome loopback | PASS, selector HTML real, cancelación, borde 8 MiB/+1, bytes exactos, Blob/filename, sin navegación y revocación del Blob |
+| flutter build web | PASS, main.dart y adaptadores condicionales compilados |
+| git diff --check | PASS |
+
+Las 48 pruebas Flutter nuevas se reparten entre dominio/controlador (15),
+adaptadores (9) y widgets (24). Incluyen roles owner/admin/issuer y estados,
+múltiples instituciones, pérdida de membresía/suspensión abierta, renovación de
+sesión y cambio de identidad; copiar/pegar ID; tres pasos/validación/archivo,
+doble envío y 200/201; huella NFC/UTC/microsegundos con vector conocido del
+backend; bytes inmutables y borde de 8 MiB; clave congelada, lease, conflicto,
+failed, respuesta perdida, recibo previo a HTTP, fallo de persistencia,
+reinicio/reconstrucción exacta y aislamiento por identidad/institución.
+
+Adaptadores comprueban selección mínima/RLS y filtro institucional explícito,
+orden/límite/count, multipart/JWT real del objeto de sesión SDK y errores públicos.
+Documento prueba URL nueva por descarga, bytes/MIME/límite, TTL ≤60, rechazo de
+URL externa, sesión expirada y ausencia. Selector/guardado nativos prueban API
+multiplataforma con sustituto del plugin. Widgets conservan el detalle personal
+fuera del contexto emisor y verifican carga/ausencia/401/descargas sucesivas.
+
+certificate_pdf_http.mjs emite por 7B y prueba titular/owner/admin/issuer,
+extranjero, otra institución, platform_admin sin membresía, anónimo/token técnico
+como sesión, legado y objeto ausente. Baja de issuer y suspensión deniegan URLs
+nuevas; titular conserva acceso. Comprueba no-store/CORS, respuesta mínima,
+token con exp−iat = 60, bytes exactos y espera hasta caducidad real (64 segundos).
+No se imprime la capacidad ni se abre el bucket a usuarios.
+
+Responsive: Datos/Confirmar/éxito y listado/PDF en 390×844, 360×800 y 320×568,
+texto ×1/×2, sin overflow con Inter e iconos cargados. Capturas inspeccionadas
+de confirmación, formulario pequeño/texto ×2 y listado. Reproducir:
+
+```powershell
+cd mobile
+$env:CERTICHAIN_CAPTURE_DIR = "$PWD/build/phase7c-review"
+flutter test test/institution_ui_test.dart
+```
+
+Comprobación Chrome reproducible, usando los adaptadores reales, sin cuentas:
+
+```powershell
+flutter build web --no-web-resources-cdn --target=tool/pdf_browser_smoke.dart --output=build/browser-smoke
+node tool/pdf_browser_smoke.mjs
+```
+
+El runner abre su propio Chrome headless y perfil temporal, sirve exclusivamente
+loopback y elimina solo ese perfil al terminar. Inyecta selección sintética mediante
+DataTransfer; verifica APIs DOM y bytes, no la interacción humana con el diálogo OS.
+El test paralelo `flutter test --platform chrome test/pdf_download_browser_test.dart`
+se conserva en CI Linux. En este SDK Windows el runner Flutter convierte la ruta
+CanvasKit a separadores Windows y responde 404; esas invocaciones fueron detenidas
+y **no se cuentan como PASS**. La comprobación sobre build evita ese problema sin
+modificar el SDK. La selección Web usa HTMLInputElement estándar; el selector
+inicial del plugin no conectaba sus nodos al DOM bajo este build y se sustituyó
+por el adaptador Web explícito. file_picker se actualizó a 13.1.0 para los
+adaptadores nativos; decisiones/alternativas en FLUTTER_ARCHITECTURE.md.
+
+CI ampliado conserva el job de base local y añade endpoint PDF; otro job Flutter
+fija SDK al commit anterior, pub get --enforce-lockfile, formato/analyze/tests,
+tests Chrome y ambos builds. No exige credenciales Supabase remotas. Solo se ha
+observado CI exitoso de 7B (enlace anterior); **no se afirma CI de 7C**, cambios
+sin push. No se ejecutó despliegue, migración remota ni almacenamiento remoto.
+
+No se probaron dispositivos físicos Android/iOS, builds APK/IPA, diálogos nativos
+reales, lectores de pantalla ni el recorrido humano completo con varias cuentas
+en un navegador. 7D debe añadir E2E completo, pruebas nativas, carga/abuso,
+compatibilidad PDF y endurecimiento operativo. QR, verificación pública,
+blockchain, invitaciones por email y revocación no forman parte de 7C.

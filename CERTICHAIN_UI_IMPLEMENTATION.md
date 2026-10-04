@@ -131,6 +131,27 @@ El wireframe incluye logo geométrico, ilustración de onboarding, diploma, avat
 
 ## 9. Criterios de aceptación
 
+### Estado de implementación — Fase 7C
+
+El espacio institucional aparece por membresías reales, independiente del rol
+global y preferencia de registro. Mantiene Inicio, Mis certificados y Mi perfil
+para esa misma cuenta. Selector de institución, nombre/rol/estado reales y
+listado filtrado de hasta 50 certificados; no se lee el nombre del titular ajeno.
+Emisión usa Datos → Documento → Confirmar con UUID de titular compartido
+voluntariamente, PDF único y resumen. No hay búsqueda de emails, porcentaje
+de subida ficticio ni botón de revocar. La autorización final es del backend.
+Éxito 201/200 muestra ID y listado; no abre el detalle personal del emisor.
+
+Mi perfil copia el ID propio; detalle del titular y listado institucional ofrecen
+descarga solo tras comprobar documento/autorización. Legados conservan ausencia
+explícita; no hay preview falsa. Chrome usa selector HTML y Blob temporal;
+Android/iOS selector/guardado nativo. Reintentos mantienen solicitud/clave y los
+reinicios requieren reconstrucción exacta. Fuentes, tokens, componentes,
+estados y pruebas responsive se documentan en
+[docs/FLUTTER_UI_FOUNDATIONS.md](docs/FLUTTER_UI_FOUNDATIONS.md) y
+[docs/TESTING.md](docs/TESTING.md). El collage conserva acciones futuras fuera
+del alcance: QR, revocación, verificación pública y blockchain.
+
 ### Estado de implementación — Fase 4D
 
 Inicio, Mis certificados y Mi perfil comparten Inter local, tokens y componentes

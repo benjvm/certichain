@@ -14,6 +14,8 @@ import '../../../core/widgets/read_state.dart';
 import '../domain/certificate_repository.dart';
 import 'certificate_card.dart';
 import 'status_badge.dart';
+import '../domain/certificate_document_repository.dart';
+import 'document_action.dart';
 
 enum CertificateDetailSection { details, blockchain, history }
 
@@ -22,11 +24,15 @@ class CertificateDetailScreen extends StatefulWidget {
     required this.userId,
     required this.certificateId,
     required this.repository,
+    this.documents,
+    this.onSessionExpired,
     super.key,
   });
   final String userId;
   final String certificateId;
   final CertificateRepository repository;
+  final CertificateDocumentRepository? documents;
+  final VoidCallback? onSessionExpired;
 
   @override
   State<CertificateDetailScreen> createState() =>
@@ -152,7 +158,16 @@ class _CertificateDetailScreenState extends State<CertificateDetailScreen>
   Widget _content(BuildContext context, Certificate certificate) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      const CertificatePreview(),
+      if (widget.documents == null)
+        const CertificatePreview()
+      else
+        DocumentAction(
+          key: ValueKey((widget.userId, certificate.id, _request)),
+          userId: widget.userId,
+          certificateId: certificate.id,
+          repository: widget.documents!,
+          onSessionExpired: widget.onSessionExpired ?? () {},
+        ),
       const SizedBox(height: AppSpacing.xxl),
       Text(
         certificate.title,

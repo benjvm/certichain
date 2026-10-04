@@ -54,6 +54,12 @@ class AuthController extends ChangeNotifier {
 
   void inspectSession() => _accept(repository.currentSession);
 
+  /// Backend 401 invalidates every visible route immediately.
+  void requireSignIn() {
+    _accept(null);
+    unawaited(repository.signOut().catchError((Object _) {}));
+  }
+
   Future<void> signOut() async {
     if (signingOut || _disposed) return;
     signingOut = true;

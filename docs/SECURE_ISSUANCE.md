@@ -1,11 +1,12 @@
-# Emisión privada autenticada — Fase 7B
+# Emisión privada autenticada — Fases 7B y 7C
 
 ## Estado y límite de confianza
 
 7B implementa `POST /functions/v1/issue-certificate`. Solo owner/admin/issuer
-vigentes de una institución verified pueden emitir. Revocación, descarga para
-el titular, Flutter institucional, QR, verificación pública y blockchain siguen
-pendientes. No se ha desplegado ninguna función ni migración remota.
+vigentes de una institución verified pueden emitir. 7C incorpora el cliente
+Flutter institucional y `POST /functions/v1/certificate-pdf` para descarga privada.
+Revocación, QR, verificación pública y blockchain siguen pendientes.
+No se ha desplegado ninguna función ni migración remota.
 
 Para servirlo manualmente, con el stack local reconstruido y la CLI 2.117.0:
 
@@ -53,7 +54,10 @@ Elegibilidad MVP del titular: Auth y profiles existentes, email confirmado,
 no anónimo, no eliminado, no bloqueado actualmente y profiles.role = holder.
 Se comprueba después de autorizar al actor y otra vez al publicar, bloqueando
 Auth/profiles FOR SHARE. Una identidad no elegible devuelve un error fijo;
-no se exponen sus datos. Invitaciones/búsqueda de personas quedan para 7C.
+no se exponen sus datos. En 7C el titular copia su propio UUID desde Mi perfil y
+lo comparte voluntariamente; el formulario permite pegar «ID del titular».
+No es un email y no existe búsqueda global. Invitaciones o búsqueda con
+consentimiento quedan para un incremento posterior.
 
 Éxito: 201 para la publicación confirmada, 200 para recuperar completed;
 `{"status":"completed","certificate_id":"UUID"}`. Nunca se devuelve ruta,
@@ -229,7 +233,74 @@ endpoint de revocación. Su futuro backend exigirá owner/admin de la instituci�
 transición active → revoked, hora de servidor y una política explícita sobre
 instituciones suspended. Blockchain necesitará su propio registro/reconciliación.
 
-7C: pantallas de emisión, selección/invitación del titular y descarga autorizada
+7C entrega pantallas de emisión, ID de titular voluntario y descarga autorizada
 con URL firmada breve. 7D: E2E, carga/límites de abuso, revisión de compatibilidad
 PDF y endurecimiento operativo. QR/verificación pública y blockchain permanecen
 fuera de 7B. Resultados reales y CI observado están en TESTING.md.
+
+## Cliente institucional 7C y recuperación
+
+Inicio, Mis certificados y Mi perfil siguen siendo la faceta de titular.
+«Espacio institucional» aparece únicamente tras leer membresías reales propias
+con RLS. Ni institutionPreference ni profiles.role autorizan. La institución
+activa determina listado y borrador; varias instituciones no comparten solicitud.
+Pending/rejected/suspended muestran bloqueo. Se releen permisos al entrar,
+reanudar, renovar sesión, cada 30 segundos y antes de enviar. Backend revalida
+siempre; una baja durante la petición puede denegarla.
+
+Datos valida UUID, NFC/trim y los límites anteriores. La fecha elegida se expresa
+a medianoche UTC con seis decimales RFC3339 y se conserva normalizada. Documento
+selecciona un único PDF, muestra nombre/tamaño, permite reemplazo y limita a
+8 388 608 bytes antes de leer en Web y antes/durante la lectura nativa. Estas ayudas no inspeccionan ni
+sustituyen el parser servidor. Confirmar es el único paso con envío: JWT real,
+multipart y una petición sin porcentaje ni etapas ficticias. 201/200 muestran el
+ID, refrescan el listado y permiten ir a Certificados emitidos, sin abrir un
+detalle personal del emisor que filtre por otro titular.
+
+Antes del primer envío se crea un UUID y se congela institución, titular,
+metadatos normalizados y bytes. Doble pulsación no produce dos peticiones.
+operation_in_progress espera Retry-After (120 segundos) antes de acción manual;
+temporary_failure/respuesta perdida permiten reenviar la misma solicitud y clave.
+Conflicto, attempt_failed y stored_object_invalid requieren revisión; no hay
+reintentos automáticos ni sustitución silenciosa de clave.
+
+Antes de HTTP se persiste solo un recibo (UUID de clave, huella v1 de solicitud,
+fecha), separado por usuario/institución, máximo 20 recibos y retención 7 días.
+No contiene campos personales, filename, PDF, JWT ni secreto. No es un almacén
+cifrado: contiene únicamente evidencia mínima, nunca material de la sesión.
+Tras reinicio se pide reconstruir datos y volver a seleccionar los bytes
+originales; solo coincidencia exacta de huella habilita la misma clave. Incluso
+una expiración ya pasada se conserva para recuperar completed. Si no coincide,
+el envío queda bloqueado. «Iniciar una emisión nueva» requiere una decisión
+explícita y advierte comprobar el listado/operación anterior por riesgo de
+duplicado; no cancela ni recupera la operación anterior. Un recibo eliminado,
+caducado o borrado con los datos del navegador no garantiza recuperación.
+401 activa el flujo existente de sesión y destruye datos visibles de esa cuenta.
+
+## Endpoint PDF 7C
+
+`POST /functions/v1/certificate-pdf`, JSON cerrado `{"certificate_id":"UUID"}`,
+Authorization Bearer de sesión Auth real y clave pública. OPTIONS únicamente
+ofrece CORS; las operaciones exigen autenticación. Cache-Control: no-store en
+todas las respuestas; no se registran capacidades ni cuerpos.
+
+La RPC técnica `authorize_certificate_document`, ejecutable solo por service_role,
+comprueba vínculo 7A/7B completed, IDs, hash almacenado y ruta canónica. El servidor
+verifica objeto, límite y hash de bytes y revalida autorización antes de firmar.
+El titular conserva acceso aunque la institución se suspenda. Un miembro debe
+ser owner/admin/issuer actual de la institución emisora verified. platform_admin
+por sí solo, otra institución y conocer el UUID no conceden acceso.
+
+200 devuelve únicamente `signed_url` (capacidad relativa al API público configurado)
+y `expires_in: 60`. No hay campos document_path, document_hash ni credenciales.
+La capacidad contiene necesariamente el identificador opaco del objeto y su
+token; puede reutilizarse hasta vencimiento incluso tras una baja posterior.
+401 significa sesión inválida; 404 document_unavailable es indistinguible para
+certificado ajeno/ausente/legado sin PDF/objeto ausente; 503 temporary_failure
+es seguro. El bucket sigue privado sin SELECT/descarga directa para usuarios.
+
+Flutter consulta disponibilidad y descarta esa capacidad; cada «Descargar PDF»
+pide una nueva, descarga bytes y la descarta. Chrome descarga un Blob temporal
+sin navegar a la URL firmada; Android/iOS usan el diálogo de guardado nativo.
+No se persiste ni se añade a modelo/ruta/historial. No se ofrece una preview.
+Véase [ADR-0010](adr/0010-institutional-client-and-document-capabilities.md).

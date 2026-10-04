@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import '../../../core/widgets/app_button.dart';
 
 import '../../../app/theme/app_colors.dart';
 import '../../../app/theme/app_icons.dart';
@@ -85,6 +88,32 @@ class ProfileContent extends StatelessWidget {
             child: identity,
           ),
           const SizedBox(height: AppSpacing.section),
+          if (profile.role == 'holder') ...[
+            const Text(
+              'Comparte voluntariamente tu ID con la institución que vaya a emitir tu certificado. No es tu correo electrónico ni concede acceso a tu cuenta.',
+            ),
+            AppButton(
+              label: 'Copiar mi ID de titular',
+              style: AppButtonStyle.outline,
+              onPressed: () async {
+                try {
+                  await Clipboard.setData(ClipboardData(text: profile.id));
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('ID de titular copiado')),
+                    );
+                  }
+                } catch (_) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('No pudimos copiar el ID.')),
+                    );
+                  }
+                }
+              },
+            ),
+            const SizedBox(height: AppSpacing.section),
+          ],
           for (final option in const [
             (AppIcons.profile, 'Información personal', 'Edición no disponible'),
             (AppIcons.security, 'Seguridad', 'No disponible'),

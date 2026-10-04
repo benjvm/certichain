@@ -21,7 +21,7 @@ class SupabaseCertificateRepository implements CertificateRepository {
         .limit(CertificateRepository.walletLimit)
         .count(CountOption.exact)
         .timeout(const Duration(seconds: 20));
-    final certificates = result.data.map(_fromRow).toList();
+    final certificates = result.data.map(fromRow).toList();
     if (certificates.any((certificate) => certificate.holderId != userId)) {
       throw const FormatException('Invalid wallet owner');
     }
@@ -41,14 +41,14 @@ class SupabaseCertificateRepository implements CertificateRepository {
         .maybeSingle()
         .timeout(const Duration(seconds: 20));
     if (row == null) return null;
-    final certificate = _fromRow(row);
+    final certificate = fromRow(row);
     if (certificate.holderId != userId || certificate.id != certificateId) {
       throw const FormatException('Invalid certificate identity');
     }
     return certificate;
   }
 
-  Certificate _fromRow(Map<String, dynamic> row) {
+  static Certificate fromRow(Map<String, dynamic> row) {
     final institution = row['institutions'] as Map<String, dynamic>?;
     return Certificate(
       id: row['id'] as String,

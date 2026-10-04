@@ -33,16 +33,18 @@ jobs:
         run: supabase test db --local
       - name: Function formatting, lint, types and unit tests
         run: |
-          npx --yes deno@2.2.12 fmt --check supabase/functions supabase/tests/issuance_http.mjs supabase/scripts/local_supabase.mjs supabase/tests/pdf_fixture.mjs supabase/tests/institution_concurrency.mjs supabase/tests/private_storage.mjs supabase/admin/reconcile_issuance.mjs
+          npx --yes deno@2.2.12 fmt --check supabase/functions supabase/tests/issuance_http.mjs supabase/tests/certificate_pdf_http.mjs supabase/scripts/local_supabase.mjs supabase/tests/pdf_fixture.mjs supabase/tests/institution_concurrency.mjs supabase/tests/private_storage.mjs supabase/admin/reconcile_issuance.mjs
           npx --yes deno@2.2.12 lint supabase/functions
-          npx --yes deno@2.2.12 check --frozen --config supabase/functions/deno.json supabase/functions/issue-certificate/index.ts
-          npx --yes deno@2.2.12 test --frozen --config supabase/functions/deno.json supabase/functions/issue-certificate
+          npx --yes deno@2.2.12 check --frozen --config supabase/functions/deno.json supabase/functions/issue-certificate/index.ts supabase/functions/certificate-pdf/index.ts
+          npx --yes deno@2.2.12 test --frozen --config supabase/functions/deno.json supabase/functions
           node --check supabase/tests/issuance_http.mjs
           node --check supabase/admin/reconcile_issuance.mjs
       - name: Issuance HTTP and recovery with real local Auth
         run: node supabase/tests/issuance_http.mjs
       - name: Private Storage HTTP tests
         run: node supabase/tests/private_storage.mjs
+      - name: Authorized PDF HTTP and actual capability expiry
+        run: node supabase/tests/certificate_pdf_http.mjs
       - name: Concurrent owner protection
         run: node supabase/tests/institution_concurrency.mjs
       - name: Historical certificate migration preservation
@@ -58,3 +60,42 @@ jobs:
       - name: Stop local Supabase
         if: always()
         run: supabase stop --no-backup
+  flutter:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+      - name: Install pinned stable Flutter
+        # SDK archive is avoided; verify the exact stable tag's commit.
+        run: |
+          git clone --depth 1 --branch 3.47.4 https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter"
+          test "$(git -C "$RUNNER_TEMP/flutter" rev-parse HEAD)" = 9584c6713b324636289d067944a46fd6b49df14b
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+      - name: Install Node for the isolated Chrome harness
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22.14.0
+      - name: Resolve frozen dependencies
+        run: flutter pub get --enforce-lockfile
+      - name: Format and analyze
+        run: |
+          dart format --output=none --set-exit-if-changed lib test tool
+          flutter analyze
+      - name: Domain, adapters and widgets
+        run: flutter test
+      - name: Chrome PDF picker and download
+        env:
+          CHROME_EXECUTABLE: /usr/bin/google-chrome
+        run: flutter test --platform chrome test/pdf_download_browser_test.dart
+      - name: Chrome adapters against a real local Web build
+        run: |
+          flutter build web --no-web-resources-cdn --target=tool/pdf_browser_smoke.dart --output=build/browser-smoke
+          node tool/pdf_browser_smoke.mjs
+      - name: Build Web
+        run: flutter build web

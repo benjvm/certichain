@@ -17,6 +17,10 @@ import 'theme/app_colors.dart';
 import 'theme/app_icons.dart';
 import 'theme/app_sizes.dart';
 import 'theme/app_typography.dart';
+import '../features/institutions/domain/institution_repository.dart';
+import '../features/institutions/presentation/institution_workspace.dart';
+import '../features/issuance/domain/issuance_repository.dart';
+import '../features/certificates/domain/certificate_document_repository.dart';
 
 /// Owned by the session-keyed navigator. Never retained across identities.
 class AuthenticatedArea extends StatefulWidget {
@@ -25,12 +29,22 @@ class AuthenticatedArea extends StatefulWidget {
     required this.userId,
     required this.profiles,
     required this.certificates,
+    this.institutions,
+    this.issuance,
+    this.picker,
+    this.pendingStore,
+    this.documents,
     super.key,
   });
   final AuthController controller;
   final String userId;
   final ProfileRepository profiles;
   final CertificateRepository certificates;
+  final InstitutionRepository? institutions;
+  final IssuanceRepository? issuance;
+  final PdfPicker? picker;
+  final PendingAttemptStore? pendingStore;
+  final CertificateDocumentRepository? documents;
 
   @override
   State<AuthenticatedArea> createState() => _AuthenticatedAreaState();
@@ -44,6 +58,16 @@ class _AuthenticatedAreaState extends State<AuthenticatedArea>
   Timer? _expiry;
   int _request = 0;
   bool _openingDetail = false;
+  Future<List<InstitutionMembership>>? _members;
+  Timer? _membershipTimer;
+  void _readMemberships() {
+    _members = widget.institutions?.readMemberships(widget.userId);
+    if (_members != null) {
+      unawaited(
+        _members!.then<void>((_) {}, onError: (Object _, StackTrace _) {}),
+      );
+    }
+  }
 
   @override
   void initState() {
@@ -51,6 +75,11 @@ class _AuthenticatedAreaState extends State<AuthenticatedArea>
     WidgetsBinding.instance.addObserver(this);
     _readProfile();
     _readWallet();
+    _readMemberships();
+    widget.controller.addListener(_sessionChanged);
+    _membershipTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (mounted) setState(_readMemberships);
+    });
   }
 
   void _readProfile() {
@@ -114,7 +143,42 @@ class _AuthenticatedAreaState extends State<AuthenticatedArea>
   void _refresh() => setState(() {
     _readProfile();
     _readWallet();
+    _readMemberships();
   });
+  void _sessionChanged() {
+    if (mounted) setState(_readMemberships);
+  }
+
+  Future<void> _openInstitution() async {
+    if (_openingDetail ||
+        widget.institutions == null ||
+        widget.issuance == null ||
+        widget.picker == null ||
+        widget.pendingStore == null) {
+      return;
+    }
+    _openingDetail = true;
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        settings: const RouteSettings(
+          name: AppRouter.institutionalWorkspaceRoute,
+        ),
+        builder: (_) => InstitutionWorkspace(
+          userId: widget.userId,
+          repository: widget.institutions!,
+          issuance: widget.issuance!,
+          picker: widget.picker!,
+          store: widget.pendingStore!,
+          documents: widget.documents,
+          onSessionExpired: widget.controller.requireSignIn,
+          sessionChanges: widget.controller,
+        ),
+      ),
+    );
+    _openingDetail = false;
+    if (mounted) _refresh();
+  }
+
   void _open(AuthenticatedSection section) =>
       setState(() => _section = section);
 
@@ -126,6 +190,8 @@ class _AuthenticatedAreaState extends State<AuthenticatedArea>
         userId: widget.userId,
         certificateId: id,
         repository: widget.certificates,
+        documents: widget.documents,
+        onSessionExpired: widget.controller.requireSignIn,
       ),
     );
     _openingDetail = false;
@@ -135,6 +201,8 @@ class _AuthenticatedAreaState extends State<AuthenticatedArea>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _expiry?.cancel();
+    _membershipTimer?.cancel();
+    widget.controller.removeListener(_sessionChanged);
     super.dispose();
   }
 
@@ -185,6 +253,33 @@ class _AuthenticatedAreaState extends State<AuthenticatedArea>
                       ),
                       const SizedBox(height: AppSpacing.xxl),
                     ],
+                    if (_members != null)
+                      FutureBuilder<List<InstitutionMembership>>(
+                        future: _members,
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState !=
+                              ConnectionState.done) {
+                            return const SizedBox.shrink();
+                          }
+                          if (snapshot.hasError) {
+                            return TextButton(
+                              onPressed: () => setState(_readMemberships),
+                              child: const Text(
+                                'Reintentar lectura de membresías',
+                              ),
+                            );
+                          }
+                          if (snapshot.data!.isEmpty) {
+                            return const SizedBox.shrink();
+                          }
+                          return AppButton(
+                            label: 'Espacio institucional',
+                            onPressed: _openInstitution,
+                            style: AppButtonStyle.outline,
+                          );
+                        },
+                      ),
+                    const SizedBox(height: AppSpacing.lg),
                     if (_section != AuthenticatedSection.profile)
                       WalletContent(
                         future: _wallet,
