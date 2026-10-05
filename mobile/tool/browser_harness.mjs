@@ -44,6 +44,11 @@ export async function launchChrome(profile, args = [], timeout = 20000) {
       ? "C:/Program Files/Google/Chrome/Application/chrome.exe"
       : "/usr/bin/google-chrome");
   const child = spawn(executable, [
+    // Edge's Windows compatibility launcher otherwise exits successfully and
+    // re-parents the actual browser, escaping process-tree teardown.
+    ...(process.platform === "win32" && /msedge\.exe$/i.test(executable)
+      ? ["--edge-skip-compat-layer-relaunch"]
+      : []),
     "--headless=new",
     "--no-sandbox",
     "--disable-gpu",

@@ -162,7 +162,7 @@ abuso/equidad y observabilidad sin datos innecesarios.
 
 ## Reproducción local sin tocar el entorno habitual
 
-Docker, Node 22.14.0, Supabase CLI 2.117.0 y Deno 2.2.12; mismas versiones de CI.
+Docker, Node 24.14.0, Supabase CLI 2.117.0 y Deno 2.2.12; mismas versiones de CI.
 Desde raíz, en PowerShell, crear un segundo proyecto fuera del repositorio:
 
 ```powershell
@@ -223,8 +223,10 @@ service_role en el cliente ni --no-verify-jwt global. El stack habitual continú
 ## Reparto vigente de los incrementos
 
 - **8B:** pantalla pública, enlaces Web navegables y QR del titular.
-- **8C completada localmente:** escáner y comparación de una copia del PDF; CI/despliegue pendientes.
-- **8D pendiente:** pruebas integrales y endurecimiento del recorrido completo.
+- **8C completada localmente y CI observada:** escáner y comparación;
+  Actions 37350396753 intento 2 valida d31a273. Despliegue pendiente.
+- **8D implementada localmente:** recorrido main.dart release HTTPS y endurecimiento;
+  resultados y plataformas pendientes en PHASE8_ACCEPTANCE.md. CI 8D no observada.
 
 Este reparto corrige la discrepancia del documento de 8A; su evidencia histórica
 se conserva. Blockchain y revocación completa tienen sus propios incrementos.
@@ -401,3 +403,35 @@ verify_jwt=false solo en los endpoints públicos respectivos; conservar JWT de
 issue-certificate/certificate-pdf y no usar --no-verify-jwt global. Backend y Web
 con decoder deben publicarse coordinadamente posteriormente. Fixtures destructivos,
 comandos completos y distinción evidencia local/CI: [TESTING.md](TESTING.md).
+
+
+## Endurecimiento y demo integral — 8D
+
+El límite RPC se valida sin coerción: result es string de su enum; las claves
+siguen cerradas. Las fechas aceptan años 0001–9999, calendario gregoriano real,
+00–23:00–59:00–59, Z u offset ±00:00–23:59 y fracción opcional de 1–6 cifras.
+No admite segundo intercalar, 24:00, año cero, fracción mayor ni salto final.
+No normaliza ni redondea el valor, incluidos microsegundos. Una proyección RPC
+inválida produce error técnico 503, nunca valid/not_found aceptados por coerción.
+La ausencia exige integrity=unavailable; los registros verificables exigen match
+o integrity_mismatch. Ambas validaciones están cubiertas en Deno y Flutter.
+
+Una comparación fallida conserva explícitamente el resultado y checked_at
+anteriores, muestra «Consulta anterior» y el error de la nueva operación. Nunca
+los presenta como consulta reciente; una respuesta válida vuelve a «Comprobado».
+Cambiar código, cancelar o salir aborta el transporte propio y descarta respuestas
+antiguas. 429 deshabilita acciones hasta Retry-After; no consulta automáticamente:
+el usuario reintenta. El E2E espera una ventana real completa y prueba esta acción.
+
+El presupuesto global compartido de 60 POST/60 segundos incluye entradas inválidas.
+Es suficiente para la demo actual; un usuario puede agotarlo para todos. Antes de
+un lanzamiento público hay que diseñar protección contra abuso, cuotas y capacidad
+sin incorporar PII innecesaria. No es un límite individual por usuario/IP.
+
+La demo reproducible usa un stack nuevo con identidad/puertos propios, fuera del
+checkout, y main.dart release con configuración pública válida y HTTPS loopback.
+Auth, PostgREST, Edge y Storage son reales. TLS, service_role, SQL y fixtures quedan
+en el host. El navegador recibe solo URL pública y anon key pública para las
+operaciones privadas. Las consultas públicas utilizan credentials=omit incluso
+con cookies en el mismo origen. [DEMO_VERIFICATION.md](DEMO_VERIFICATION.md) explica
+preparación, ejecución y limpieza. Los harness 7D/8B/8C siguen como complementos.

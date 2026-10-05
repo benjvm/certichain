@@ -1,8 +1,19 @@
 import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
+import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 // Shared local-only operator/test infrastructure. No remote URL is accepted.
+export function assertDisposableStack() {
+  const config = readFileSync("supabase/config.toml", "utf8");
+  const project = /^project_id\s*=\s*"([^"]+)"/m.exec(config)?.[1];
+  const owned = /^certichain_8[ad]_[0-9a-f]{8}$/.test(project ?? "");
+  const freshCi = process.env.GITHUB_ACTIONS === "true" &&
+    project === "certichain";
+  if (process.env.CERTICHAIN_TEST_DISPOSABLE !== "1" || !(owned || freshCi)) {
+    throw new Error("Requires an owned disposable stack or fresh CI stack");
+  }
+}
 // setup-cli installs a binary in CI; development may use the npm CLI.
 export function cliCommand(args) {
   const binary = process.env.SUPABASE_CLI ?? "supabase";
@@ -36,6 +47,7 @@ export async function api(
   method = "GET",
   body,
   headers = {},
+  timeout = 30_000,
 ) {
   const result = await fetch(`${local.API_URL}${path}`, {
     method,
@@ -43,9 +55,12 @@ export async function api(
     headers: {
       apikey: local.ANON_KEY,
       Authorization: `Bearer ${token}`,
+      // Serve replacement invalidates old pooled sockets. These local tools
+      // exchange short, independent requests; never retry a mutating POST.
+      Connection: "close",
       ...headers,
     },
-    signal: AbortSignal.timeout(30_000),
+    signal: AbortSignal.timeout(timeout),
   });
   return result;
 }
@@ -66,6 +81,8 @@ export function sql(statement, user = "postgres") {
     "-v",
     "ON_ERROR_STOP=1",
   ], { input: statement, encoding: "utf8", timeout: 30_000 });
-  if (r.status !== 0) throw new Error(`Local fixture SQL failed: ${r.stderr}`);
+  if (r.status !== 0) {
+    throw new Error(`Local fixture SQL failed: exit=${r.status ?? "launch"}`);
+  }
   return r.stdout.trim();
 }

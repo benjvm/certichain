@@ -8,7 +8,10 @@ import '../domain/hash_comparison.dart';
 import 'public_http_client.dart';
 
 class HttpVerificationRepository
-    implements VerificationRepository, HashComparisonRepository {
+    implements
+        VerificationRepository,
+        HashComparisonRepository,
+        CancellablePublicQueries {
   HttpVerificationRepository({
     required String apiUrl,
     http.Client? client,
@@ -17,6 +20,19 @@ class HttpVerificationRepository
        _client = client ?? createPublicHttpClient();
   final Uri _endpoint;
   final http.Client _client;
+  final _pendingAborts = <Completer<void>>{};
+  @override
+  void cancelPending() {
+    for (final abort in _pendingAborts) {
+      if (!abort.isCompleted) abort.complete();
+    }
+  }
+
+  void close() {
+    cancelPending();
+    _client.close();
+  }
+
   final Duration timeout;
   static const maxResponseBytes = 8192;
 
@@ -75,6 +91,7 @@ class HttpVerificationRepository
       throw const VerificationException(VerificationFailure.invalidInput);
     }
     final abort = Completer<void>();
+    _pendingAborts.add(abort);
     try {
       return decode(
         await _query(code, abort.future, hash: hash).timeout(timeout),
@@ -90,6 +107,7 @@ class HttpVerificationRepository
       throw const VerificationException(VerificationFailure.unexpected);
     } finally {
       if (!abort.isCompleted) abort.complete();
+      _pendingAborts.remove(abort);
     }
   }
 
@@ -216,7 +234,8 @@ class HttpVerificationRepository
     if (match == null || match.end != input.length) throw unexpected;
     final parts = List.generate(6, (i) => int.parse(match.group(i + 1)!));
     final calendar = DateTime.utc(parts[0], parts[1], parts[2]);
-    if (calendar.year != parts[0] ||
+    if (parts[0] < 1 ||
+        calendar.year != parts[0] ||
         calendar.month != parts[1] ||
         calendar.day != parts[2] ||
         parts[3] > 23 ||

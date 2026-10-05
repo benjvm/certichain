@@ -1,33 +1,21 @@
-import { spawn, spawnSync } from "node:child_process";
+import { runtimeReady, startRuntime } from "./edge_runtime.mjs";
+import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import {
   api,
-  cliCommand,
+  assertDisposableStack,
   localStatus,
   sql,
 } from "../scripts/local_supabase.mjs";
 import { pdfFixture } from "./pdf_fixture.mjs";
 import { until } from "./local_issuance_fixture.mjs";
 
+assertDisposableStack();
 const local = localStatus();
 const run = randomUUID();
-const [serveCommand, serveArgs] = cliCommand([
-  "functions",
-  "serve",
-]);
-const server = spawn(serveCommand, serveArgs, {
-  stdio: "pipe",
-  windowsHide: true,
-});
-// Drain runtime output, never print upstream logs or credentials.
-let startup = "";
-server.stdout.on("data", (data) => {
-  startup = (startup + data).slice(-3000);
-});
-server.stderr.on("data", (data) => {
-  startup = (startup + data).slice(-3000);
-});
+const edge = startRuntime();
+const server = edge.child;
 const users = [], institutions = [];
 let assertions = 0;
 function check(condition, label) {
@@ -42,6 +30,7 @@ async function jsonRequest(path, token, body, method = "POST") {
   return { response, data };
 }
 async function rpc(name, args, token = local.SERVICE_ROLE_KEY) {
+  edge.current();
   const { response, data } = await jsonRequest(
     `/rest/v1/rpc/${name}`,
     token,
@@ -51,6 +40,7 @@ async function rpc(name, args, token = local.SERVICE_ROLE_KEY) {
   return data;
 }
 async function createUser(label) {
+  edge.current();
   const password = `Local-${randomUUID()}-Aa1!`,
     email = `${label}-${run}@example.invalid`;
   const created = await jsonRequest(
@@ -83,7 +73,7 @@ async function createUser(label) {
 async function institution(platform, owner, status = "verified") {
   const id = await rpc("create_institution", {
     p_name: "Synthetic 7B Institution",
-    p_slug: `phase7b-${randomUUID()}`,
+    p_slug: `phase7b-${run}-${randomUUID().slice(0, 8)}`,
     p_owner: owner.id,
   }, platform.token);
   institutions.push(id);
@@ -159,6 +149,7 @@ async function document(actor, id) {
   return { response, data };
 }
 try {
+  await runtimeReady(edge, local);
   const platform = await createUser("pdf-platform"),
     owner = await createUser("pdf-owner"),
     admin = await createUser("pdf-admin"),
@@ -177,18 +168,6 @@ try {
       p_role: role,
     }, owner.token);
   }
-  let ready = false;
-  for (let i = 0; i < 60; i++) {
-    const r = await document({ token: local.ANON_KEY }, randomUUID()).catch(
-      () => null,
-    );
-    if (r?.response.status === 401) {
-      ready = true;
-      break;
-    }
-    await delay(500);
-  }
-  check(ready, "JWT-protected local PDF runtime ready");
   const id = await issue(issuer, inst, holder);
   let capability;
   for (const actor of [holder, owner, admin, issuer]) {
@@ -361,6 +340,17 @@ try {
       });
     } else server.kill("SIGTERM");
   }
+  // Discover any own creation whose response was lost; never replay its POST.
+  for (
+    const id of sql(
+      `SELECT id FROM auth.users WHERE email LIKE '%${run}%@example.invalid';`,
+    ).split("\n").filter(Boolean)
+  ) if (!users.includes(id)) users.push(id);
+  for (
+    const id of sql(
+      `SELECT id FROM public.institutions WHERE slug LIKE 'phase7b-${run}-%';`,
+    ).split("\n").filter(Boolean)
+  ) if (!institutions.includes(id)) institutions.push(id);
   // Remove PDFs exclusively via Storage API before fixture-only SQL teardown.
   for (const id of institutions) {
     const r = await api(

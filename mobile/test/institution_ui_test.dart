@@ -74,6 +74,26 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  testWidgets(
+    'leaving issuance cancels its pending selector and ignores late bytes',
+    (t) async {
+      picker.pending = Completer<SelectedPdf?>();
+      await screen(t);
+      await t.enterText(find.byKey(const Key('holder-id')), holderId);
+      await t.enterText(find.byKey(const Key('issuance-title')), 'Synthetic');
+      await tap(t, 'Siguiente');
+      await t.ensureVisible(find.text('Seleccionar PDF'));
+      await t.tap(find.text('Seleccionar PDF'));
+      await t.pump();
+      await t.pumpWidget(const SizedBox());
+      expect(picker.cancellations, 1);
+      picker.pending!.complete(selectedPdf());
+      await t.pumpAndSettle();
+      expect(issuance.requests, isEmpty);
+      expect(t.takeException(), isNull);
+    },
+  );
+
   Future<void> toConfirmation(WidgetTester tester) async {
     await tester.enterText(find.byKey(const Key('holder-id')), holderId);
     await tester.enterText(

@@ -43,6 +43,7 @@ class VerificationController extends ChangeNotifier {
   bool loading = false, _disposed = false;
   int _generation = 0;
   VerificationResult? result;
+  bool resultIsPrevious = false;
   VerificationFailure? failure;
   int get waitSeconds => _cooldown.waitSeconds;
 
@@ -54,6 +55,7 @@ class VerificationController extends ChangeNotifier {
     _generation++;
     loading = false;
     result = null;
+    resultIsPrevious = false;
     if (failure != VerificationFailure.rateLimited) failure = null;
     notifyListeners();
   }
@@ -62,6 +64,7 @@ class VerificationController extends ChangeNotifier {
     if (!canSubmit || _disposed) return;
     final code = normalizeCredentialCode(input);
     result = null;
+    resultIsPrevious = false;
     failure = null;
     if (code == null) {
       failure = VerificationFailure.invalidInput;
@@ -102,6 +105,13 @@ class VerificationController extends ChangeNotifier {
 
   void _clearComparison() {
     _fileGeneration++;
+    if (repository case final CancellablePublicQueries transport) {
+      transport.cancelPending();
+    }
+    if (!identical(repository, comparisonRepository) &&
+        comparisonRepository is CancellablePublicQueries) {
+      (comparisonRepository as CancellablePublicQueries).cancelPending();
+    }
     picker?.cancel();
     _candidateHash = null;
     integrity = null;
@@ -178,6 +188,9 @@ class VerificationController extends ChangeNotifier {
       return;
     }
     comparisonFailure = null;
+    // The old timestamp belongs to the previous successful query. A pending
+    // or failed comparison must never make that snapshot appear fresh.
+    resultIsPrevious = true;
     comparisonPhase = ComparisonPhase.querying;
     notifyListeners();
     try {
@@ -191,6 +204,7 @@ class VerificationController extends ChangeNotifier {
         return;
       }
       result = response.verification;
+      resultIsPrevious = false;
       integrity = response.integrity;
       _candidateHash = null;
       comparisonPhase = ComparisonPhase.done;

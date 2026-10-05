@@ -1,5 +1,6 @@
+import { runtimeReady, startRuntime } from "./edge_runtime.mjs";
 // Test infrastructure only. All privileged work stays in Node on the local host.
-import { spawn, spawnSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -7,7 +8,7 @@ import { join, resolve, sep } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import {
   api,
-  cliCommand,
+  assertDisposableStack,
   localStatus,
   sql,
 } from "../scripts/local_supabase.mjs";
@@ -34,6 +35,7 @@ export function terminate(child) {
   } else child.kill("SIGTERM");
 }
 export async function fixture() {
+  assertDisposableStack();
   const local = localStatus();
   const users = [], institutions = [];
   const run = randomUUID(), faultToken = randomUUID();
@@ -44,24 +46,8 @@ export async function fixture() {
   );
   const envFile = join(directory, "functions.env");
   writeFileSync(envFile, `CERTICHAIN_LOCAL_FAULT_TOKEN=${faultToken}\n`);
-  const [command, args] = cliCommand([
-    "functions",
-    "serve",
-    "--env-file",
-    envFile,
-  ]);
-  const runtime = spawn(command, args, { windowsHide: true, stdio: "pipe" });
-  // A response from the previous container is not readiness of THIS serve.
-  // Observe only the CLI launch marker; never retain or print its output.
-  let serving = false, launchFailed = false;
-  runtime.on("error", () => {
-    launchFailed = true;
-  });
-  const launched = (chunk) => {
-    if (/Serving functions on/.test(chunk.toString())) serving = true;
-  };
-  runtime.stdout.on("data", launched);
-  runtime.stderr.on("data", launched);
+  const edge = startRuntime(envFile);
+  const runtime = edge.child;
   async function json(path, token, body, method = "POST") {
     const response = await api(
       local,
@@ -76,11 +62,13 @@ export async function fixture() {
     return { response, data: await response.json().catch(() => ({})) };
   }
   async function rpc(name, body, token) {
+    edge.current();
     const r = await json(`/rest/v1/rpc/${name}`, token, body);
     check(r.response.ok, `Fixture RPC ${name}: HTTP ${r.response.status}`);
     return r.data;
   }
   async function user(label, confirmed = true) {
+    edge.current();
     const email = `phase7d-${label}-${run}@example.invalid`;
     const password = `Local-${randomUUID()}-Aa1!`;
     const r = await json("/auth/v1/admin/users", local.SERVICE_ROLE_KEY, {
@@ -106,7 +94,7 @@ export async function fixture() {
   async function institution(platform, owner, name, status = "verified") {
     const id = await rpc("create_institution", {
       p_name: name,
-      p_slug: `phase7d-${randomUUID()}`,
+      p_slug: `phase7d-${run}-${randomUUID().slice(0, 8)}`,
       p_owner: owner.id,
     }, platform.token);
     institutions.push(id);
@@ -125,6 +113,7 @@ export async function fixture() {
     return id;
   }
   async function issue(actor, input, bytes = pdfFixture(), fault) {
+    edge.current();
     const form = new FormData();
     for (const [key, value] of Object.entries(input)) {
       if (value != null) form.append(key, value);
@@ -179,6 +168,26 @@ export async function fixture() {
   }
   async function close() {
     try {
+      // A create response may be lost AFTER committing. Discover this run's
+      // rows before teardown; never replay a non-idempotent create POST.
+      for (
+        const id of JSON.parse(
+          sql(
+            `SELECT coalesce(json_agg(id),'[]') FROM auth.users WHERE email LIKE '%-${run}@example.invalid';`,
+          ),
+        )
+      ) {
+        if (!users.includes(id)) users.push(id);
+      }
+      for (
+        const id of JSON.parse(
+          sql(
+            `SELECT coalesce(json_agg(id),'[]') FROM public.institutions WHERE slug LIKE 'phase7d-${run}-%';`,
+          ),
+        )
+      ) {
+        if (!institutions.includes(id)) institutions.push(id);
+      }
       for (const id of institutions) {
         const r = await api(
           local,
@@ -275,30 +284,7 @@ export async function fixture() {
     }
   }
   try {
-    await until(
-      () => {
-        check(
-          !launchFailed && runtime.exitCode === null,
-          "Local Edge runtime launch failed",
-        );
-        return serving;
-      },
-      "Current functions serve launch marker",
-      60000,
-    );
-    await until(async () => {
-      check(runtime.exitCode === null, "Local Edge runtime exited");
-      const r = await api(
-        local,
-        "/functions/v1/certificate-pdf",
-        local.ANON_KEY,
-        "POST",
-        "{}",
-      ).catch(() => null);
-      if (!r) return false;
-      await r.arrayBuffer();
-      return r.status === 401;
-    }, "verified-JWT local Edge runtime");
+    await runtimeReady(edge, local);
     const platform = await user("platform"),
       owner = await user("owner"),
       holder = await user("holder"),

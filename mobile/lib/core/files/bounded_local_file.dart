@@ -11,7 +11,7 @@ Future<Uint8List> readBoundedLocalFile(
   bool Function()? cancelled,
 }) async {
   final bytes = BytesBuilder(copy: false);
-  await for (final chunk in stream) {
+  await for (final chunk in stream.timeout(const Duration(seconds: 15))) {
     if (cancelled?.call() ?? false) return Uint8List(0);
     if (bytes.length + chunk.length > limit) {
       throw const LocalFileReadException(true);

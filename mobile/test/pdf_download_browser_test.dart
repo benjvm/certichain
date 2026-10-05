@@ -11,6 +11,17 @@ import 'package:mobile/features/certificates/data/pdf_saver_web.dart';
 
 void main() {
   test(
+    'Chrome issuance picker cancellation removes only its own input',
+    () async {
+      final picker = PlatformPdfPicker();
+      final selection = picker.pick();
+      expect(web.document.querySelector('#certichain-pdf-input'), isNotNull);
+      picker.cancel();
+      expect(await selection, isNull);
+      expect(web.document.querySelector('#certichain-pdf-input'), isNull);
+    },
+  );
+  test(
     'Chrome picker selects one real PDF and reads its exact bytes',
     () async {
       final future = PlatformPdfPicker().pick();

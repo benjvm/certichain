@@ -187,9 +187,20 @@ véase [SECURE_ISSUANCE.md](SECURE_ISSUANCE.md). No incluye todavía blockchain.
   182 Flutter, 611 SQL, 65 Deno, HTTP 255/296 y Web real con cámara emulada
   superados localmente. Harness 7D/8B corregidos y revalidados; smoke CDP Windows
   y Ubuntu 24.04. El fallo histórico Actions 37234444550 no se reprodujo ni se
-  confirma su excepción concreta. Nuevo Actions/despliegue y cámaras físicas/
-  iOS pendientes; evidencia y limitaciones en [TESTING.md](TESTING.md).
-- **8D pendiente:** pruebas integrales y endurecimiento del recorrido completo.
+  confirma su excepción concreta. Actions 37350396753 intento 2 observado posteriormente: success en 8C.
+  Despliegue, cámaras físicas e iOS pendientes; evidencia en [TESTING.md](TESTING.md).
+- **8D implementada y validada localmente el 05/10/2026.** Contratos públicos
+  estrictos, readiness del proceso actual, cancelación/recursos y resultados anteriores
+  explícitos; Node 24.14.0 fijado. main.dart Web release con HTTPS y stack descartable
+  cubre emisión, descarga, QR/copia, cámara emulada/decoder real, comparación,
+  errores/carreras y renovación temporal real. 198 tests Flutter y 68 Deno; suites
+  SQL/HTTP y harness anteriores conservados. CI 8D y despliegue no observados.
+  Plataformas/cámara física/validación humana pendientes, sin marcarlas como PASS:
+  [PHASE8_ACCEPTANCE.md](PHASE8_ACCEPTANCE.md). Demo/limpieza reproducibles en
+  [DEMO_VERIFICATION.md](DEMO_VERIFICATION.md).
+
+La ejecución Actions 37350396753 intento 2 validó 8C en d31a273, no estos cambios.
+El cierre local 8D no incorpora blockchain ni un nuevo flujo completo de revocación.
 
 El reparto autorizado de 8B corrige la asignación documental de QR/enlaces a 8C
 introducida en 8A (`e3f42255c459e57e73f16b9677722add7590227e`). Se conserva arriba
@@ -197,7 +208,7 @@ la entrega/evidencia histórica de 8A, sin atribuirle interfaz o CI posterior.
 
 ### Orden recomendado de los incrementos posteriores (pendientes)
 
-1. Completar 8D: endurecimiento integral, dispositivos físicos y validación CI del recorrido.
+1. Validar CI 8D, cámaras físicas y plataformas/validación humana pendientes de la matriz.
 2. Anclaje blockchain: contrato, adaptador de backend, estados e idempotencia.
 3. Revocación completa y endurecimiento: backend, sincronización blockchain,
    reconciliación, seguridad, recuperación y pruebas del recorrido completo.

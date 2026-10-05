@@ -161,6 +161,7 @@ abstract interface class PendingAttemptStore {
 
 abstract interface class PdfPicker {
   Future<SelectedPdf?> pick();
+  void cancel();
 }
 
 abstract interface class IssuanceRepository {

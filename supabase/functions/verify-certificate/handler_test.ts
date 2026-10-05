@@ -1,5 +1,9 @@
 import { handler } from "./handler.ts";
-import { credentialCode, publicProjection } from "./contract.ts";
+import {
+  credentialCode,
+  publicProjection,
+  publicTimestamp,
+} from "./contract.ts";
 import { BodyError, boundedBody } from "../_shared/bounded_body.ts";
 
 const code = "a1111111-2222-4333-8444-555555555555";
@@ -126,6 +130,75 @@ Deno.test("Projection rejects private/unknown fields and retains microseconds", 
     ]
   ) {
     check(!publicProjection(data, code));
+  }
+});
+Deno.test("8D exact result types fail closed at the RPC boundary", async () => {
+  for (
+    const result of [
+      ["valid"],
+      { toString: "valid" },
+      true,
+      false,
+      1,
+      null,
+      "unknown",
+      ["not_found"],
+    ]
+  ) {
+    const projection = { ...valid, result };
+    check(!publicProjection(projection, code));
+    await mocked(async () => {
+      await expect(request(), 503, { error: "temporary_failure" });
+    }, { result: projection });
+  }
+});
+Deno.test("8D Gregorian dates, time, precision and numeric zones", async () => {
+  const accepted = [
+    "2000-02-29T23:59:59Z",
+    "2024-02-29T12:00:00.1+02:30",
+    "2026-01-31T00:00:00.123456-23:59",
+    "0001-01-01T00:00:00+00:00",
+  ];
+  const rejected: unknown[] = [
+    "2026-99-99T12:00:00Z",
+    "2026-02-29T00:00:00Z",
+    "1900-02-29T00:00:00Z",
+    "2026-04-31T00:00:00Z",
+    "2026-00-01T00:00:00Z",
+    "2026-01-00T00:00:00Z",
+    "0000-01-01T00:00:00Z",
+    "2026-01-01T24:00:00Z",
+    "2026-01-01T00:60:00Z",
+    "2026-01-01T00:00:60Z",
+    "2026-01-01T00:00:00+24:00",
+    "2026-01-01T00:00:00-01:60",
+    "2026-01-01T00:00:00.1234567Z",
+    "2026-01-01T00:00:00.Z",
+    "2026-01-01T00:00:00+0100",
+    "2026-01-01T00:00:00",
+    "2026-01-01T00:00:00Z\n",
+    [valid.issued_at],
+    {},
+    true,
+  ];
+  for (const timestamp of accepted) {
+    check(publicTimestamp(timestamp));
+    check(
+      publicProjection({
+        ...valid,
+        issued_at: timestamp,
+        checked_at: timestamp,
+        expires_at: timestamp,
+      }, code),
+    );
+  }
+  for (const timestamp of rejected) {
+    check(!publicTimestamp(timestamp));
+    for (const field of ["issued_at", "checked_at", "expires_at"]) {
+      await mocked(async () => {
+        await expect(request(), 503, { error: "temporary_failure" });
+      }, { result: { ...valid, [field]: timestamp } });
+    }
   }
 });
 Deno.test("Public success without session and uppercase equivalent", async () => {

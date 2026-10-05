@@ -50,6 +50,11 @@ abstract interface class VerificationRepository {
   Future<VerificationResult> verify(String code);
 }
 
+/// The public route owns its in-flight operations, independently of Auth.
+abstract interface class CancellablePublicQueries {
+  void cancelPending();
+}
+
 /// Authorized own certificate only; null means no shareable publication evidence.
 abstract interface class CredentialRepository {
   Future<String?> readOwnCode(String holderId, String certificateId);

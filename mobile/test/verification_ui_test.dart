@@ -357,11 +357,12 @@ void main() {
         home: Center(
           child: RepaintBoundary(
             key: boundary,
-            child: const SizedBox(
+            child: SizedBox(
               width: 280,
               height: 280,
               child: VerificationQr(
-                url: 'http://localhost:7357/#/verify/$publicCode',
+                url:
+                    '${Platform.environment['CERTICHAIN_QR_CAPTURE_BASE'] ?? 'http://localhost:7357/'}#/verify/$publicCode',
               ),
             ),
           ),

@@ -11,7 +11,9 @@ permissions:
 jobs:
   database:
     runs-on: ubuntu-24.04
-    timeout-minutes: 50
+    timeout-minutes: 65
+    env:
+      CERTICHAIN_TEST_DISPOSABLE: '1'
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -20,7 +22,7 @@ jobs:
       - name: Install Node
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: 22.14.0
+          node-version: 24.14.0
       - name: Install Supabase CLI
         uses: supabase/setup-cli@1dedf2c611547ede7232d26866dd3c56ab903bbb # v1.7.3
         with:
@@ -33,7 +35,7 @@ jobs:
         run: supabase test db --local
       - name: Function formatting, lint, types and unit tests
         run: |
-          npx --yes deno@2.2.12 fmt --check supabase/functions supabase/tests/public_verification_http.mjs supabase/tests/issuance_http.mjs supabase/tests/certificate_pdf_http.mjs supabase/scripts/local_supabase.mjs supabase/tests/pdf_fixture.mjs supabase/tests/institution_concurrency.mjs supabase/tests/private_storage.mjs supabase/admin/reconcile_issuance.mjs supabase/tests/local_issuance_fixture.mjs supabase/tests/issuance_hardening.mjs mobile/tool/secure_issuance_browser.mjs mobile/tool/public_verification_browser.mjs mobile/tool/verify_qr.mjs mobile/tool/browser_harness.mjs mobile/tool/browser_harness_test.mjs mobile/tool/browser_harness_smoke.mjs mobile/tool/prepare_decoder.mjs mobile/tool/qr_test_video.mjs supabase/tests/hash_comparison_http.mjs
+          npx --yes deno@2.2.12 fmt --check supabase/functions supabase/tests/public_verification_http.mjs supabase/tests/issuance_http.mjs supabase/tests/certificate_pdf_http.mjs supabase/scripts/local_supabase.mjs supabase/tests/pdf_fixture.mjs supabase/tests/institution_concurrency.mjs supabase/tests/private_storage.mjs supabase/admin/reconcile_issuance.mjs supabase/tests/local_issuance_fixture.mjs supabase/tests/issuance_hardening.mjs mobile/tool/secure_issuance_browser.mjs mobile/tool/public_verification_browser.mjs mobile/tool/verify_qr.mjs mobile/tool/browser_harness.mjs mobile/tool/browser_harness_test.mjs mobile/tool/browser_harness_smoke.mjs mobile/tool/prepare_decoder.mjs mobile/tool/qr_test_video.mjs supabase/tests/hash_comparison_http.mjs supabase/tests/edge_runtime.mjs supabase/tests/edge_runtime_test.mjs mobile/tool/release_verification_browser.mjs
           npx --yes deno@2.2.12 lint supabase/functions
           npx --yes deno@2.2.12 check --frozen --config supabase/functions/deno.json supabase/functions/issue-certificate/index.ts supabase/functions/certificate-pdf/index.ts supabase/functions/verify-certificate/index.ts supabase/functions/compare-certificate-hash/index.ts
           npx --yes deno@2.2.12 test --frozen --config supabase/functions/deno.json supabase/functions
@@ -46,6 +48,7 @@ jobs:
           node --check mobile/tool/public_verification_browser.mjs
           node --check mobile/tool/verify_qr.mjs
           node --test mobile/tool/browser_harness_test.mjs
+          node --test supabase/tests/edge_runtime_test.mjs
           node mobile/tool/browser_harness_smoke.mjs
       - name: Issuance HTTP and recovery with real local Auth
         run: node supabase/tests/issuance_http.mjs
@@ -95,6 +98,8 @@ jobs:
         run: |
           npm ci --ignore-scripts
           node prepare_decoder.mjs
+          node prepare_decoder.mjs --check
+          git diff --exit-code -- ../web/decoder
       - name: Public Flutter Web, real emulated camera, private PDF comparison, QR and main startup failure
         working-directory: mobile
         env:
@@ -103,6 +108,21 @@ jobs:
           flutter build web --no-web-resources-cdn --target=tool/public_verification_browser.dart --output=build/public-verification-e2e
           flutter build web --debug --no-web-resources-cdn --base-href=/production/ --dart-define=SUPABASE_URL=http://127.0.0.1:54321 --dart-define=PUBLIC_VERIFICATION_BASE_URL=http://127.0.0.1:7357/production/ --output=build/public-verification-main
           node tool/public_verification_browser.mjs
+      - name: Production main.dart release over HTTPS, real UI and complete public journey
+        working-directory: mobile
+        env:
+          CERTICHAIN_TEST_DISPOSABLE: '1'
+        run: node tool/release_verification_browser.mjs
+      - name: Upload sanitized release evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: phase8d-release-evidence
+          path: mobile/build/phase8d-evidence
+          if-no-files-found: ignore
+      - name: Compile Android production entrypoint
+        working-directory: mobile
+        run: flutter build apk --debug --target=lib/main.dart
       - name: Diff whitespace
         run: git diff --check
       - name: Stop local Supabase
@@ -128,7 +148,7 @@ jobs:
       - name: Install Node for the isolated Chrome harness
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
-          node-version: 22.14.0
+          node-version: 24.14.0
       - name: Resolve frozen dependencies
         run: flutter pub get --enforce-lockfile
       - name: Format and analyze
@@ -153,6 +173,9 @@ jobs:
           flutter build web --no-web-resources-cdn --target=tool/pdf_browser_smoke.dart --output=build/browser-smoke
           node tool/pdf_browser_smoke.mjs
       - name: Prepare pinned offline scanner decoder
-        run: node tool/prepare_decoder.mjs
+        run: |
+          node tool/prepare_decoder.mjs
+          node tool/prepare_decoder.mjs --check
+          git diff --exit-code -- web/decoder
       - name: Build Web
         run: flutter build web --no-web-resources-cdn

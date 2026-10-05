@@ -56,9 +56,13 @@ class FakeIssuance implements IssuanceRepository {
 }
 
 class FakePdfPicker implements PdfPicker {
+  @override
+  void cancel() => cancellations++;
+  int cancellations = 0;
+  Completer<SelectedPdf?>? pending;
   SelectedPdf? pdf = selectedPdf();
   @override
-  Future<SelectedPdf?> pick() async => pdf;
+  Future<SelectedPdf?> pick() async => pending == null ? pdf : pending!.future;
 }
 
 class FakeInstitutions implements InstitutionRepository {

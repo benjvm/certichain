@@ -1,5 +1,5 @@
 # Copy only versioned backend sources. Never copy .temp, .branches, credentials or user data.
-param([string]$Destination = (Join-Path $env:TEMP ('certichain-8a-' + [guid]::NewGuid())), [switch]$Start)
+param([string]$Destination = (Join-Path $env:TEMP ('certichain-8d-' + [guid]::NewGuid())), [switch]$Start)
 $ErrorActionPreference = 'Stop'
 $source = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 $target = [IO.Path]::GetFullPath($Destination)
@@ -7,7 +7,7 @@ if (Test-Path -LiteralPath $target) { throw 'Disposable destination must not exi
 if ($target.StartsWith($source + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
     throw 'Disposable destination must be outside the repository.'
 }
-$project = 'certichain_8a_' + [guid]::NewGuid().ToString('N').Substring(0,8)
+$project = 'certichain_8d_' + [guid]::NewGuid().ToString('N').Substring(0,8)
 New-Item -ItemType Directory -Path (Join-Path $target 'supabase') -Force | Out-Null
 Push-Location -LiteralPath $source
 try {

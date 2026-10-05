@@ -208,3 +208,31 @@ ZXing JS 0.23.0 UMD servido local desde web/decoder, generado por tool/prepare_d
 con npm lockfile y manifest SHA-256. No CDN ni gallery ni imágenes retornadas.
 Android CAMERA opcional; iOS texto de cámara; Web HTTPS/loopback y getUserMedia.
 Actualizar exige repetir E2E con cámara emulada y revisión en dispositivos reales.
+
+
+## Recursos y cancelación — 8D
+
+CancellablePublicQueries es un contrato opcional de dominio. El adaptador HTTP
+mantiene aborts por consulta y los libera al completar; el controlador los cancela
+al cambiar código, cancelar o salir. main libera su cliente al disponer el host.
+El selector de emisión ofrece cancel(); la pantalla lo llama al salir y el selector
+Web elimina input/listeners propios. La lectura nativa tiene timeout de 15 segundos
+por bloque y comprueba cancelación entre bloques. No se consulta infraestructura
+desde widgets ni se importa Flutter/HTTP/Supabase en el dominio.
+
+Los selectores nativos borran solo la copia devuelta con forma conocida dentro de
+la caché file_picker Android o UUID temporal iOS, tras comprobar ruta real y ausencia
+de enlaces simbólicos. Conservan originales y archivos ajenos. No llaman a limpieza
+global del plugin. Si el OS o plugin no devuelve esa ruta, si la selección se cancela
+sin ruta, si hay crash o borrado denegado, su retención depende del OS; no se garantiza
+borrado seguro de soportes. PDF/bytes no se escriben en logs.
+
+El diálogo de permisos produce inactive transitorio. Durante preparing se conserva
+su resultado; hidden/paused y salida cancelan igualmente la captura. La confirmación
+QR tiene guard síncrono ante dos eventos anteriores al siguiente frame.
+
+
+En Flutter Android, Directory.systemTemp señala code_cache. Para file_picker 13.1.0 /
+android_file_picker 2.0.0 se deriva exclusivamente su hermana cache dentro de la
+misma aplicación antes de validar la ruta real cache/file_picker/<timestamp>/<file>.
+La prueba nativa comprobó la retención anterior y su regresión; no se borran originales.

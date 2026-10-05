@@ -5,5 +5,12 @@
     "@zxing/library": "0.23.0",
     "jsqr": "1.4.0",
     "pngjs": "7.0.0"
+  },
+  "engines": {
+    "node": "24.14.0"
+  },
+  "scripts": {
+    "decoder:prepare": "node prepare_decoder.mjs",
+    "decoder:check": "node prepare_decoder.mjs --check"
   }
 }

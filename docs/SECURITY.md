@@ -293,3 +293,29 @@ y comprueba CDP/servidor sin Cookie, Authorization o apikey. Datos de fixtures y
 claves técnicas están solo en host del stack descartable. Diagnóstico del harness
 CDP/Chrome conserva tipos/localizaciones/categorías acotadas, nunca mensajes
 crudos, expresiones, URLs, payloads, tokens o stderr completo.
+
+
+## Evidencia integral 8D y límite de lanzamiento
+
+El recorrido release sobre main.dart verifica ausencia de Authorization/apikey/
+Cookie en ambos endpoints públicos, incluido origen compartido con cookie
+preexistente. Solo se envían código y hash candidato; no se sube el PDF comparado.
+QR y clipboard contienen únicamente el enlace público con código. El navegador
+carga el decoder y procesa los fotogramas localmente, sin CDN ni subida. El build
+se inspecciona para excluir service_role, JWT secret y token técnico de fallos.
+Los DTO cerrados no incluyen hash registrado, titular, rutas ni URLs firmadas.
+Las pruebas SQL/HTTP conservan RLS, bucket privado y denegación de RPC técnicos a
+anon/authenticated, y comprueban aislamiento entre titulares y cambio de cuenta.
+
+Las alteraciones del presupuesto y el teardown de fixtures se limitan a proyectos
+certichain_8d_* (o los anteriores certichain_8a_*) creados fuera del repositorio,
+o al runner CI nuevo. Una variable de entorno por sí sola no autoriza el stack
+habitual. Se restaura el contador; los guards de teardown se restauran dentro de
+una transacción y se eliminan únicamente filas/objetos de la ejecución sintética.
+No hay migraciones nuevas ni relajaciones de HTTPS/RLS en producción.
+
+El presupuesto global atómico compartido 60 POST/60 segundos puede agotarse para
+todos los usuarios. La prueba de renovación espera tiempo real, sin modificar
+reloj ni contador durante esa ventana. Protección para lanzamiento público queda
+pendiente de diseño y pruebas de carga. Limitaciones de plataforma y retención
+local: [PHASE8_ACCEPTANCE.md](PHASE8_ACCEPTANCE.md).

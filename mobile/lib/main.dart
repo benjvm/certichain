@@ -103,6 +103,12 @@ class _CertiChainBootstrapState extends State<CertiChainBootstrap> {
   }
 
   @override
+  void dispose() {
+    _verification?.close();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) => CertiChainApp(
     authRepository: _auth,
     profileRepository: _profiles,

@@ -15,19 +15,32 @@ if (version !== "0.23.0") throw new Error("Unexpected decoder version");
 mkdirSync(target, { recursive: true });
 // Strip only the optional source-map lookup; decoder behavior is untouched.
 const script = bytes.toString().replace(/\/\/# sourceMappingURL=.*$/m, "");
-writeFileSync(resolve(target, "zxing-0.23.0.min.js"), script);
-writeFileSync(resolve(target, "LICENSE"), license);
-writeFileSync(
-  resolve(target, "manifest.json"),
-  JSON.stringify(
-    {
-      package: "@zxing/library",
-      version,
-      sha256: createHash("sha256").update(script).digest("hex"),
-      source: "npm lockfile; UMD; Apache-2.0; no external runtime imports",
-    },
-    null,
-    2,
-  ) + "\n",
+const artifacts = {
+  "zxing-0.23.0.min.js": Buffer.from(script),
+  "LICENSE": license,
+  "manifest.json": Buffer.from(
+    JSON.stringify(
+      {
+        package: "@zxing/library",
+        version,
+        sha256: createHash("sha256").update(script).digest("hex"),
+        source: "npm lockfile; UMD; Apache-2.0; no external runtime imports",
+      },
+      null,
+      2,
+    ) + "\n",
+  ),
+};
+for (const [name, content] of Object.entries(artifacts)) {
+  const path = resolve(target, name);
+  if (process.argv.includes("--check")) {
+    if (!readFileSync(path).equals(content)) {
+      throw new Error(`Decoder asset drift: ${name}`);
+    }
+  } else writeFileSync(path, content);
+}
+console.log(
+  process.argv.includes("--check")
+    ? "PASS: decoder assets reproduce exactly"
+    : "Prepared pinned local QR decoder and license",
 );
-console.log("Prepared pinned local QR decoder and license");

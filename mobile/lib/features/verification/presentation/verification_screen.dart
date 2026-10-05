@@ -231,7 +231,17 @@ class _VerificationScreenState extends State<VerificationScreen> {
                       ),
                     ),
                   if (_controller.result case final result?) ...[
-                    _Result(result: result),
+                    if (_controller.resultIsPrevious)
+                      Semantics(
+                        liveRegion: true,
+                        child: const Text(
+                          'Resultado anterior. La nueva comparación aún no ha confirmado el estado del certificado. La fecha corresponde a la consulta anterior.',
+                        ),
+                      ),
+                    _Result(
+                      result: result,
+                      previous: _controller.resultIsPrevious,
+                    ),
                     if ((result.record != null ||
                             _controller.comparisonPhase !=
                                 ComparisonPhase.idle) &&
@@ -297,8 +307,9 @@ class _VerificationScreenState extends State<VerificationScreen> {
 }
 
 class _Result extends StatelessWidget {
-  const _Result({required this.result});
+  const _Result({required this.result, this.previous = false});
   final VerificationResult result;
+  final bool previous;
   @override
   Widget build(BuildContext context) {
     final (label, icon, color) = switch (result.status) {
@@ -362,7 +373,9 @@ class _Result extends StatelessWidget {
                 const Text('Código del certificado'),
                 SelectableText(record.code),
                 const SizedBox(height: AppSpacing.md),
-                Text('Comprobado: ${_date(record.checkedAt)}'),
+                Text(
+                  '${previous ? 'Consulta anterior' : 'Comprobado'}: ${_date(record.checkedAt)}',
+                ),
                 const Text('Todas las fechas se muestran en UTC.'),
               ],
             ],

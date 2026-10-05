@@ -1,5 +1,11 @@
 # Estrategia de pruebas
 
+Versiones actuales 8D: Node 24.14.0, Flutter 3.47.4/Dart 3.13.3, CLI 2.117.0 y
+Deno 2.2.12. Los resultados/versiones de entregas anteriores se conservan como
+evidencia histórica. Para ejecutar ahora, usar [DEMO_VERIFICATION.md](DEMO_VERIFICATION.md)
+y la matriz de [PHASE8_ACCEPTANCE.md](PHASE8_ACCEPTANCE.md).
+
+
 ## Pirámide
 
 - Muchas pruebas unitarias para entidades, casos de uso, mapeos y estados.
@@ -178,7 +184,7 @@ Cobertura nueva:
   Los 203 tests previos mantienen lecturas de wallet/detalle 4D y comparan filas
   completas tras operaciones de certificados rechazadas.
 
-`supabase/tests/institution_concurrency.mjs` usa Node.js 22 (solo biblioteca
+`supabase/tests/institution_concurrency.mjs` usa Node.js 24.14.0 (solo biblioteca
 estándar) y Docker. Hace pg_dump **solo del esquema** real de public/auth/
 certichain_private, lo reconstruye en una base `phase6_test_<aleatorio>` del
 contenedor local y crea allí fixtures sintéticos. No copia datos ni compromete
@@ -1173,3 +1179,43 @@ docker run --rm --shm-size=256m certichain-cdp-linux-8c
 Chrome se obtiene del canal estable oficial durante build; su versión puede
 cambiar, por lo que la observada arriba es evidencia de esta ejecución. Node y
 Ubuntu sí están fijados. No expone puertos ni requiere secretos/stack Supabase.
+
+## Cierre local integral 8D (2026-10-05)
+
+Base d31a2735b3c51a651f101da5b764612a45862cac, working tree 8D sin commit/push.
+Actions 37350396753 intento 2 valida únicamente 8C. La evidencia anterior se
+conserva como histórica; los resultados nuevos se detallan en
+[PHASE8_ACCEPTANCE.md](PHASE8_ACCEPTANCE.md). No hay CI 8D observada ni despliegue.
+
+Herramientas actuales: Node 24.14.0 obligatorio, npm engine-strict y lock congelado,
+Flutter 3.47.4/Dart 3.13.3, Supabase CLI 2.117.0, Deno 2.2.12. CI y contenedor
+harness usan ese Node compatible con ZXing 0.23.0; UMD/licencia/manifest no cambian.
+`node mobile/tool/prepare_decoder.mjs --check` detecta drift sin sobrescribirlo.
+
+`./supabase/tests/run_phase8d.ps1` crea, ejecuta release real y limpia un stack
+nuevo; `-Full` añade SQL/HTTP/Deno/Flutter y harness instrumentados.
+No correr suites con fixtures/budget concurrentemente. Los fixtures requieren
+identidad de stack propio además del flag disposable; CI admite su runner fresco.
+Nunca manipular contadores/guards del stack habitual del desarrollador.
+
+Readiness espera el marcador del proceso serve actual, después probes acotados
+Auth/PostgREST/Storage y rechazo JWT Edge, sin mutaciones persistentes. Salida o
+deadline falla la etapa con diagnóstico sanitizado. Las conexiones del operador
+son independientes; crear usuario/institución/certificado no tiene reintento ciego.
+Teardown encuentra también filas propias con respuesta perdida. Tests controlados
+reproducen old-ready y errores/señales/salida temprana. Esto no confirma la causa
+histórica UND_ERR_SOCKET del intento 1.
+
+El E2E nuevo construye lib/main.dart release con configuración completa y HTTPS;
+selecciona/copia/descarga mediante UI/semántica y adaptadores reales. Incluye mismo
+origen con cookie, QR renderizado, cámara Y4M y ZXing local, 8 MiB, checked_at previo,
+dos repeticiones de carreras, errores acotados y renovación temporal real de 60 s.
+No reutiliza 7D/8B+8C como evidencia de main.dart. JSON/capturas solo públicas
+sintéticas en build/phase8d-evidence; TLS, secretos y configuración temporal no se
+suben como artefactos. CI conserva las suites y añade readiness, drift, release
+HTTPS, compilación Android y artefactos sanitizados; CI 8D todavía no observada.
+
+Windows Chrome platform test mantiene la limitación documentada; no es PASS.
+La prueba Linux CI permanece obligatoria. Probes Android usan un emulador exclusivo,
+rechazan reemplazar un paquete ya instalado y limpian archivos/instalación propios.
+Cámara física y recorrido nativo completo siguen pendientes.

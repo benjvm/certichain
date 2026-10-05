@@ -224,6 +224,7 @@ class _IssuanceScreenState extends State<IssuanceScreen>
 
   @override
   void dispose() {
+    widget.picker.cancel();
     _timer?.cancel();
     _generation++;
     widget.sessionChanges?.removeListener(_refresh);

@@ -120,3 +120,9 @@ externos. HTTPS requerido fuera de desarrollo loopback. Configuración, pruebas
 automáticas descartables y límites en
 [PUBLIC_VERIFICATION.md](docs/PUBLIC_VERIFICATION.md),
 [TESTING.md](docs/TESTING.md) y [ADR-0012](docs/adr/0012-public-web-navigation-and-credential-sharing.md).
+
+
+La fase 8D dispone de demo técnica local sobre main.dart Web release con HTTPS y
+stack descartable: [guion reproducible](docs/DEMO_VERIFICATION.md) y
+[aceptación/plataformas pendientes](docs/PHASE8_ACCEPTANCE.md). Las herramientas
+Node están fijadas a 24.14.0 en .node-version; CI 8D y despliegue siguen pendientes.

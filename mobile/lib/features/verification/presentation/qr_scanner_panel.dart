@@ -46,6 +46,13 @@ class _QrScannerPanelState extends State<QrScannerPanel>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    // A permission dialog temporarily takes focus without backgrounding the
+    // application. Invalidating its pending start hides the denial outcome.
+    // hidden/paused still cancel a start that completes after real backgrounding.
+    if (state == AppLifecycleState.inactive &&
+        _controller.phase == QrScanPhase.preparing) {
+      return;
+    }
     if (state != AppLifecycleState.resumed) unawaited(_controller.pause());
   }
 
@@ -99,6 +106,7 @@ class _QrScannerPanelState extends State<QrScannerPanel>
                 onPressed: _confirmed
                     ? null
                     : () {
+                        if (_confirmed) return;
                         _confirmed = true;
                         widget.onCode(code);
                       },

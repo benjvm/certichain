@@ -92,12 +92,15 @@ cámara. No se promete funcionamiento desde HTTP de una IP LAN.
 [Distribución del mantenedor](https://github.com/zxing-js/library).
 prepare_decoder.mjs copia el UMD sin sourceMappingURL y conserva licencia/manifest
 SHA-256 bajo web/decoder. La app fija zxingJs y script local relativo, sin fallback
-CDN. El paquete npm declara Node >=24 y npm avisa en Node 22.14; este proyecto
-solo copia el UMD precompilado, no ejecuta su API Node. Generación y decodificación
-real en navegador se validan con Node 22.14. Revisar ese requisito al actualizar.
+CDN. El paquete npm declara Node >=24. La advertencia EBADENGINE observada en
+8C con Node 22.14.0 se resuelve en 8D fijando Node 24.14.0 en CI, .node-version,
+engines y el contenedor del harness; engine-strict rechaza herramientas incompatibles.
+Generación y --check conservan idénticos el UMD, la licencia y su manifest SHA-256.
+No se añade una dependencia de producción.
 ZXing-js es el backend legacy del plugin y consume más CPU que su opción WASM.
 Se elige el UMD para QR, por sus assets autocontenidos y la integración local
-comprobada; reevaluar rendimiento en dispositivos y la alternativa WASM en 8D.
+comprobada; medidas 8D en PHASE8_ACCEPTANCE.md. Reevaluar dispositivos físicos
+y la alternativa WASM antes del lanzamiento.
 La alternativa BarcodeDetector nativa Web no es uniforme entre navegadores.
 
 ## Evidencia y consecuencias
@@ -106,8 +109,10 @@ Pruebas y comandos en TESTING.md y PUBLIC_VERIFICATION.md. Chrome Web usa cámar
 emulada Y4M de un QR realmente pintado por Flutter, getUserMedia/decoder reales,
 selector DOM real y Auth/Edge/PostgreSQL/Storage locales. Android APK compilado;
 iOS y cámaras físicas pendientes. El smoke CDP corre en Windows y Ubuntu 24.04;
-los recorridos Flutter/backend completos se ejecutaron en Windows. GitHub Actions
-nuevo no ejecutado/observado. 8D continúa pendiente.
+Los recorridos main.dart release/backend completos se ejecutaron en Chrome y Edge
+Windows. Actions 37350396753 intento 2 valida 8C en d31a273; no valida 8D.
+El cierre local 8D y los pendientes se registran en PHASE8_ACCEPTANCE.md.
+CI 8D, cámaras físicas, Firefox/Safari/iOS y recorrido Android completo pendientes.
 
 La carrera histórica de 8B no se atribuye con certeza a un error sin detalles.
 El harness ahora espera nuevo loader/contexto/DOM antes de marcadores Flutter,

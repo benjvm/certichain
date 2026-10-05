@@ -102,6 +102,50 @@ for (const state of ["valid", "revoked", "expired", "issuer_unavailable"]) {
       }));
   }
 }
+Deno.test("8D closed comparison types and absence/integrity coherence", async () => {
+  for (
+    const integrity of [
+      "match",
+      "integrity_mismatch",
+      "unavailable",
+      "unknown",
+      ["match"],
+      {},
+      true,
+      null,
+    ]
+  ) {
+    for (const state of ["valid", "not_found"]) {
+      const coherent = state === "not_found"
+        ? integrity === "unavailable"
+        : integrity === "match" || integrity === "integrity_mismatch";
+      await exercise(input, coherent ? 200 : 503, {
+        projection: {
+          ...result,
+          verification: state === "not_found"
+            ? { schema_version: "1", result: state }
+            : verification,
+          file_integrity: integrity,
+        },
+      });
+    }
+  }
+  for (
+    const projection of [
+      { ...result, verification: { ...verification, result: ["valid"] } },
+      {
+        ...result,
+        verification: { ...verification, checked_at: "2026-99-99T12:00:00Z" },
+      },
+      {
+        ...result,
+        verification: { ...verification, document_path: "private" },
+      },
+      { ...result, schema_version: ["1"] },
+      { ...result, extra: false },
+    ]
+  ) await exercise(input, 503, { projection });
+});
 Deno.test("uniform unavailable", () =>
   exercise(input, 200, {
     projection: {

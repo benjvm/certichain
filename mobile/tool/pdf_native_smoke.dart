@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:mobile/features/issuance/data/platform_pdf_picker.dart';
@@ -19,6 +20,9 @@ class _NativeProbeState extends State<NativeProbe> {
   String status = 'Cancel PDF selection';
   bool cancelled = false, busy = false;
   Future<void> probe() async {
+    debugPrint(
+      'Native probe temp kind: ${Directory.systemTemp.uri.pathSegments.where((s) => s.isNotEmpty).last}',
+    );
     setState(() => busy = true);
     try {
       final selected = await PlatformPdfPicker().pick();
@@ -38,8 +42,8 @@ class _NativeProbeState extends State<NativeProbe> {
         }
         setState(() => status = 'PASS native PDF dialogs');
       }
-    } catch (_) {
-      setState(() => status = 'FAIL native PDF dialogs');
+    } catch (error) {
+      setState(() => status = 'FAIL native PDF dialogs: ${error.runtimeType}');
     } finally {
       setState(() => busy = false);
     }
