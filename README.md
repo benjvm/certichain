@@ -66,7 +66,7 @@ flutter create --org com.benjvm --project-name certichain .
 - [Integración blockchain](docs/BLOCKCHAIN.md)
 - [Seguridad](docs/SECURITY.md)
 - [Contrato vigente de emisión y acceso privado al PDF](docs/SECURE_ISSUANCE.md)
-- [Contrato, verificación pública y QR 8A–8B](docs/PUBLIC_VERIFICATION.md)
+- [Contrato, verificación pública y QR y comparación 8A–8C](docs/PUBLIC_VERIFICATION.md)
 - [Pruebas](docs/TESTING.md)
 - [Flujo de desarrollo](docs/DEVELOPMENT.md)
 - [Hoja de ruta](docs/ROADMAP.md)
@@ -87,8 +87,9 @@ Esa ejecución no acredita los cambios nuevos de 8A.
 global PostgreSQL, exclusivamente local. Estado y pruebas en
 [PUBLIC_VERIFICATION.md](docs/PUBLIC_VERIFICATION.md) y [TESTING.md](docs/TESTING.md).
 8B añade interfaz pública independiente de Auth, enlaces Web hash y QR/copia
-desde el certificado propio, comprobados en local. 8C (escáner y comparación de
-copia), 8D (pruebas integrales y endurecimiento completo), blockchain y nuevo
+desde el certificado propio, comprobados en local. 8C añade escáner con decoder
+local y comparación privada de bytes PDF mediante hash candidato. 8D (pruebas
+integrales y endurecimiento completo), blockchain y nuevo
 flujo de revocación siguen pendientes. Sin push, merge, despliegue o CI nuevo
 atribuido a esta validación local.
 
@@ -98,6 +99,10 @@ Preparar un stack descartable según [PUBLIC_VERIFICATION.md](docs/PUBLIC_VERIFI
 y arrancar functions serve allí. Desde mobile, con su clave **pública** local:
 
 ```powershell
+Push-Location tool
+npm ci --ignore-scripts
+node prepare_decoder.mjs
+Pop-Location
 flutter run -d chrome --web-hostname=localhost --web-port=7357 --dart-define=SUPABASE_URL=http://127.0.0.1:55321 --dart-define=SUPABASE_PUBLISHABLE_KEY=CLAVE_PUBLICA_LOCAL --dart-define=PUBLIC_VERIFICATION_BASE_URL=http://localhost:7357
 ```
 
@@ -105,7 +110,8 @@ Abrir Verificar certificado o `http://localhost:7357/#/verify/<credential_code>`
 Como titular, abrir certificado propio publicado por 7B → Mostrar QR y enlace
 → Copiar enlace; pegar en ventana privada sin sesión y recargar. Histórico sin
 vínculo informa ausencia. Estados del registro y fechas UTC; no se comprueba
-una copia PDF o la identidad del presentador.
+la identidad del presentador. Escanear QR identifica y pide confirmar el código;
+Comparar mi PDF calcula el hash local y mantiene separado el estado del certificado.
 
 SUPABASE_URL es backend; PUBLIC_VERIFICATION_BASE_URL es la base de la app Web,
 nunca la Edge Function. Sin base válida no se comparte, pero funciona la consulta

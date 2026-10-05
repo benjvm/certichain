@@ -175,3 +175,36 @@ mantener uno propio sería innecesario. Sin cámara/escáner. tool/package.json/
 fijan jsqr 1.4.0/pngjs 7.0.0 para decodificación independiente, fuera del binario.
 Actualizar exige comprobar decodificación, margen, contraste y Web. Fuentes y
 alternativas en ADR-0012.
+
+
+## Escáner y comparación local — 8C
+
+Dominio Dart puro añade QrCamera, ComparisonPdfPicker, PdfHasher y
+HashComparisonRepository/HashComparison/FileIntegrity. Data implementa
+MobileScannerCamera, gateways PDF condicionales, Sha256PdfHasher y el segundo
+método del transporte HTTP independiente. Presentation coordina QrScanController,
+QrScannerPanel, generaciones código/archivo de VerificationController y cooldown
+compartido por PublicRouter. La raíz inyecta dependencias; no hay queries UI ni
+importaciones Flutter/Supabase/Web3 en dominio. El lector bounded_local_file
+comparte capacidad nativa de bytes, sin compartir modelos/reglas de emisión.
+
+Hash por bloques de 64 KiB cede al event loop y se cancela al invalidar generación.
+Gateway consulta tamaño antes de materializar y lee como máximo 8 MiB (+1 para
+detectar exceso Web). Bytes descartados al hashear; digest solo flujo activo y
+reintento manual, sin preferencias. Estado e integridad separados; comparaciones
+renuevan checked_at y no reclasifican por reloj cliente. Retry-After compartido
+persiste al abandonar/reabrir pantalla. Cámara empieza por botón y se detiene
+al identificar/cerrar/navegar/segundo plano; liberación contempla permiso tardío.
+
+HTTP Web usa fetch credentials:omit (también sin cookies de mismo origen),
+redirect:error/no-referrer, AbortController y lectura streaming limitada a 8 KiB.
+No comparte transporte ni cabeceras con Auth. Contrato v1 intacto y nuevo DTO
+cerrado anidado; comparación envía solo código/hash, sin upload.
+
+Nueva dependencia exacta mobile_scanner 7.4.2 (Android/iOS/Web); licencia/SDK,
+alternativa, mantenimiento y permisos en
+[ADR-0013](adr/0013-public-candidate-hash-and-qr-scanning.md). Decoder Web explícito
+ZXing JS 0.23.0 UMD servido local desde web/decoder, generado por tool/prepare_decoder.mjs
+con npm lockfile y manifest SHA-256. No CDN ni gallery ni imágenes retornadas.
+Android CAMERA opcional; iOS texto de cámara; Web HTTPS/loopback y getUserMedia.
+Actualizar exige repetir E2E con cámara emulada y revisión en dispositivos reales.

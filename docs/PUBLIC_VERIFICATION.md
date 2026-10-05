@@ -223,7 +223,7 @@ service_role en el cliente ni --no-verify-jwt global. El stack habitual continú
 ## Reparto vigente de los incrementos
 
 - **8B:** pantalla pública, enlaces Web navegables y QR del titular.
-- **8C pendiente:** escáner y comparación de una copia del PDF.
+- **8C completada localmente:** escáner y comparación de una copia del PDF; CI/despliegue pendientes.
 - **8D pendiente:** pruebas integrales y endurecimiento del recorrido completo.
 
 Este reparto corrige la discrepancia del documento de 8A; su evidencia histórica
@@ -245,7 +245,7 @@ con fechas UTC explicadas. not_found no recibe campos ficticios. Se explica que
 se consulta el registro, sin comprobar la identidad del presentador o una copia.
 
 Cliente HTTP independiente, únicamente credential_code; sin JWT/Authorization,
-apikey o cookies deliberadas, tablas privadas ni RPC técnicos. Deadline total
+apikey o cookies (fetch credentials:omit en Web), tablas privadas ni RPC técnicos. Deadline total
 15 s (petición abortable) y respuesta real limitada a 8 KiB. Lista de claves v1
 cerrada, tipos/versión/fuente/UUID/fechas/resultados validados; lo inesperado es
 error técnico. 400 corrige entrada, red/timeout admiten reintento manual, 503
@@ -296,3 +296,108 @@ sin sesión. Un histórico muestra ausencia y requiere una publicación 7B exist
 o una emisión autorizada. Recargar conserva el UUID. localhost solo es accesible
 en el mismo equipo; un teléfono externo requiere un entorno accesible por red o
 despliegue posterior. Solo enlaces Web: no Universal Links ni Android App Links.
+
+
+## Comparación de una copia local y escáner — 8C
+
+POST /functions/v1/compare-certificate-hash, JSON UTF-8, máximo 2048 bytes,
+exclusivamente:
+
+```json
+{"credential_code":"e42f105a-a36b-40de-8326-47da5749eae3","document_sha256":"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"}
+```
+
+Respuesta HTTP 200 cerrada con tres campos: schema_version string "1",
+verification (proyección v1 obtenida en esta comparación) y file_integrity
+match/integrity_mismatch/unavailable. Certificado inexistente, histórico o con
+publicación incompleta obtiene exactamente:
+
+```json
+{"schema_version":"1","verification":{"schema_version":"1","result":"not_found"},"file_integrity":"unavailable"}
+```
+
+Un registro elegible devuelve match o integrity_mismatch con todos los campos
+v1 de verification, incluidos checked_at y verification_source. Es posible
+coincidencia/discrepancia en valid, revoked, expired e issuer_unavailable.
+Prioridad y elegibilidad son idénticas a 8A; estado y hash se leen juntos en
+PostgreSQL. El hash registrado no sale del backend. verify-certificate conserva
+su v1 sin nuevos campos.
+
+Ambos endpoints consumen el mismo presupuesto global atómico 60 POST/60 s antes
+de validar, sin particionarlo por endpoint, sesión o IP. OPTIONS permanece 204
+sin consumo. CORS/no-store y errores existentes: 400 invalid_input, 405
+method_not_allowed, 413 payload_too_large, 429 rate_limited con Retry-After y 503
+temporary_failure. La entrada no admite nombre, ruta, Base64, multipart ni bytes.
+El cliente no envía JWT/Authorization/apikey/Cookie incluso con proxy del mismo
+origen; fetch usa credentials:omit y no sigue redirects. No crea objetos Storage.
+
+Comparar mi PDF aparece para resultados elegibles. Selecciona un archivo local,
+rechaza vacío/>8 MiB antes de leerlo cuando hay metadatos y limita la lectura.
+Calcula SHA-256 exacto y canónico localmente, cediendo entre bloques; muestra
+selección, cálculo, consulta, resultado, cancelación o error. El PDF no se
+reescribe: guardar/exportar de nuevo puede producir una discrepancia. Estado e
+integridad se muestran separados. Actualiza el certificado/checked_at con la
+respuesta. No valida identidad del presentador ni blockchain. Los bytes se
+liberan tras cálculo y el digest tras éxito/cancelación/salida; solo se retiene
+para reintento explícito en el flujo activo tras error. Un 429 bloquea las dos
+acciones y sobrevive al cambio de ruta. Reemplazo/código/salida invalida respuestas.
+
+Escanear QR usa cámara solo por acción y con PUBLIC_VERIFICATION_BASE_URL válida.
+Permiso/preparación/lectura/error, pausa al salir o segundo plano, liberación y
+alternativa manual. Se acepta enlace canónico de 8B de esa base/ruta o UUID directo
+estricto, máximo 2048 caracteres. No se abren URLs ajenas. Se rechazan esquemas,
+dominios, userinfo, query, escapes en UUID, espacios y formatos ajenos. Tras
+identificar se detiene y muestra UUID; Verificar código identificado confirma
+una sola consulta. Fotogramas/capturas no se persisten. Decisiones, permisos,
+soporte y mantenimiento: [ADR-0013](adr/0013-public-candidate-hash-and-qr-scanning.md).
+
+Antes de build/run, preparar el decoder local (el archivo generado está
+versionado y se debe regenerar al actualizar la dependencia):
+
+```powershell
+Push-Location mobile/tool
+npm ci --ignore-scripts
+node prepare_decoder.mjs
+Pop-Location
+```
+
+Web necesita HTTPS o loopback HTTP seguro, getUserMedia y permiso. El decoder se
+sirve de web/decoder, sin CDN; no se usa el BarcodeDetector experimental. Android
+CAMERA opcional; iOS NSCameraUsageDescription. Cámara física Android/iOS y otros
+navegadores no comprobados. No pedir permiso de fotos/micrófono.
+
+### Aplicación local y publicación futura preparada
+
+Desde la raíz, crear un stack NUEVO y descartable; no resetear el habitual:
+
+```powershell
+$taskStack = & ./supabase/tests/prepare_disposable_local.ps1 -Start
+# En otra consola, desde $taskStack: supabase functions serve
+supabase test db --local --workdir $taskStack
+Invoke-RestMethod -Uri http://127.0.0.1:55321/functions/v1/compare-certificate-hash -Method Post -ContentType 'application/json' -Body '{"credential_code":"e42f105a-a36b-40de-8326-47da5749eae3","document_sha256":"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"}'
+# Finalmente, SOLO el stack devuelto:
+supabase stop --no-backup --workdir $taskStack
+```
+
+CLI fijada 2.117.0: usar el binario disponible o npx supabase@2.117.0.
+El preparador devuelve proyecto/config separados y copia las diez migraciones,
+funciones y config nuevas. En un stack local existente que deba conservar datos,
+el operador puede aplicar solo migraciones pendientes con `supabase migration up
+--local --workdir RUTA_LOCAL` tras revisar el proyecto; aquí no se aplicó al habitual.
+
+Preparado para un operador posterior; NO ejecutado remotamente en esta entrega:
+
+```sh
+# Verificar primero el vínculo existente al proyecto correcto.
+supabase db push --linked --dry-run
+supabase db push --linked
+supabase functions deploy verify-certificate --project-ref PROJECT_REF
+supabase functions deploy compare-certificate-hash --project-ref PROJECT_REF
+```
+
+Migración nueva 20261005120000_public_candidate_hash_comparison.sql primero;
+publicar ambos endpoints después porque comparten public_handler.ts. Config
+verify_jwt=false solo en los endpoints públicos respectivos; conservar JWT de
+issue-certificate/certificate-pdf y no usar --no-verify-jwt global. Backend y Web
+con decoder deben publicarse coordinadamente posteriormente. Fixtures destructivos,
+comandos completos y distinción evidencia local/CI: [TESTING.md](TESTING.md).

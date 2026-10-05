@@ -10,16 +10,32 @@ import '../../../core/widgets/app_top_bar.dart';
 import '../../../core/widgets/read_state.dart';
 import '../domain/verification_repository.dart';
 import 'verification_controller.dart';
+import 'qr_scanner_panel.dart';
+import 'public_query_cooldown.dart';
+import '../domain/hash_comparison.dart';
+import '../domain/verification_link.dart';
 
 class VerificationScreen extends StatefulWidget {
   const VerificationScreen({
     required this.repository,
     this.initialCode,
+    this.cooldown,
+    this.comparisonRepository,
+    this.comparisonPicker,
+    this.pdfHasher,
+    this.verificationLink,
+    this.scannerFactory,
     this.onHome,
     this.onCode,
     super.key,
   });
   final VerificationRepository repository;
+  final PublicQueryCooldown? cooldown;
+  final HashComparisonRepository? comparisonRepository;
+  final ComparisonPdfPicker? comparisonPicker;
+  final PdfHasher? pdfHasher;
+  final VerificationLink? verificationLink;
+  final ScannerSession Function()? scannerFactory;
   final String? initialCode;
   final VoidCallback? onHome;
   final ValueChanged<String?>? onCode;
@@ -31,10 +47,17 @@ class _VerificationScreenState extends State<VerificationScreen> {
   late final VerificationController _controller;
   late final TextEditingController _text;
   final _focus = FocusNode();
+  bool _scanning = false;
   @override
   void initState() {
     super.initState();
-    _controller = VerificationController(widget.repository);
+    _controller = VerificationController(
+      widget.repository,
+      comparisonRepository: widget.comparisonRepository,
+      picker: widget.comparisonPicker,
+      hasher: widget.pdfHasher,
+      cooldown: widget.cooldown,
+    );
     _text = TextEditingController(text: widget.initialCode ?? '');
     _controller.changeCode(_text.text);
     if (widget.initialCode != null) unawaited(_controller.submit());
@@ -44,6 +67,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
   void didUpdateWidget(VerificationScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.initialCode != widget.initialCode) {
+      _scanning = false;
       _text.text = widget.initialCode ?? '';
       _controller.changeCode(_text.text);
       if (widget.initialCode != null) unawaited(_controller.submit());
@@ -79,6 +103,38 @@ class _VerificationScreenState extends State<VerificationScreen> {
     super.dispose();
   }
 
+  String _comparisonMessage() => switch (_controller.comparisonPhase) {
+    ComparisonPhase.idle =>
+      'Selecciona la copia que quieres comparar (máximo 8 MiB).',
+    ComparisonPhase.selecting => 'Seleccionando archivo…',
+    ComparisonPhase.hashing => 'Calculando SHA-256 en tu dispositivo…',
+    ComparisonPhase.querying => 'Comparando con el registro…',
+    ComparisonPhase.cancelled => 'Comparación cancelada.',
+    ComparisonPhase.done => switch (_controller.integrity) {
+      FileIntegrity.match =>
+        'El PDF coincide byte a byte con el documento registrado.',
+      FileIntegrity.integrityMismatch =>
+        'El PDF no coincide con el documento registrado.',
+      _ => 'No hay un documento registrado elegible para comparar.',
+    },
+    ComparisonPhase.error => switch (_controller.localPdfFailure) {
+      LocalPdfFailure.empty => 'El archivo está vacío.',
+      LocalPdfFailure.tooLarge =>
+        'El archivo supera el límite de 8 MiB (8.388.608 bytes).',
+      LocalPdfFailure.unreadable =>
+        'No pudimos leer el archivo. Selecciónalo de nuevo.',
+      null => switch (_controller.comparisonFailure) {
+        VerificationFailure.rateLimited =>
+          'Temporalmente no se admiten más consultas.',
+        VerificationFailure.timeout || VerificationFailure.network =>
+          'No pudimos conectar. Reintenta manualmente.',
+        VerificationFailure.unavailable =>
+          'La comparación está temporalmente no disponible.',
+        _ => 'No pudimos interpretar la comparación. Reintenta más tarde.',
+      },
+    },
+  };
+
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: _controller,
@@ -102,6 +158,26 @@ class _VerificationScreenState extends State<VerificationScreen> {
                     'Consulta el registro de CertiChain. Esta comprobación no compara una copia del PDF ni acredita la identidad de quien lo presenta.',
                   ),
                   const SizedBox(height: AppSpacing.lg),
+                  if (widget.scannerFactory != null &&
+                      widget.verificationLink != null)
+                    if (_scanning)
+                      QrScannerPanel(
+                        link: widget.verificationLink!,
+                        createSession: widget.scannerFactory!,
+                        onClose: () => setState(() => _scanning = false),
+                        onCode: (code) {
+                          setState(() => _scanning = false);
+                          _text.text = code;
+                          _controller.changeCode(code);
+                          _submit();
+                        },
+                      )
+                    else
+                      AppButton(
+                        label: 'Escanear QR',
+                        style: AppButtonStyle.outline,
+                        onPressed: () => setState(() => _scanning = true),
+                      ),
                   TextField(
                     controller: _text,
                     focusNode: _focus,
@@ -156,6 +232,48 @@ class _VerificationScreenState extends State<VerificationScreen> {
                     ),
                   if (_controller.result case final result?) ...[
                     _Result(result: result),
+                    if ((result.record != null ||
+                            _controller.comparisonPhase !=
+                                ComparisonPhase.idle) &&
+                        widget.comparisonRepository != null) ...[
+                      const SizedBox(height: AppSpacing.lg),
+                      const Text(
+                        'Integridad de tu copia del PDF',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      const Text(
+                        'El archivo permanece en tu dispositivo. Solo se envían el código y su SHA-256. Volver a guardar un PDF puede cambiar sus bytes y producir una discrepancia. Una coincidencia no cambia el estado del certificado.',
+                      ),
+                      AppButton(
+                        label: 'Comparar mi PDF',
+                        style: AppButtonStyle.outline,
+                        onPressed: _controller.canCompare
+                            ? _controller.selectAndCompare
+                            : null,
+                      ),
+                      Semantics(
+                        liveRegion: true,
+                        child: Text(_comparisonMessage()),
+                      ),
+                      if (_controller.comparisonPhase ==
+                              ComparisonPhase.error &&
+                          _controller.comparisonFailure != null)
+                        TextButton(
+                          onPressed: _controller.canCompare
+                              ? _controller.retryComparison
+                              : null,
+                          child: const Text('Reintentar comparación'),
+                        ),
+                      if ({
+                        ComparisonPhase.selecting,
+                        ComparisonPhase.hashing,
+                        ComparisonPhase.querying,
+                      }.contains(_controller.comparisonPhase))
+                        TextButton(
+                          onPressed: _controller.cancelComparison,
+                          child: const Text('Cancelar comparación'),
+                        ),
+                    ],
                     const SizedBox(height: AppSpacing.lg),
                     AppButton(
                       label: 'Actualizar comprobación',

@@ -1,19 +1,30 @@
 import { createServer } from "node:http";
-import { spawn } from "node:child_process";
+import {
+  connectCdp,
+  evaluate,
+  launchChrome,
+  navigateDocument,
+  stopChrome,
+} from "./browser_harness.mjs";
 import { createHash, randomUUID } from "node:crypto";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { extname, join, resolve, sep } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
-import { api, sql } from "../../supabase/scripts/local_supabase.mjs";
-import {
-  check,
-  fixture,
-  terminate,
-  until,
-} from "../../supabase/tests/local_issuance_fixture.mjs";
-import { expiredToken } from "../../supabase/tests/issuance_hardening.mjs";
-import { pdfFixture } from "../../supabase/tests/pdf_fixture.mjs";
+import { pathToFileURL } from "node:url";
+const backend = resolve(process.env.CERTICHAIN_TEST_BACKEND_ROOT ?? "..");
+const { api, sql } = await import(
+  pathToFileURL(join(backend, "supabase/scripts/local_supabase.mjs"))
+);
+const { check, fixture, until } = await import(
+  pathToFileURL(join(backend, "supabase/tests/local_issuance_fixture.mjs"))
+);
+const { expiredToken } = await import(
+  pathToFileURL(join(backend, "supabase/tests/issuance_hardening.mjs"))
+);
+const { pdfFixture } = await import(
+  pathToFileURL(join(backend, "supabase/tests/pdf_fixture.mjs"))
+);
 
 // Starts its own JWT-verified Edge runtime, synthetic accounts and Chrome profile.
 // Never serve on a public interface; test credentials live only in memory.
@@ -23,7 +34,13 @@ check(
   resolve(profile).startsWith(resolve(tmpdir()) + sep),
   "Unsafe Chrome profile",
 );
-const f = await fixture();
+const initialDirectory = process.cwd();
+process.chdir(backend);
+const f = await fixture().catch((error) => {
+  process.chdir(initialDirectory);
+  rmSync(profile, { recursive: true, force: true });
+  throw error;
+});
 const pdf = pdfFixture();
 let chrome, socket;
 let assertions = 0, checkpointError;
@@ -229,66 +246,24 @@ try {
     "No service_role key in Web build",
   );
   await new Promise((r) => server.listen(0, "127.0.0.1", r));
-  const executable = process.env.CHROME_EXECUTABLE ??
-    (process.platform === "win32"
-      ? "C:/Program Files/Google/Chrome/Application/chrome.exe"
-      : "/usr/bin/google-chrome");
-  chrome = spawn(executable, [
-    "--headless=new",
-    "--no-sandbox",
-    "--disable-gpu",
-    "--no-first-run",
-    "--no-default-browser-check",
-    "--remote-debugging-port=0",
-    `--user-data-dir=${profile}`,
-    `http://127.0.0.1:${server.address().port}`,
-  ], { windowsHide: true, stdio: "ignore" });
-  let port;
-  await until(() => {
-    try {
-      port = Number(
-        readFileSync(join(profile, "DevToolsActivePort"), "utf8").split(
-          "\n",
-        )[0],
-      );
-      return Boolean(port);
-    } catch {
-      return false;
-    }
-  }, "Isolated Chrome startup");
+  const launched = await launchChrome(profile, ["about:blank"]);
+  chrome = launched.child;
+  const port = launched.port;
   const pages = await (await fetch(`http://127.0.0.1:${port}/json/list`))
     .json();
-  socket = new WebSocket(
+  socket = await connectCdp(
     pages.find((p) => p.type === "page").webSocketDebuggerUrl,
   );
-  await new Promise((r) => socket.onopen = r);
-  let id = 0;
+  await socket("Page.enable");
+  await socket("Page.setInterceptFileChooserDialog", { enabled: true });
+  await navigateDocument(socket, "Page.navigate", {
+    url: `http://127.0.0.1:${server.address().port}`,
+  });
   async function result() {
-    const current = ++id;
-    return await new Promise((resolve, reject) => {
-      const timer = setTimeout(
-        () => reject(new Error("Chrome evaluation deadline")),
-        5000,
-      );
-      socket.addEventListener("message", function listener(event) {
-        const m = JSON.parse(event.data);
-        if (m.id !== current) return;
-        clearTimeout(timer);
-        socket.removeEventListener("message", listener);
-        resolve(m.result?.result?.value ?? "");
-      });
-      socket.send(
-        JSON.stringify({
-          id: current,
-          method: "Runtime.evaluate",
-          params: {
-            expression:
-              "document.documentElement.getAttribute('data-7d-result') || ''",
-            returnByValue: true,
-          },
-        }),
-      );
-    });
+    return await evaluate(
+      socket,
+      "document.documentElement.getAttribute('data-7d-result') || ''",
+    );
   }
   let outcome;
   await until(
@@ -309,11 +284,12 @@ try {
   throw error;
 } finally {
   socket?.close();
-  terminate(chrome);
+  await stopChrome(chrome);
   server.close();
   try {
     await f.close();
   } finally {
+    process.chdir(initialDirectory);
     await delay(300);
     rmSync(profile, {
       recursive: true,

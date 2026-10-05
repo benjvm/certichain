@@ -1,28 +1,56 @@
-import 'dart:async';
-
 import 'package:flutter/foundation.dart';
 
 import '../domain/verification_repository.dart';
+import '../domain/hash_comparison.dart';
+import 'public_query_cooldown.dart';
 
 class VerificationController extends ChangeNotifier {
-  VerificationController(this.repository);
+  VerificationController(
+    this.repository, {
+    this.comparisonRepository,
+    this.picker,
+    this.hasher,
+    PublicQueryCooldown? cooldown,
+  }) : _cooldown = cooldown ?? PublicQueryCooldown(),
+       _ownsCooldown = cooldown == null {
+    _cooldown.addListener(_cooldownChanged);
+  }
+  final PublicQueryCooldown _cooldown;
+  final bool _ownsCooldown;
+  void _cooldownChanged() {
+    if (!_disposed) notifyListeners();
+  }
+
+  final HashComparisonRepository? comparisonRepository;
+  final ComparisonPdfPicker? picker;
+  final PdfHasher? hasher;
+  ComparisonPhase comparisonPhase = ComparisonPhase.idle;
+  FileIntegrity? integrity;
+  LocalPdfFailure? localPdfFailure;
+  VerificationFailure? comparisonFailure;
+  String? _candidateHash;
+  int _fileGeneration = 0;
+  bool get canCompare =>
+      !loading &&
+      waitSeconds == 0 &&
+      result?.record != null &&
+      comparisonRepository != null &&
+      picker != null &&
+      hasher != null &&
+      comparisonPhase != ComparisonPhase.selecting;
   final VerificationRepository repository;
   String input = '';
   bool loading = false, _disposed = false;
   int _generation = 0;
   VerificationResult? result;
   VerificationFailure? failure;
-  Timer? _timer;
-  DateTime? _retryAt;
-  int get waitSeconds {
-    final ms = _retryAt?.difference(DateTime.now()).inMilliseconds ?? 0;
-    return ms <= 0 ? 0 : (ms / 1000).ceil();
-  }
+  int get waitSeconds => _cooldown.waitSeconds;
 
   bool get canSubmit => !loading && waitSeconds == 0;
   void changeCode(String value) {
     if (input == value || _disposed) return;
     input = value;
+    _clearComparison();
     _generation++;
     loading = false;
     result = null;
@@ -42,6 +70,7 @@ class VerificationController extends ChangeNotifier {
     }
     input = code;
     loading = true;
+    _clearComparison();
     final generation = ++_generation;
     notifyListeners();
     try {
@@ -49,22 +78,12 @@ class VerificationController extends ChangeNotifier {
       if (_disposed || generation != _generation) return;
       result = response;
     } catch (error) {
-      if (_disposed) return;
       // A rate limit belongs to the public budget, even if its form was replaced.
       if (error is VerificationException &&
           error.failure == VerificationFailure.rateLimited) {
-        final deadline = DateTime.now().add(
-          error.retryAfter ?? const Duration(seconds: 60),
-        );
-        if (_retryAt == null || deadline.isAfter(_retryAt!)) {
-          _retryAt = deadline;
-        }
-        _timer?.cancel();
-        _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-          if (waitSeconds == 0) _timer?.cancel();
-          if (!_disposed) notifyListeners();
-        });
+        _rateLimit(error);
       }
+      if (_disposed) return;
       if (generation != _generation) {
         notifyListeners();
         return;
@@ -78,11 +97,138 @@ class VerificationController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void _rateLimit(VerificationException error) =>
+      _cooldown.block(error.retryAfter ?? const Duration(seconds: 60));
+
+  void _clearComparison() {
+    _fileGeneration++;
+    picker?.cancel();
+    _candidateHash = null;
+    integrity = null;
+    comparisonFailure = null;
+    localPdfFailure = null;
+    comparisonPhase = ComparisonPhase.idle;
+  }
+
+  void cancelComparison() {
+    if (_disposed) return;
+    _clearComparison();
+    comparisonPhase = ComparisonPhase.cancelled;
+    notifyListeners();
+  }
+
+  Future<void> selectAndCompare() async {
+    if (!canCompare || _disposed) return;
+    _clearComparison();
+    final fileGeneration = _fileGeneration, generation = _generation;
+    final code = normalizeCredentialCode(input)!;
+    bool current() =>
+        !_disposed &&
+        generation == _generation &&
+        fileGeneration == _fileGeneration;
+    comparisonPhase = ComparisonPhase.selecting;
+    notifyListeners();
+    try {
+      var bytes = await picker!.pick();
+      if (!current()) return;
+      if (bytes == null) {
+        comparisonPhase = ComparisonPhase.cancelled;
+        notifyListeners();
+        return;
+      }
+      validateComparisonBytes(bytes.length);
+      comparisonPhase = ComparisonPhase.hashing;
+      notifyListeners();
+      final digest = await hasher!.hash(bytes, isCancelled: () => !current());
+      bytes = null;
+      if (!current()) return;
+      _candidateHash = digest;
+      await _compare(code, generation, fileGeneration);
+    } catch (error) {
+      if (!current()) return;
+      localPdfFailure = error is LocalPdfException
+          ? error.failure
+          : LocalPdfFailure.unreadable;
+      comparisonPhase = ComparisonPhase.error;
+      notifyListeners();
+    }
+  }
+
+  Future<void> retryComparison() async {
+    if (!canCompare ||
+        _candidateHash == null ||
+        _disposed ||
+        comparisonPhase != ComparisonPhase.error) {
+      return;
+    }
+    await _compare(
+      normalizeCredentialCode(input)!,
+      _generation,
+      _fileGeneration,
+    );
+  }
+
+  Future<void> _compare(String code, int generation, int fileGeneration) async {
+    // A late 429 from a replaced operation may arrive while selecting/hashing.
+    // Keep the candidate for explicit retry, but do not send during its wait.
+    if (waitSeconds > 0) {
+      comparisonFailure = VerificationFailure.rateLimited;
+      comparisonPhase = ComparisonPhase.error;
+      notifyListeners();
+      return;
+    }
+    comparisonFailure = null;
+    comparisonPhase = ComparisonPhase.querying;
+    notifyListeners();
+    try {
+      final response = await comparisonRepository!.compare(
+        code,
+        _candidateHash!,
+      );
+      if (_disposed ||
+          generation != _generation ||
+          fileGeneration != _fileGeneration) {
+        return;
+      }
+      result = response.verification;
+      integrity = response.integrity;
+      _candidateHash = null;
+      comparisonPhase = ComparisonPhase.done;
+    } catch (error) {
+      if (error is VerificationException &&
+          error.failure == VerificationFailure.rateLimited) {
+        _rateLimit(error);
+      }
+      if (_disposed) return;
+      if (generation != _generation || fileGeneration != _fileGeneration) {
+        notifyListeners();
+        return;
+      }
+      comparisonFailure = error is VerificationException
+          ? error.failure
+          : VerificationFailure.unexpected;
+      comparisonPhase = ComparisonPhase.error;
+    }
+    if (!_disposed) notifyListeners();
+  }
+
   @override
   void dispose() {
     _disposed = true;
+    _clearComparison();
     _generation++;
-    _timer?.cancel();
+    _cooldown.removeListener(_cooldownChanged);
+    if (_ownsCooldown) _cooldown.dispose();
     super.dispose();
   }
+}
+
+enum ComparisonPhase {
+  idle,
+  selecting,
+  hashing,
+  querying,
+  done,
+  cancelled,
+  error,
 }

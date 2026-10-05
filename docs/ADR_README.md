@@ -75,3 +75,6 @@ Navegación pública Web y compartición autorizada 8B:
 6. `0006-backend-owned-blockchain-signing.md`.
 
 No crear ADR para cada detalle menor; reservarlos para decisiones caras de revertir o con alternativas reales.
+
+Comparación por hash candidato y escáner público 8C:
+[ADR-0013](adr/0013-public-candidate-hash-and-qr-scanning.md).

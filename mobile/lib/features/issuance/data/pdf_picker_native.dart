@@ -1,8 +1,7 @@
-import 'dart:typed_data';
-
 import 'package:file_picker/file_picker.dart';
 
 import '../domain/issuance_repository.dart';
+import '../../../core/files/bounded_local_file.dart';
 
 Future<SelectedPdf?> pickPdf() async {
   final file = await FilePicker.pickFile(
@@ -13,12 +12,13 @@ Future<SelectedPdf?> pickPdf() async {
   final length = file.lengthSync() ?? await file.length();
   if (length == null) throw const IssuanceException('invalid_pdf');
   if (length > maxPdfBytes) throw const IssuanceException('payload_too_large');
-  final bytes = BytesBuilder();
-  await for (final chunk in file.readAsByteStream()) {
-    if (bytes.length + chunk.length > maxPdfBytes) {
-      throw const IssuanceException('payload_too_large');
-    }
-    bytes.add(chunk);
+  try {
+    final bytes = await readBoundedLocalFile(
+      file.readAsByteStream(),
+      maxPdfBytes,
+    );
+    return SelectedPdf(name: file.name, bytes: bytes);
+  } on LocalFileReadException {
+    throw const IssuanceException('payload_too_large');
   }
-  return SelectedPdf(name: file.name, bytes: bytes.takeBytes());
 }

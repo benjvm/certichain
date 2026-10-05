@@ -1,0 +1,6 @@
+{
+  "package": "@zxing/library",
+  "version": "0.23.0",
+  "sha256": "3ede94153fb0c5b67a12d7adff6decd827c2b22714fdc6faecf27a8f20937ea6",
+  "source": "npm lockfile; UMD; Apache-2.0; no external runtime imports"
+}

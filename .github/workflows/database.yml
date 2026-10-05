@@ -11,7 +11,7 @@ permissions:
 jobs:
   database:
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 50
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -33,9 +33,9 @@ jobs:
         run: supabase test db --local
       - name: Function formatting, lint, types and unit tests
         run: |
-          npx --yes deno@2.2.12 fmt --check supabase/functions supabase/tests/public_verification_http.mjs supabase/tests/issuance_http.mjs supabase/tests/certificate_pdf_http.mjs supabase/scripts/local_supabase.mjs supabase/tests/pdf_fixture.mjs supabase/tests/institution_concurrency.mjs supabase/tests/private_storage.mjs supabase/admin/reconcile_issuance.mjs supabase/tests/local_issuance_fixture.mjs supabase/tests/issuance_hardening.mjs mobile/tool/secure_issuance_browser.mjs mobile/tool/public_verification_browser.mjs mobile/tool/verify_qr.mjs
+          npx --yes deno@2.2.12 fmt --check supabase/functions supabase/tests/public_verification_http.mjs supabase/tests/issuance_http.mjs supabase/tests/certificate_pdf_http.mjs supabase/scripts/local_supabase.mjs supabase/tests/pdf_fixture.mjs supabase/tests/institution_concurrency.mjs supabase/tests/private_storage.mjs supabase/admin/reconcile_issuance.mjs supabase/tests/local_issuance_fixture.mjs supabase/tests/issuance_hardening.mjs mobile/tool/secure_issuance_browser.mjs mobile/tool/public_verification_browser.mjs mobile/tool/verify_qr.mjs mobile/tool/browser_harness.mjs mobile/tool/browser_harness_test.mjs mobile/tool/browser_harness_smoke.mjs mobile/tool/prepare_decoder.mjs mobile/tool/qr_test_video.mjs supabase/tests/hash_comparison_http.mjs
           npx --yes deno@2.2.12 lint supabase/functions
-          npx --yes deno@2.2.12 check --frozen --config supabase/functions/deno.json supabase/functions/issue-certificate/index.ts supabase/functions/certificate-pdf/index.ts supabase/functions/verify-certificate/index.ts
+          npx --yes deno@2.2.12 check --frozen --config supabase/functions/deno.json supabase/functions/issue-certificate/index.ts supabase/functions/certificate-pdf/index.ts supabase/functions/verify-certificate/index.ts supabase/functions/compare-certificate-hash/index.ts
           npx --yes deno@2.2.12 test --frozen --config supabase/functions/deno.json supabase/functions
           node --check supabase/tests/issuance_http.mjs
           node --check supabase/admin/reconcile_issuance.mjs
@@ -45,6 +45,8 @@ jobs:
           node --check mobile/tool/secure_issuance_browser.mjs
           node --check mobile/tool/public_verification_browser.mjs
           node --check mobile/tool/verify_qr.mjs
+          node --test mobile/tool/browser_harness_test.mjs
+          node mobile/tool/browser_harness_smoke.mjs
       - name: Issuance HTTP and recovery with real local Auth
         run: node supabase/tests/issuance_http.mjs
       - name: Issuance barriers, PDF compatibility and bounded abuse
@@ -57,6 +59,10 @@ jobs:
         env:
           CERTICHAIN_TEST_DISPOSABLE: '1'
         run: node supabase/tests/public_verification_http.mjs
+      - name: Candidate comparison and shared concurrent public budget
+        env:
+          CERTICHAIN_TEST_DISPOSABLE: '1'
+        run: node supabase/tests/hash_comparison_http.mjs
       - name: Concurrent owner protection
         run: node supabase/tests/institution_concurrency.mjs
       - name: Historical certificate migration preservation
@@ -68,6 +74,9 @@ jobs:
       - name: Historical data and private documents preserved by public verification
         shell: pwsh
         run: ./supabase/tests/verify_public_verification_migration.ps1
+      - name: Private data preserved by candidate comparison migration
+        shell: pwsh
+        run: ./supabase/tests/verify_hash_comparison_migration.ps1
       - name: Lint project schemas
         run: supabase db lint --local --schema public,certichain_private --level warning --fail-on warning
       - name: Install pinned Flutter for the full local UI journey
@@ -83,8 +92,10 @@ jobs:
           node tool/secure_issuance_browser.mjs
       - name: Independent QR decoder dependencies (test tools only)
         working-directory: mobile/tool
-        run: npm ci --ignore-scripts
-      - name: Public Flutter Web, QR, clipboard, links and actual main startup failure
+        run: |
+          npm ci --ignore-scripts
+          node prepare_decoder.mjs
+      - name: Public Flutter Web, real emulated camera, private PDF comparison, QR and main startup failure
         working-directory: mobile
         env:
           CERTICHAIN_TEST_DISPOSABLE: '1'
@@ -141,5 +152,7 @@ jobs:
         run: |
           flutter build web --no-web-resources-cdn --target=tool/pdf_browser_smoke.dart --output=build/browser-smoke
           node tool/pdf_browser_smoke.mjs
+      - name: Prepare pinned offline scanner decoder
+        run: node tool/prepare_decoder.mjs
       - name: Build Web
-        run: flutter build web
+        run: flutter build web --no-web-resources-cdn

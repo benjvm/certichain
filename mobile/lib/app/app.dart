@@ -14,6 +14,8 @@ import '../features/issuance/domain/issuance_repository.dart';
 import '../features/certificates/domain/certificate_document_repository.dart';
 import '../features/verification/domain/verification_repository.dart';
 import '../features/verification/domain/verification_link.dart';
+import '../features/verification/domain/hash_comparison.dart';
+import '../features/verification/presentation/qr_scanner_panel.dart';
 
 class CertiChainApp extends StatefulWidget {
   const CertiChainApp({
@@ -28,6 +30,10 @@ class CertiChainApp extends StatefulWidget {
     this.verification,
     this.credentials,
     this.verificationLink,
+    this.comparison,
+    this.comparisonPicker,
+    this.pdfHasher,
+    this.scannerFactory,
     this.startupMessage,
     super.key,
   });
@@ -42,6 +48,10 @@ class CertiChainApp extends StatefulWidget {
   final VerificationRepository? verification;
   final CredentialRepository? credentials;
   final VerificationLink? verificationLink;
+  final HashComparisonRepository? comparison;
+  final ComparisonPdfPicker? comparisonPicker;
+  final PdfHasher? pdfHasher;
+  final ScannerSession Function()? scannerFactory;
   final String? startupMessage;
   @override
   State<CertiChainApp> createState() => _CertiChainAppState();
@@ -58,7 +68,15 @@ class _CertiChainAppState extends State<CertiChainApp> {
     if (widget.authRepository != null) {
       _auth = AuthController(widget.authRepository!);
     }
-    _router = PublicRouter(root: _root, repository: () => widget.verification);
+    _router = PublicRouter(
+      root: _root,
+      repository: () => widget.verification,
+      comparison: () => widget.comparison,
+      picker: () => widget.comparisonPicker,
+      hasher: () => widget.pdfHasher,
+      link: () => widget.verificationLink,
+      scanner: () => widget.scannerFactory,
+    );
   }
 
   @override

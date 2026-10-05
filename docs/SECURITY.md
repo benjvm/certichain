@@ -234,7 +234,7 @@ en el runner local; claves administrativas y de firma nunca llegan al cliente.
 ## Cliente público y compartición autorizada — 8B
 
 HttpVerificationRepository usa cliente independiente sin credenciales
-Supabase/Authorization/apikey ni cookies deliberadas. Fallos públicos no disparan
+Supabase/Authorization/apikey ni cookies (fetch credentials:omit en Web). Fallos públicos no disparan
 requireSignIn/logout. API exclusivamente desde SUPABASE_URL validado, nunca desde
 el enlace. Proyección v1 cerrada y fechas estrictas; abort/15 s/8 KiB y errores
 técnicos separados de not_found. Estado del servidor. Retry-After bloquea
@@ -261,3 +261,35 @@ headers efectivamente transmitidos y un contexto aislado sin sesión. QR
 decodificado independientemente. 8C aborda cámara/archivo elegido/privacidad/
 recursos; 8D endurecimiento integral/abuso operativo. Sin enlaces nativos,
 identidad del presentador, comparación de copia, blockchain o despliegue.
+
+
+## Escáner y hash candidato — 8C
+
+El cliente público no publica document_hash. compare-certificate-hash devuelve
+solo schema_version, verification v1 y file_integrity. Campos públicos permitidos
+siguen siendo los de 8A; no se añaden titular, ruta, archivo o hash esperado.
+El candidato revela únicamente SHA-256 aportado voluntariamente por quien compara;
+no se registra en logs, preferencias o tablas. Bytes/nombre/ruta permanecen en
+el dispositivo; no hay upload/Storage ni reescritura. Vacío/>8 MiB rechazado y
+lectura acotada; el MIME/extensión orienta el selector y no prueba integridad.
+
+Código y digest estrictos, cuerpo 2 KiB, respuesta 8 KiB, deadlines/no-store,
+CORS y el presupuesto global atómico 60/60 compartido, incluidos POST inválidos.
+Errores de infraestructura nunca se convierten en not_found o discrepancia.
+RPC exclusivos service_role con search_path vacío; snapshot privado cerrado.
+Estado/hash desde una lectura coherente, sin ampliación de permisos. Coincidir
+no hace válido un certificado revocado/caducado y no prueba identidad/blockchain.
+
+Cámara por acción, permiso mínimo y frames locales sin persistencia. QR aceptado
+solo por contrato de base confiable/UUID; ningún enlace ajeno se abre/consulta.
+Detección bloqueada antes de parar para impedir duplicados; pausa/cierre/dispose
+invalida callbacks y libera cámara incluso si termina tarde el permiso. Decoder
+Web local versionado, licencia y manifest; no CDN durante la lectura. Cambiar
+archivo/código o cerrar invalida cálculo/respuestas. Reintentos siempre explícitos.
+
+El transporte Web exige credentials:omit: withCredentials:false conserva cookies
+same-origin. E2E precarga una cookie de sesión sintética en el origen del proxy
+y comprueba CDP/servidor sin Cookie, Authorization o apikey. Datos de fixtures y
+claves técnicas están solo en host del stack descartable. Diagnóstico del harness
+CDP/Chrome conserva tipos/localizaciones/categorías acotadas, nunca mensajes
+crudos, expresiones, URLs, payloads, tokens o stderr completo.

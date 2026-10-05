@@ -993,4 +993,183 @@ main. No se ejecutó un GitHub Actions nuevo, push, merge o despliegue remoto.
 Para uso manual con una publicación propia, comandos de Chrome y pasos en
 [PUBLIC_VERIFICATION.md](PUBLIC_VERIFICATION.md) y README. La clave local es
 publishable/anon, nunca service_role. localhost solo sirve en el mismo equipo;
-no se entregan enlaces móviles nativos, escáner ni comparación de archivos.
+en esta evidencia histórica de 8B no se entregaban enlaces móviles nativos, escáner ni comparación de archivos; la evidencia 8C figura debajo.
+
+
+## Incremento 8C y reparación del harness 8B — 05/10/2026
+
+Estado inicial Git limpio, HEAD/main remoto 344b1a2c9ad80f79f8ef1e8ed3d0d74a9d5fd068,
+sin commits posteriores relevantes en la referencia remota inspeccionada. Trabajo
+solo local, sin push, merge o despliegue. Se leyeron contratos/arquitectura/seguridad
+y ADR-0011/0012 antes de cambios. ADR-0013 conserva verify-certificate v1 y añade
+comparación candidata independiente; 8D permanece pendiente.
+
+### Bloqueo previo y evidencia del diagnóstico
+
+El usuario informó la ejecución GitHub Actions 37234444550: primero timeout de
+Chrome 7D y después Browser expression failed en ready tras reload del anónimo.
+El harness descartaba exceptionDetails, consultaba DOM/marker inmediatamente al
+acuse de Page.reload y no comprobaba salida/error de Chrome durante el arranque.
+Sin acceso a detalles de aquella excepción no se confirma su causa histórica.
+El harness anterior de 8B pasó localmente con diagnóstico añadido (52/14); el
+fallo original no se reprodujo. No se presenta una hipótesis como diagnóstico.
+
+browser_harness.mjs compartido distingue arranque Chrome, compromiso de documento,
+contexto/DOM y marcadores de arranque Flutter. Espera cambio de loader en reload,
+crea isolated world en el frame actual y espera documentElement/readyState;
+solo reintenta errores CDP -32000 identificados de contexto destruido/no encontrado
+o navegación. Las excepciones JavaScript reales fallan sin retry. Reporta tipo,
+código, línea/columna/contexto sanitizados, sin mensaje/valor/expresión privada.
+Chrome conserva solo categorías allowlist acotadas de stderr, detecta spawn
+error/salida temprana y verifica DevTools/socket con deadlines. Sockets pendientes
+se rechazan al cerrar; parada de grupo Unix/árbol Windows y espera antes de borrar
+perfil propio. La prueba Linux detectó ENOTEMPTY por hijos Chrome aún activos y
+se corrigió; repetición final salió 0. Se conservan todas las aserciones 7D/8B.
+
+Otra carrera se reprodujo en el stack local: el probe podía responder desde un
+runtime anterior mientras el nuevo functions serve lo sustituía, y la siguiente
+emisión fallaba por reset/abort de conexión. local_issuance_fixture observa el
+marcador de ESTE proceso antes de calentar y detecta error/salida, sin guardar
+stdout sensible. 7D intercepta el file chooser antes de navegar para que Chrome
+headless no cancele el selector real automáticamente. Estos son defectos locales
+confirmados; no se atribuyen sin evidencia al error histórico de Actions.
+
+### Resultados locales
+
+Windows; Flutter 3.47.4/Dart 3.13.3, Node 22.14.0, Supabase CLI 2.117.0,
+Deno 2.2.12, Chrome headless. Dos stacks descartables creados fuera del checkout,
+puerto API 55321; el último reconstruido de las diez migraciones finales. El
+habitual certichain/54321 no recibió reset ni migración 8C. Un primer intento de
+7D apuntó por error al habitual y falló antes de navegar al detectar el puerto
+no esperado por el build; los fixtures creados se limpiaron. Se corrigió el
+binding del harness y las validaciones siguientes usaron el descartable.
+
+| Comprobación ejecutada | Resultado |
+|---|---|
+| dart format / flutter analyze | PASS, sin incidencias |
+| flutter test completo | **182 PASS**, un opt-in anterior omitido; 25 nuevos casos 8C |
+| SQL sobre reconstrucción final | **611 PASS**, 54 nuevos; roles RPC, snapshot privado, estados/ausencia uniforme y permisos |
+| Cuatro preservaciones transaccionales + lint public/certichain_private | PASS, datos/códigos/metadata Storage preservados, sin warnings de esquema |
+| Deno fmt/lint/check frozen cuatro entrypoints/test | PASS, **65 tests** (44 anteriores +21 comparación) |
+| HTTP verify-certificate 8A | **296 aserciones PASS**, endpoint real y límite atómico |
+| HTTP compare-certificate-hash | **255 aserciones PASS**, match/mismatch/estados/fallos, cuerpo cerrado y límite compartido con concurrencia |
+| HTTP emisión 7B y hardening | **368 y 135 aserciones PASS**, Auth/Edge/Storage, recuperación y PDF |
+| Storage privado | PASS, denegaciones anon/authenticated y bytes conservados |
+| HTTP PDF autorizado 7C | **92 aserciones PASS**, incluye vencimiento real de capacidad |
+| Concurrencia de owner y autorización de emisión | **14 escenarios PASS** |
+| Regresión Web 7D | **69 Flutter +29 host PASS**, producción Auth/Edge/Storage/BD/PDF |
+| Web público 8B+8C | **74 host PASS**, 16 verify +4 compare POST reales, cámara emulada/decoder/selector reales; scanner con/sin sesión |
+| Node smoke CDP fake | **3 PASS**, sincronización y excepciones sanitizadas sin retry real |
+| Smoke CDP Chrome Windows y Ubuntu 24.04 | **45 aserciones PASS en cada plataforma**, 20 reload anónimos, DOM/contextos, fallos de lanzamiento y limpieza |
+| Build Web release main / instrumentado / main debug sin clave privada | PASS, recursos Web locales |
+| APK Android debug | PASS compilación; sin ejecución de cámara en dispositivo |
+
+Ubuntu se ejecutó en Docker, base 24.04 fijada por digest, Node 22.14.0 verificado
+por SHA-256 y Chrome 154.0.8037.97. Es smoke real del harness con DOM sintético,
+NO un E2E Flutter/backend completo Linux. Docker --rm y perfiles temporales propios.
+Un futuro Actions deberá confirmar los recorridos completos Linux conservados.
+No se ha observado una nueva ejecución de GitHub Actions de estos cambios.
+
+### Alcance de fakes, cámara y privacidad
+
+phase8c_test usa FakeCamera, picker/repository fakes y MockClient para permisos
+negados, ausencia/cámara ocupada, cancelación, detecciones repetidas, permiso
+pendiente/dispose, códigos ambiguos/excesivos y URL de confianza. Vectores SHA-256
+abc y binarios exactos, cambio de byte y límite 8 MiB; stream nativo acotado,
+cancelación entre bloques, reemplazo/código/respuestas fuera de orden y cooldown
+compartido incluso durante selección y salida/reapertura. Adaptador de cámara real con controller del plugin sustituido: errores de stream
+se traducen sin detalle privado y el stream propio cierra incluso si falla la
+liberación nativa. DTO/HTTP cerrado,
+exceso/timeout/errores y estado/integridad separados. Widget 320×568/texto ×2
+con permiso denegado y alternativa manual accesible; match no oculta revoked.
+La captura comparison-revoked-390.png se inspeccionó visualmente.
+
+El E2E público conserva las aserciones 8B: publicación real, QR pintado y decoder
+independiente jsqr, titular/clipboard, anónimo, histórico/expirado/emisor/revocado,
+503, Auth/historial/recarga y main real sin configuración privada. Añade video Y4M
+generado a partir del QR de Flutter, Chrome --use-file-for-fake-video-capture, permisos CDP denied/granted,
+getUserMedia y MobileScanner/ZXing locales reales. Comprueba permiso realmente
+denegado y reintento explícito en el mismo panel, cámara detenida y confirmación
+única; no sustituye el decoder por un fake. File chooser CDP selecciona
+el PDF emitido en el adaptador de producción, misma copia renombrada y copia con
+un byte cambiado: match, match, integrity_mismatch. Repite match tras revocación
+y mantiene revoked. Cancelación, vacío y 8 MiB+1 no envían comparación.
+
+Un proxy loopback pasa ambos endpoints al Edge real. Se precarga Cookie en ese
+MISMO origen y se comprueba ausencia efectiva de Cookie/Authorization/apikey tanto
+por CDP como servidor; body contiene solo credential_code/document_sha256 y
+estos digests se contrastan con bytes exactos. No se almacena ni sube la copia.
+Comprueba petición decoder local y falla si la app intenta recursos remotos/CDN.
+Cámara emulada, sin cámara física Android/iOS/Web ni interacción humana con el
+diálogo OS. iOS no compilado desde Windows; Safari/Firefox/dispositivos físicos
+y lectores de pantalla humanos pendientes. No se promete universalidad por el
+soporte anunciado del paquete. flutter test --platform chrome conserva la
+limitación Windows documentada en 8B; CI Linux mantiene esa prueba sin omitirla.
+
+### Comandos reproducibles de 8C
+
+Desde raíz, preparar stack NUEVO según PUBLIC_VERIFICATION.md. SUPABASE_CLI puede
+apuntar al binario CLI 2.117.0 si no está en PATH. Los comandos siguientes exigen
+la ruta devuelta, y los HTTP/fixtures se ejecutan SECUENCIALMENTE:
+
+```powershell
+$taskStack = & ./supabase/tests/prepare_disposable_local.ps1 -Start
+$env:CERTICHAIN_TEST_DISPOSABLE='1'
+$env:CERTICHAIN_TEST_BACKEND_ROOT=$taskStack
+supabase test db --local --workdir $taskStack
+$taskProject=(Select-String -Path (Join-Path $taskStack 'supabase/config.toml') -Pattern '^project_id').Line.Split('"')[1]
+./supabase/tests/verify_hash_comparison_migration.ps1 -DatabaseContainer ('supabase_db_'+$taskProject)
+supabase db lint --local --workdir $taskStack --schema public,certichain_private --level warning --fail-on warning
+Push-Location -LiteralPath $taskStack
+node supabase/tests/public_verification_http.mjs
+node supabase/tests/hash_comparison_http.mjs
+node supabase/tests/issuance_http.mjs
+node supabase/tests/issuance_hardening.mjs
+node supabase/tests/private_storage.mjs
+node supabase/tests/certificate_pdf_http.mjs
+node supabase/tests/institution_concurrency.mjs
+Pop-Location
+npx --yes deno@2.2.12 fmt --check supabase/functions
+npx --yes deno@2.2.12 lint supabase/functions
+npx --yes deno@2.2.12 check --frozen --config supabase/functions/deno.json supabase/functions/issue-certificate/index.ts supabase/functions/certificate-pdf/index.ts supabase/functions/verify-certificate/index.ts supabase/functions/compare-certificate-hash/index.ts
+npx --yes deno@2.2.12 test --frozen --config supabase/functions/deno.json supabase/functions
+node --test mobile/tool/browser_harness_test.mjs
+node mobile/tool/browser_harness_smoke.mjs
+Push-Location mobile
+flutter pub get --enforce-lockfile
+Push-Location tool
+npm ci --ignore-scripts
+node prepare_decoder.mjs
+Pop-Location
+dart format --output=none --set-exit-if-changed lib test tool
+flutter analyze
+flutter test
+flutter build web --no-web-resources-cdn --target=tool/secure_issuance_browser.dart --output=build/secure-issuance-e2e
+node tool/secure_issuance_browser.mjs
+flutter build web --no-web-resources-cdn --target=tool/public_verification_browser.dart --output=build/public-verification-e2e
+flutter build web --debug --no-web-resources-cdn --base-href=/production/ --dart-define=SUPABASE_URL=http://127.0.0.1:55321 --dart-define=PUBLIC_VERIFICATION_BASE_URL=http://127.0.0.1:7357/production/ --output=build/public-verification-main
+node tool/public_verification_browser.mjs
+flutter build web --no-web-resources-cdn
+flutter build apk --debug
+Pop-Location
+supabase stop --no-backup --workdir $taskStack
+```
+
+En CI el stack efímero usa 54321 y no requiere el backend root alternativo. El
+workflow conserva SQL/Deno/HTTP anteriores, carreras y cuatro preservaciones,
+Chrome platform tests/PDF adapters y 7D. Añade comparación HTTP y scanner/PDF real,
+smoke CDP y preparación decoder, con el SDK/CLI fijados. No se reduce cobertura
+para ocultar el fallo 8B. La publicación futura exige nueva migración y desplegar
+verify-certificate + compare-certificate-hash (shared handler); comandos preparados
+en PUBLIC_VERIFICATION.md, ninguno ejecutado remotamente.
+
+Para smoke Linux aislado, desde raíz con Docker Desktop/Linux:
+
+```powershell
+docker build -f mobile/tool/harness-linux.Dockerfile -t certichain-cdp-linux-8c mobile/tool
+docker run --rm --shm-size=256m certichain-cdp-linux-8c
+```
+
+Chrome se obtiene del canal estable oficial durante build; su versión puede
+cambiar, por lo que la observada arriba es evidencia de esta ejecución. Node y
+Ubuntu sí están fijados. No expone puertos ni requiere secretos/stack Supabase.

@@ -179,7 +179,16 @@ véase [SECURE_ISSUANCE.md](SECURE_ISSUANCE.md). No incluye todavía blockchain.
   v1 mediante HTTP independiente de Auth, formulario, estados y errores,
   navegación hash con recarga/historial y compartición del código propio.
   Evidencia final y comandos en [TESTING.md](TESTING.md).
-- **8C pendiente:** escáner y comparación privada de una copia del PDF.
+- **8C — escáner y comparación de copia: completada localmente el 05/10/2026.**
+  Cámara por acción, QR canónico de confianza/UUID estricto, decoder local sin
+  CDN y ciclo de vida; selección acotada de 8 MiB, SHA-256 exacto sin upload.
+  Endpoint independiente y snapshot SQL común, v1 intacto y presupuesto 60/60
+  compartido; estado separado de integridad. Migración nueva/ADR-0013 y CI ampliada.
+  182 Flutter, 611 SQL, 65 Deno, HTTP 255/296 y Web real con cámara emulada
+  superados localmente. Harness 7D/8B corregidos y revalidados; smoke CDP Windows
+  y Ubuntu 24.04. El fallo histórico Actions 37234444550 no se reprodujo ni se
+  confirma su excepción concreta. Nuevo Actions/despliegue y cámaras físicas/
+  iOS pendientes; evidencia y limitaciones en [TESTING.md](TESTING.md).
 - **8D pendiente:** pruebas integrales y endurecimiento del recorrido completo.
 
 El reparto autorizado de 8B corrige la asignación documental de QR/enlaces a 8C
@@ -188,7 +197,7 @@ la entrega/evidencia histórica de 8A, sin atribuirle interfaz o CI posterior.
 
 ### Orden recomendado de los incrementos posteriores (pendientes)
 
-1. Completar 8C–8D: escáner, comparación de copia y endurecimiento del recorrido.
+1. Completar 8D: endurecimiento integral, dispositivos físicos y validación CI del recorrido.
 2. Anclaje blockchain: contrato, adaptador de backend, estados e idempotencia.
 3. Revocación completa y endurecimiento: backend, sincronización blockchain,
    reconciliación, seguridad, recuperación y pruebas del recorrido completo.

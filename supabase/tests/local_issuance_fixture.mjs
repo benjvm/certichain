@@ -51,9 +51,17 @@ export async function fixture() {
     envFile,
   ]);
   const runtime = spawn(command, args, { windowsHide: true, stdio: "pipe" });
-  // Drain without printing upstream payloads or local credentials.
-  runtime.stdout.resume();
-  runtime.stderr.resume();
+  // A response from the previous container is not readiness of THIS serve.
+  // Observe only the CLI launch marker; never retain or print its output.
+  let serving = false, launchFailed = false;
+  runtime.on("error", () => {
+    launchFailed = true;
+  });
+  const launched = (chunk) => {
+    if (/Serving functions on/.test(chunk.toString())) serving = true;
+  };
+  runtime.stdout.on("data", launched);
+  runtime.stderr.on("data", launched);
   async function json(path, token, body, method = "POST") {
     const response = await api(
       local,
@@ -132,9 +140,12 @@ export async function fixture() {
       actor.token,
       "POST",
       form,
-      fault
-        ? { "x-local-fault-token": faultToken, "x-local-fault": fault }
-        : {},
+      {
+        Connection: "close",
+        ...(fault
+          ? { "x-local-fault-token": faultToken, "x-local-fault": fault }
+          : {}),
+      },
     );
     return { status: response.status, data: await response.json() };
   }
@@ -264,6 +275,17 @@ export async function fixture() {
     }
   }
   try {
+    await until(
+      () => {
+        check(
+          !launchFailed && runtime.exitCode === null,
+          "Local Edge runtime launch failed",
+        );
+        return serving;
+      },
+      "Current functions serve launch marker",
+      60000,
+    );
     await until(async () => {
       check(runtime.exitCode === null, "Local Edge runtime exited");
       const r = await api(

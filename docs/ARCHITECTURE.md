@@ -82,7 +82,9 @@ Regla de dependencias: `presentation → domain ← data`. El dominio no depende
 - `AuthRepository`: sesión, registro y recuperación.
 - `CertificateRepository`: consultas autorizadas y detalle.
 - `IssuanceRepository`: solicitud y seguimiento de emisión.
-- `VerificationRepository`: verificación pública por código o archivo.
+- `VerificationRepository`: proyección pública por código.
+- `HashComparisonRepository`: comparación pública de un hash candidato.
+- `ComparisonPdfPicker` / `PdfHasher` / `QrCamera`: capacidades locales de copia y QR.
 - `InstitutionRepository`: perfil, miembros y estado.
 - `BlockchainRegistry`: registrar, revocar y consultar una prueba.
 - `DocumentStorage`: guardar, recuperar y eliminar documentos según política.
@@ -144,3 +146,17 @@ stateDiagram-v2
 ## Portabilidad futura
 
 La primera migración prevista sería `Supabase SDK → API propia`, manteniendo casos de uso y entidades. Posteriormente, Auth y Storage pueden sustituirse detrás de adaptadores. Las dependencias específicas de Supabase se inventarían en ADR y en `docs/DATABASE.md`.
+
+
+## Comparación y escáner 8C
+
+Flutter selecciona una copia local de máximo 8 MiB y calcula SHA-256 exacto sin
+upload. Envía exclusivamente código/hash a compare-certificate-hash; el backend
+consume el mismo presupuesto 8A y compara contra evidencia elegible en un
+snapshot SQL coherente. verification v1 y file_integrity son resultados distintos:
+coincidencia no elimina revocación/caducidad. verify-certificate permanece cerrado.
+Escáner QrCamera local, accionado por usuario y detenido por ciclo de vida,
+acepta solo enlace canónico de base confiable/UUID y requiere confirmar consulta.
+Cámara/selector/hash detrás de contratos; raíz compone preview y adaptador sin
+hacer depender data de presentation. La operación privilegiada/hash esperado
+continúa en backend. [ADR-0013](adr/0013-public-candidate-hash-and-qr-scanning.md).

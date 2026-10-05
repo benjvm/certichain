@@ -4,28 +4,82 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../domain/verification_repository.dart';
+import '../domain/hash_comparison.dart';
+import 'public_http_client.dart';
 
-class HttpVerificationRepository implements VerificationRepository {
+class HttpVerificationRepository
+    implements VerificationRepository, HashComparisonRepository {
   HttpVerificationRepository({
     required String apiUrl,
     http.Client? client,
     this.timeout = const Duration(seconds: 15),
   }) : _endpoint = Uri.parse('$apiUrl/functions/v1/verify-certificate'),
-       _client = client ?? http.Client();
+       _client = client ?? createPublicHttpClient();
   final Uri _endpoint;
   final http.Client _client;
   final Duration timeout;
   static const maxResponseBytes = 8192;
 
   @override
-  Future<VerificationResult> verify(String input) async {
+  Future<VerificationResult> verify(String input) =>
+      _run(input, decode: (value, code) => decodeResult(value, code));
+
+  @override
+  Future<HashComparison> compare(String input, String documentSha256) {
+    if (documentSha256.length != 64 ||
+        !RegExp(r'^[0-9a-f]{64}$').hasMatch(documentSha256)) {
+      throw const VerificationException(VerificationFailure.invalidInput);
+    }
+    return _run(
+      input,
+      hash: documentSha256,
+      decode: (value, code) {
+        const unexpected = VerificationException(
+          VerificationFailure.unexpected,
+        );
+        if (value is! Map<String, dynamic> ||
+            value.length != 3 ||
+            !value.keys.every(
+              const {
+                'schema_version',
+                'verification',
+                'file_integrity',
+              }.contains,
+            ) ||
+            value['schema_version'] != '1') {
+          throw unexpected;
+        }
+        final verification = decodeResult(value['verification'], code);
+        final integrity = switch (value['file_integrity']) {
+          'match' => FileIntegrity.match,
+          'integrity_mismatch' => FileIntegrity.integrityMismatch,
+          'unavailable' => FileIntegrity.unavailable,
+          _ => throw unexpected,
+        };
+        if ((verification.status == VerificationStatus.notFound) !=
+            (integrity == FileIntegrity.unavailable)) {
+          throw unexpected;
+        }
+        return HashComparison(verification, integrity);
+      },
+    );
+  }
+
+  Future<T> _run<T>(
+    String input, {
+    String? hash,
+    required T Function(Object?, String) decode,
+  }) async {
     final code = normalizeCredentialCode(input);
     if (code == null) {
       throw const VerificationException(VerificationFailure.invalidInput);
     }
     final abort = Completer<void>();
     try {
-      return await _query(code, abort.future).timeout(timeout);
+      return decode(
+        await _query(code, abort.future, hash: hash).timeout(timeout),
+        code,
+      );
     } on VerificationException {
       rethrow;
     } on TimeoutException {
@@ -39,13 +93,31 @@ class HttpVerificationRepository implements VerificationRepository {
     }
   }
 
-  Future<VerificationResult> _query(String code, Future<void> abort) async {
-    // This client is never the Supabase transport. BrowserClient defaults to
-    // withCredentials=false. No SDK headers, session cookies or session callbacks.
+  Future<Object?> _query(
+    String code,
+    Future<void> abort, {
+    String? hash,
+  }) async {
+    // Independent transport. Web explicitly omits even same-origin cookies.
     final request =
-        http.AbortableRequest('POST', _endpoint, abortTrigger: abort)
+        http.AbortableRequest(
+            'POST',
+            hash == null
+                ? _endpoint
+                : _endpoint.replace(
+                    path: _endpoint.path.replaceFirst(
+                      'verify-certificate',
+                      'compare-certificate-hash',
+                    ),
+                  ),
+            abortTrigger: abort,
+          )
+          ..followRedirects = false
           ..headers['Content-Type'] = 'application/json'
-          ..body = jsonEncode({'credential_code': code});
+          ..body = jsonEncode({
+            'credential_code': code,
+            'document_sha256': ?hash,
+          });
     final response = await _client.send(request);
     final bytes = <int>[];
     final subscription = response.stream;
@@ -71,7 +143,7 @@ class HttpVerificationRepository implements VerificationRepository {
       case 503:
         throw const VerificationException(VerificationFailure.unavailable);
       case 200:
-        return decodeResult(jsonDecode(utf8.decode(bytes)), code);
+        return jsonDecode(utf8.decode(bytes));
       default:
         throw const VerificationException(VerificationFailure.unexpected);
     }

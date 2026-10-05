@@ -33,6 +33,21 @@ class VerificationLink {
     return _base.replace(fragment: '/verify/$code').toString();
   }
 
+  /// Only the canonical link emitted by 8B or a strict direct UUID.
+  String? codeFromQr(String raw) {
+    if (raw.isEmpty ||
+        raw.length > 2048 ||
+        raw != raw.trim() ||
+        RegExp(r'[\x00-\x20\x7f\\]').hasMatch(raw)) {
+      return null;
+    }
+    if (raw.length == 36) return normalizeCredentialCode(raw);
+    final prefix = '${_base.toString()}#/verify/';
+    if (!raw.startsWith(prefix)) return null;
+    final code = raw.substring(prefix.length);
+    return code.length == 36 ? normalizeCredentialCode(code) : null;
+  }
+
   static VerificationLink? tryCreate(
     String base, {
     bool allowLocalHttp = false,

@@ -511,3 +511,25 @@ Las pruebas SQL conservan 500 anteriores y añaden 57. Preservación 8A reaplica
 migración con históricos sintéticos, compara filas privadas/Storage y revierte
 la transacción. Contrato y confianza:
 [PUBLIC_VERIFICATION.md](PUBLIC_VERIFICATION.md), [ADR-0011](adr/0011-public-registry-verification.md).
+
+
+## Incremento 8C: snapshot privado y comparación candidata
+
+Migración nueva `20261005120000_public_candidate_hash_comparison.sql`, sin tocar
+migraciones anteriores ni filas. Extrae la consulta de elegibilidad de 8A en
+certichain_private.public_certificate_snapshot(text), no accesible por PUBLIC,
+anon, authenticated ni service_role. Es invocado por los dos wrappers públicos
+SECURITY DEFINER/search_path vacío de propietario, con tablas cualificadas.
+lookup_public_certificate(text) sigue devolviendo exactamente la proyección v1.
+compare_public_certificate_hash(text,text) valida UUID/hash canónico y devuelve
+schema_version/verification/file_integrity, nunca document_hash. EXECUTE
+exclusivo service_role; mantiene ACL, RLS y Storage.
+
+Una misma lectura obtiene hash/estado y un instante servidor obtiene
+checked_at/caducidad; elegibilidad completed, ids/actores/titular/institución,
+hashes y ruta canónica conservada. match/mismatch son independientes de
+revoked/expired/issuer_unavailable/valid. Falta de evidencia da not_found/unavailable.
+El presupuesto privado existente y su RPC se reutilizan por ambos endpoints,
+sin nueva tabla/contador. SQL total 611 (54 nuevas), preservación transaccional
+compara filas y metadata Storage; HTTP comprueba bytes reales intactos.
+Contrato/comandos: [PUBLIC_VERIFICATION.md](PUBLIC_VERIFICATION.md).

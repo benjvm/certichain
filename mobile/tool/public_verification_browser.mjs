@@ -1,12 +1,20 @@
 import { createServer } from "node:http";
-import { spawn } from "node:child_process";
-import { randomUUID } from "node:crypto";
+import {
+  connectCdp,
+  evaluate,
+  launchChrome,
+  navigateDocument,
+  prepareDocument,
+  stopChrome,
+} from "./browser_harness.mjs";
+import { createHash, randomUUID } from "node:crypto";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { extname, join, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 import { setTimeout as delay } from "node:timers/promises";
 import { decodeQr } from "./verify_qr.mjs";
+import { qrTestVideo } from "./qr_test_video.mjs";
 
 if (process.env.CERTICHAIN_TEST_DISPOSABLE !== "1") {
   throw new Error("Requires an explicitly disposable local stack");
@@ -14,7 +22,7 @@ if (process.env.CERTICHAIN_TEST_DISPOSABLE !== "1") {
 const build = resolve("build/public-verification-e2e");
 const mainBuild = resolve("build/public-verification-main");
 const backend = resolve(process.env.CERTICHAIN_TEST_BACKEND_ROOT ?? "..");
-const { fixture, check, until, terminate } = await import(
+const { fixture, check, until } = await import(
   pathToFileURL(join(backend, "supabase/tests/local_issuance_fixture.mjs"))
 );
 const { sql } = await import(
@@ -24,7 +32,11 @@ const profile = mkdtempSync(join(tmpdir(), "certichain-chrome-8b-"));
 check(resolve(profile).startsWith(resolve(tmpdir()) + sep), "Unsafe profile");
 const initialDirectory = process.cwd();
 process.chdir(backend); // runtime/status always target this stack
-const f = await fixture();
+const f = await fixture().catch((error) => {
+  process.chdir(initialDirectory);
+  rmSync(profile, { recursive: true, force: true });
+  throw error;
+});
 let chrome, server, failure;
 const sockets = [];
 let assertions = 0, publicRequests = 0;
@@ -34,6 +46,9 @@ function verify(condition, label) {
 }
 const origin = "http://127.0.0.1:7357";
 let cert, record, originalBytes;
+let comparisonRequests = 0, localDecoderSeen = false;
+const candidateDigests = [];
+const cameraVideo = join(profile, "qr-camera.y4m");
 try {
   const issued = await f.issue(f.owner, {
     institution_id: f.verified,
@@ -93,10 +108,52 @@ try {
     ".ttf": "font/ttf",
     ".png": "image/png",
   };
-  server = createServer((req, res) => {
+  server = createServer(async (req, res) => {
     try {
       const path = new URL(req.url, origin).pathname;
       res.setHeader("cache-control", "no-store");
+      if (
+        [
+          "/functions/v1/verify-certificate",
+          "/functions/v1/compare-certificate-hash",
+        ].includes(path)
+      ) {
+        if (
+          ["authorization", "apikey", "cookie"].some((k) => k in req.headers)
+        ) {
+          failure = new Error("Same-origin public transport sent credentials");
+        }
+        const chunks = [];
+        let length = 0;
+        for await (const chunk of req) {
+          length += chunk.length;
+          check(length <= 2048, "Bounded public proxy");
+          chunks.push(chunk);
+        }
+        const upstream = await fetch(f.local.API_URL + path, {
+          method: req.method,
+          headers: { "content-type": "application/json" },
+          body: Buffer.concat(chunks),
+          signal: AbortSignal.timeout(15000),
+        });
+        const headers = {};
+        for (
+          const name of [
+            "content-type",
+            "cache-control",
+            "retry-after",
+            "access-control-allow-origin",
+            "access-control-expose-headers",
+          ]
+        ) {
+          const value = upstream.headers.get(name);
+          if (value != null) headers[name] = value;
+        }
+        // fetch decoded content-encoding; forward only application headers.
+        res.writeHead(upstream.status, headers);
+        res.end(Buffer.from(await upstream.arrayBuffer()));
+        return;
+      }
       if (path === "/fixture") {
         res.setHeader("content-type", "application/json");
         res.end(JSON.stringify(data));
@@ -130,42 +187,14 @@ try {
     ),
     "No service key in Web build",
   );
-  chrome = spawn(
-    process.env.CHROME_EXECUTABLE ??
-      (process.platform === "win32"
-        ? "C:/Program Files/Google/Chrome/Application/chrome.exe"
-        : "/usr/bin/google-chrome"),
-    [
-      "--headless=new",
-      "--no-sandbox",
-      "--disable-gpu",
-      "--no-first-run",
-      "--no-default-browser-check",
-      "--remote-debugging-port=0",
-      `--user-data-dir=${profile}`,
-      "about:blank",
-    ],
-    { windowsHide: true, stdio: "ignore" },
-  );
-  let port;
-  await until(() => {
-    try {
-      port = Number(
-        readFileSync(join(profile, "DevToolsActivePort"), "utf8").split(
-          "\n",
-        )[0],
-      );
-      return Boolean(port);
-    } catch {
-      return false;
-    }
-  }, "Chrome startup");
+  const launched = await launchChrome(profile, [
+    "--use-fake-device-for-media-stream",
+    `--use-file-for-fake-video-capture=${cameraVideo}`,
+    "about:blank",
+  ]);
+  chrome = launched.child;
+  const port = launched.port;
   async function connect(url) {
-    const socket = new WebSocket(url);
-    sockets.push(socket);
-    await new Promise((r) => socket.onopen = r);
-    let seq = 0;
-    const pending = new Map();
     const publicIds = new Set(), extra = new Map();
     function assertHeaders(headers) {
       if (
@@ -176,24 +205,30 @@ try {
         failure = new Error("Actual public browser request sent credentials");
       }
     }
-    socket.addEventListener("message", (event) => {
-      const m = JSON.parse(event.data);
-      if (m.id) {
-        const p = pending.get(m.id);
-        if (p) {
-          clearTimeout(p.timer);
-          pending.delete(m.id);
-          m.error
-            ? p.reject(new Error("CDP command failed"))
-            : p.resolve(m.result);
+    const cdp = await connectCdp(url, (m) => {
+      if (m.method === "Network.requestWillBeSent") {
+        const url = new URL(m.params.request.url);
+        if (
+          ["http:", "https:"].includes(url.protocol) &&
+          !["localhost", "127.0.0.1", "[::1]"].includes(url.hostname)
+        ) failure = new Error("Unexpected external app/decoder resource");
+        if (url.pathname.endsWith("/decoder/zxing-0.23.0.min.js")) {
+          localDecoderSeen = true;
         }
       }
       if (
         m.method === "Network.requestWillBeSent" &&
-        m.params.request.url.endsWith("/functions/v1/verify-certificate") &&
+        (m.params.request.url.endsWith("/functions/v1/verify-certificate") ||
+          m.params.request.url.endsWith(
+            "/functions/v1/compare-certificate-hash",
+          )) &&
         m.params.request.method === "POST"
       ) {
-        publicRequests++;
+        const comparison = m.params.request.url.endsWith(
+          "/compare-certificate-hash",
+        );
+        if (comparison) comparisonRequests++;
+        else publicRequests++;
         publicIds.add(m.params.requestId);
         if (extra.has(m.params.requestId)) {
           assertHeaders(extra.get(m.params.requestId));
@@ -205,8 +240,19 @@ try {
           headers.some((k) => ["authorization", "apikey", "cookie"].includes(k))
         ) failure = new Error("Public browser sent credentials");
         const body = JSON.parse(m.params.request.postData ?? "{}");
-        if (Object.keys(body).join(",") !== "credential_code") {
+        if (
+          Object.keys(body).sort().join(",") !==
+            (comparison ? "credential_code,document_sha256" : "credential_code")
+        ) {
           failure = new Error("Public browser widened body");
+        }
+        if (comparison) {
+          if (
+            body.credential_code !== record.credential_code ||
+            !/^[0-9a-f]{64}$/.test(body.document_sha256) ||
+            body.document_sha256.length !== 64
+          ) failure = new Error("Comparison candidate contract");
+          candidateDigests.push(body.document_sha256);
         }
       }
       if (m.method === "Network.requestWillBeSentExtraInfo") {
@@ -214,17 +260,10 @@ try {
         if (publicIds.has(m.params.requestId)) assertHeaders(m.params.headers);
       }
     });
-    return async (method, params = {}) =>
-      await new Promise((resolve, reject) => {
-        const id = ++seq,
-          timer = setTimeout(() => {
-            pending.delete(id);
-            reject(new Error("CDP deadline"));
-          }, 25000);
-        pending.set(id, { resolve, reject, timer });
-        socket.send(JSON.stringify({ id, method, params }));
-      });
+    sockets.push(cdp);
+    return cdp;
   }
+
   const version = await (await fetch(`http://127.0.0.1:${port}/json/version`))
     .json();
   const browser = await connect(version.webSocketDebuggerUrl);
@@ -241,16 +280,6 @@ try {
     deviceScaleFactor: 1,
     mobile: false,
   });
-  async function evaluate(cdp, expression) {
-    const r = await cdp("Runtime.evaluate", {
-      expression,
-      returnByValue: true,
-      awaitPromise: true,
-      userGesture: true,
-    });
-    if (r.exceptionDetails) throw new Error("Browser expression failed");
-    return r.result?.value;
-  }
   async function state(cdp = page) {
     if (failure) throw failure;
     return JSON.parse(
@@ -261,6 +290,7 @@ try {
     );
   }
   async function ready(cdp = page) {
+    if (!cdp.documentContext) await prepareDocument(cdp);
     await until(
       async () => {
         const v = await evaluate(
@@ -307,7 +337,7 @@ try {
     );
   }
   const link = `${origin}/#/verify/${record.credential_code}`;
-  await page("Page.navigate", { url: link });
+  await navigateDocument(page, "Page.navigate", { url: link });
   await ready();
   await outcome("Registro encontrado y vigente");
   writeFileSync(
@@ -321,7 +351,7 @@ try {
     (await state()).session === null && (await state()).queries === 1,
     "Direct link anonymous, Auth initialization caused exactly one query",
   );
-  await page("Page.reload", { ignoreCache: true });
+  await navigateDocument(page, "Page.reload", { ignoreCache: true });
   await ready();
   await outcome("Registro encontrado y vigente");
   verify(
@@ -373,14 +403,16 @@ try {
     (await state()).code === unknown,
     "Browser forward restores unknown code",
   );
-  await page("Page.navigate", { url: `${origin}/#/verify/${expiredCode}` });
+  await navigateDocument(page, "Page.navigate", {
+    url: `${origin}/#/verify/${expiredCode}`,
+  });
   await ready();
   await outcome("Certificado caducado");
   await f.rpc("set_institution_status", {
     p_institution: f.verified,
     p_status: "suspended",
   }, f.platform.token);
-  await page("Page.navigate", { url: link });
+  await navigateDocument(page, "Page.navigate", { url: link });
   await ready();
   await outcome("Emisor sin aprobación vigente");
   await f.rpc("set_institution_status", {
@@ -439,6 +471,24 @@ try {
     link,
   );
   assertions++;
+  qrTestVideo(
+    Buffer.from(
+      await evaluate(
+        page,
+        "document.documentElement.getAttribute('data-8b-qr')",
+      ),
+      "base64",
+    ),
+    cameraVideo,
+  );
+  const originalPath = join(profile, "original.pdf"),
+    renamedPath = join(profile, "same-bytes-new-name.pdf"),
+    changedPath = join(profile, "changed.pdf");
+  writeFileSync(originalPath, originalBytes);
+  writeFileSync(renamedPath, originalBytes);
+  const changed = Buffer.from(originalBytes);
+  changed[changed.length - 1] ^= 1;
+  writeFileSync(changedPath, changed);
   // New isolated context has no private session storage.
   const { browserContextId } = await browser("Target.createBrowserContext");
   const { targetId } = await browser("Target.createTarget", {
@@ -454,6 +504,14 @@ try {
   }, "Anonymous context target");
   const anonymous = await connect(isolated.webSocketDebuggerUrl);
   await anonymous("Network.enable");
+  await anonymous("Emulation.setDeviceMetricsOverride", {
+    width: 390,
+    height: 844,
+    deviceScaleFactor: 1,
+    mobile: false,
+  });
+  await anonymous("Page.enable");
+  await anonymous("Page.setInterceptFileChooserDialog", { enabled: true });
   await ready(anonymous);
   await outcome("Registro encontrado y vigente", anonymous);
   verify(
@@ -461,16 +519,170 @@ try {
       (await state(anonymous)).code === record.credential_code,
     "Copied link resolves same record without session",
   );
-  await anonymous("Page.reload", { ignoreCache: true });
+  await navigateDocument(anonymous, "Page.reload", { ignoreCache: true });
   await ready(anonymous);
   await outcome("Registro encontrado y vigente", anonymous);
   verify(
     (await state(anonymous)).queries === 1,
     "Anonymous copied link reload",
   );
+  await command("click", { label: "Consultar otro código" }, anonymous);
+  await evaluate(
+    anonymous,
+    "document.cookie='certichain_test_cookie=synthetic; path=/'",
+  );
+  verify(
+    (await evaluate(anonymous, "document.cookie")).includes(
+      "certichain_test_cookie",
+    ),
+    "Same-origin cookie present before public requests",
+  );
+  const beforeScan = publicRequests;
+  await browser("Browser.setPermission", {
+    permission: { name: "camera" },
+    setting: "denied",
+    origin,
+    browserContextId,
+  });
+  const beforeDeniedCamera = publicRequests;
+  await command("click", { label: "Escanear QR" }, anonymous);
+  try {
+    await outcome(
+      "Permiso de cámara denegado. Puedes introducir el código manualmente.",
+      anonymous,
+    );
+  } catch (error) {
+    writeFileSync(
+      join(build, "camera-denied-diagnostic.png"),
+      Buffer.from(
+        (await anonymous("Page.captureScreenshot", { format: "png" })).data,
+        "base64",
+      ),
+    );
+    const permission = await evaluate(
+      anonymous,
+      "navigator.permissions.query({name:'camera'}).then(p => p.state)",
+    );
+    throw new Error(
+      `Camera denied deadline; browser permission=${permission}`,
+      { cause: error },
+    );
+  }
+  verify(
+    publicRequests === beforeDeniedCamera,
+    "Real camera denial makes no verification request",
+  );
+  await browser("Browser.setPermission", {
+    permission: { name: "camera" },
+    setting: "granted",
+    origin,
+    browserContextId,
+  });
+  await command("click", { label: "Activar cámara" }, anonymous);
+  await outcome("Código identificado", anonymous);
+  verify(localDecoderSeen, "Production decoder asset fetched locally; no CDN");
+  verify(
+    publicRequests === beforeScan,
+    "Real video scanner identifies without query",
+  );
+  await command("click", { label: "Verificar código identificado" }, anonymous);
+  await outcome("Registro encontrado y vigente", anonymous);
+  verify(
+    publicRequests === beforeScan + 1,
+    "Repeated video detections yield one confirmed public query",
+  );
+  await until(
+    async () =>
+      await evaluate(
+        anonymous,
+        "[...document.querySelectorAll('video')].every(v => !v.srcObject || v.srcObject.getTracks().every(t => t.readyState === 'ended'))",
+      ),
+    "Camera resources released",
+  );
+  async function compareFile(path, expected) {
+    await command("click", { label: "Comparar mi PDF" }, anonymous);
+    await until(
+      async () =>
+        await evaluate(
+          anonymous,
+          "!!document.querySelector('#certichain-comparison-pdf-input')",
+        ),
+      "Real comparison input",
+    );
+    const { root } = await anonymous("DOM.getDocument");
+    const { nodeId } = await anonymous("DOM.querySelector", {
+      nodeId: root.nodeId,
+      selector: "#certichain-comparison-pdf-input",
+    });
+    await anonymous("DOM.setFileInputFiles", { nodeId, files: [path] });
+    await outcome(expected, anonymous);
+    await until(
+      async () =>
+        !(await evaluate(
+          anonymous,
+          "!!document.querySelector('#certichain-comparison-pdf-input')",
+        )),
+      "Picker resources released",
+    );
+  }
+  const emptyPath = join(profile, "empty.pdf"),
+    largePath = join(profile, "too-large.pdf");
+  writeFileSync(emptyPath, Buffer.alloc(0));
+  writeFileSync(largePath, Buffer.alloc(8388609));
+  await command("click", { label: "Comparar mi PDF" }, anonymous);
+  await until(
+    async () =>
+      await evaluate(
+        anonymous,
+        "!!document.querySelector('#certichain-comparison-pdf-input')",
+      ),
+    "Cancel picker ready",
+  );
+  await evaluate(
+    anonymous,
+    "document.querySelector('#certichain-comparison-pdf-input').dispatchEvent(new Event('cancel'))",
+  );
+  await outcome("Comparación cancelada.", anonymous);
+  await compareFile(emptyPath, "El archivo está vacío.");
+  await compareFile(
+    largePath,
+    "El archivo supera el límite de 8 MiB (8.388.608 bytes).",
+  );
+  verify(
+    comparisonRequests === 0,
+    "Cancel/empty/large selection never makes HTTP",
+  );
+  const matchLabel = "El PDF coincide byte a byte con el documento registrado.";
+  await compareFile(originalPath, matchLabel);
+  await compareFile(renamedPath, matchLabel);
+  await compareFile(
+    changedPath,
+    "El PDF no coincide con el documento registrado.",
+  );
+  verify(
+    candidateDigests[0] ===
+        createHash("sha256").update(originalBytes).digest("hex") &&
+      candidateDigests[1] === candidateDigests[0] &&
+      candidateDigests[2] ===
+        createHash("sha256").update(changed).digest("hex"),
+    "Only candidate SHA-256 travels; exact bytes, renamed copy and one-byte change",
+  );
   sql(`UPDATE public.certificates SET status='revoked' WHERE id='${cert}';`);
   await command("click", { label: "Actualizar comprobación" }, anonymous);
   await outcome("Certificado revocado", anonymous);
+  await compareFile(originalPath, matchLabel);
+  await outcome("Certificado revocado", anonymous);
+  writeFileSync(
+    join(build, "comparison-revoked-390.png"),
+    Buffer.from(
+      (await anonymous("Page.captureScreenshot", { format: "png" })).data,
+      "base64",
+    ),
+  );
+  verify(
+    comparisonRequests === 4,
+    "Matching PDF never hides revocation; explicit comparisons only",
+  );
   await command("qr");
   decodeQr(
     Buffer.from(
@@ -522,12 +734,30 @@ try {
     ) === null,
     "Other account cannot read own share code for holder certificate",
   );
-  await page("Page.navigate", { url: link });
+  await navigateDocument(page, "Page.navigate", { url: link });
   await ready();
   await outcome("Certificado revocado");
   verify(
     (await state()).public,
     "Existing other session can use public verification",
+  );
+  await browser("Browser.setPermission", {
+    permission: { name: "camera" },
+    setting: "granted",
+    origin,
+  });
+  const beforeSignedScan = publicRequests;
+  await command("click", { label: "Escanear QR" });
+  await outcome("Código identificado");
+  await command("click", { label: "Verificar código identificado" });
+  await outcome("Certificado revocado");
+  await until(
+    async () => publicRequests === beforeSignedScan + 1,
+    "Signed-in scanner single confirmation",
+  );
+  verify(
+    (await state()).session === f.outsider.id,
+    "Real scanner also works with an existing session without using its credentials",
   );
   console.log(
     "Checked production adapters, anonymous links, history, states, QR, clipboard and private logout",
@@ -547,7 +777,7 @@ try {
   const main = await connect(mainTarget.webSocketDebuggerUrl);
   await main("Network.enable");
   let beforeMain = publicRequests;
-  await main("Page.navigate", {
+  await navigateDocument(main, "Page.navigate", {
     url: `${origin}/production/#/verify/${record.credential_code}`,
   });
   async function mainResult() {
@@ -585,7 +815,7 @@ try {
     "main retains public code during private startup failure",
   );
   beforeMain = publicRequests;
-  await main("Page.reload", { ignoreCache: true });
+  await navigateDocument(main, "Page.reload", { ignoreCache: true });
   await mainResult();
   verify(
     publicRequests - beforeMain === 1,
@@ -601,11 +831,11 @@ try {
   );
   if (failure) throw failure;
   console.log(
-    `PASS: ${assertions} host assertions; ${publicRequests} observed public browser POSTs; real Auth/Edge/PostgreSQL/QR/clipboard/history`,
+    `PASS: ${assertions} host assertions; ${publicRequests} verification and ${comparisonRequests} comparison POSTs; real emulated camera/decoder/PDF; real Auth/Edge/PostgreSQL/QR/clipboard/history`,
   );
 } finally {
   sockets.forEach((s) => s.close());
-  terminate(chrome);
+  await stopChrome(chrome);
   server?.close();
   try {
     await f.close();

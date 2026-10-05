@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../features/verification/domain/verification_repository.dart';
+import '../../features/verification/domain/hash_comparison.dart';
+import '../../features/verification/domain/verification_link.dart';
+import '../../features/verification/presentation/qr_scanner_panel.dart';
+import '../../features/verification/presentation/public_query_cooldown.dart';
 import '../../features/verification/presentation/verification_screen.dart';
 
 class PublicLocation {
@@ -46,7 +50,27 @@ class PublicRouteParser extends RouteInformationParser<PublicLocation> {
 /// Framework Router owns hash URL/history. The private Navigator is session keyed.
 class PublicRouter extends RouterDelegate<PublicLocation>
     with ChangeNotifier, PopNavigatorRouterDelegateMixin<PublicLocation> {
-  PublicRouter({required this.root, required this.repository});
+  PublicRouter({
+    required this.root,
+    required this.repository,
+    this.comparison,
+    this.picker,
+    this.hasher,
+    this.link,
+    this.scanner,
+  });
+  final HashComparisonRepository? Function()? comparison;
+  final ComparisonPdfPicker? Function()? picker;
+  final PdfHasher? Function()? hasher;
+  final VerificationLink? Function()? link;
+  final ScannerSession Function()? Function()? scanner;
+  final _cooldown = PublicQueryCooldown();
+  @override
+  void dispose() {
+    _cooldown.dispose();
+    super.dispose();
+  }
+
   final WidgetBuilder root;
   final VerificationRepository? Function() repository;
   @override
@@ -128,6 +152,12 @@ class PublicRouter extends RouterDelegate<PublicLocation>
     }
     return VerificationScreen(
       repository: repo,
+      cooldown: _cooldown,
+      comparisonRepository: comparison?.call(),
+      comparisonPicker: picker?.call(),
+      pdfHasher: hasher?.call(),
+      verificationLink: link?.call(),
+      scannerFactory: scanner?.call(),
       initialCode: _location.code,
       onHome: home,
       onCode: showVerification,

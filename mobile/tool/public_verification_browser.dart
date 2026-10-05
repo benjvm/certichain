@@ -15,6 +15,10 @@ import 'package:mobile/features/certificates/data/supabase_certificate_repositor
 import 'package:mobile/features/certificates/presentation/certificate_card.dart';
 import 'package:mobile/features/certificates/presentation/certificate_detail_screen.dart';
 import 'package:mobile/features/verification/data/http_verification_repository.dart';
+import 'package:mobile/features/verification/data/public_http_client.dart';
+import 'package:mobile/features/verification/data/platform_comparison_pdf_picker.dart';
+import 'package:mobile/features/verification/data/sha256_pdf_hasher.dart';
+import 'package:mobile/app/verification_scanner.dart';
 import 'package:mobile/features/verification/data/supabase_credential_repository.dart';
 import 'package:mobile/features/verification/domain/verification_link.dart';
 import 'package:mobile/features/verification/presentation/credential_share.dart';
@@ -23,11 +27,11 @@ import 'package:mobile/features/verification/presentation/verification_screen.da
 /// Isolated test entrypoint. CertiChainApp and production adapters, real HTTP.
 /// Host drives browser URL/history/reload through CDP, never RouteSettings.
 class PublicTransport extends http.BaseClient {
-  final delegate = http.Client();
+  final delegate = createPublicHttpClient();
   int queries = 0;
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) {
-    queries++;
+    if (request.url.path.endsWith('/verify-certificate')) queries++;
     if (request.headers.keys.any(
       (k) => ['authorization', 'apikey', 'cookie'].contains(k.toLowerCase()),
     )) {
@@ -110,15 +114,26 @@ Future<void> main() async {
       throw StateError('Local API required');
     }
     final verification = HttpVerificationRepository(
-      apiUrl: api,
+      apiUrl: web.window.location.origin,
       client: transport,
     );
     final link = VerificationLink(
       web.window.location.origin,
       allowLocalHttp: true,
     );
+    final picker = PlatformComparisonPdfPicker();
+    final hasher = Sha256PdfHasher();
     // Mount before SDK/Auth restore. Later runApp updates the same app State.
-    runApp(CertiChainApp(verification: verification, verificationLink: link));
+    runApp(
+      CertiChainApp(
+        verification: verification,
+        verificationLink: link,
+        comparison: verification,
+        comparisonPicker: picker,
+        pdfHasher: hasher,
+        scannerFactory: createScannerSession,
+      ),
+    );
     await controller.pump();
     final sdk = await Supabase.initialize(
       url: api,
@@ -136,6 +151,10 @@ Future<void> main() async {
       profileRepository: SupabaseProfileRepository(client),
       certificateRepository: SupabaseCertificateRepository(client),
       verification: verification,
+      comparison: verification,
+      comparisonPicker: picker,
+      pdfHasher: hasher,
+      scannerFactory: createScannerSession,
       credentials: SupabaseCredentialRepository(client),
       verificationLink: link,
     );
@@ -213,6 +232,13 @@ Future<void> main() async {
       }
       final statuses = <String>[
         'Registro encontrado y vigente',
+        'Código identificado',
+        'Permiso de cámara denegado. Puedes introducir el código manualmente.',
+        'El PDF coincide byte a byte con el documento registrado.',
+        'El PDF no coincide con el documento registrado.',
+        'Comparación cancelada.',
+        'El archivo está vacío.',
+        'El archivo supera el límite de 8 MiB (8.388.608 bytes).',
         'Certificado revocado',
         'Certificado caducado',
         'Emisor sin aprobación vigente',

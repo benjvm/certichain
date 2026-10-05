@@ -15,6 +15,9 @@ import 'features/issuance/data/platform_pdf_picker.dart';
 import 'features/issuance/data/pending_attempt_preferences.dart';
 import 'features/certificates/data/supabase_certificate_document_repository.dart';
 import 'features/verification/data/http_verification_repository.dart';
+import 'features/verification/data/platform_comparison_pdf_picker.dart';
+import 'features/verification/data/sha256_pdf_hasher.dart';
+import 'app/verification_scanner.dart';
 import 'features/verification/data/supabase_credential_repository.dart';
 import 'features/verification/domain/verification_link.dart';
 
@@ -41,6 +44,8 @@ class _CertiChainBootstrapState extends State<CertiChainBootstrap> {
   SupabaseCertificateDocumentRepository? _documents;
   SupabaseCredentialRepository? _credentials;
   final _picker = PlatformPdfPicker();
+  final _comparisonPicker = PlatformComparisonPdfPicker();
+  final _pdfHasher = Sha256PdfHasher();
   final _store = PendingAttemptPreferences();
   String? _message;
   @override
@@ -108,6 +113,10 @@ class _CertiChainBootstrapState extends State<CertiChainBootstrap> {
     pendingStore: _store,
     documents: _documents,
     verification: _verification,
+    comparison: _verification,
+    comparisonPicker: _comparisonPicker,
+    pdfHasher: _pdfHasher,
+    scannerFactory: createScannerSession,
     credentials: _credentials,
     verificationLink: _link,
     startupMessage: _message,

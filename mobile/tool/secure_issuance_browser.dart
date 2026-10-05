@@ -220,7 +220,13 @@ Future<void> main() async {
     ) as Map<String, dynamic>;
     final apiUrl = fixture['apiUrl'] as String,
         publicKey = fixture['publicKey'] as String;
-    verify(apiUrl == 'http://127.0.0.1:54321', 'Only CertiChain local API');
+    verify(
+      const [
+        'http://127.0.0.1:54321',
+        'http://127.0.0.1:55321',
+      ].contains(apiUrl),
+      'Only CertiChain local API',
+    );
     final verified = fixture['verified'] as String;
     final holder = fixture['holder'] as Map<String, dynamic>;
     final owner = fixture['owner'] as Map<String, dynamic>;
