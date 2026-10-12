@@ -1,0 +1,52 @@
+name: Private durable anchoring
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  anchoring:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CERTICHAIN_TEST_DISPOSABLE: '1'
+      CERTICHAIN_TEST_CAMERA: '0'
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 24.14.0
+      - uses: supabase/setup-cli@1dedf2c611547ede7232d26866dd3c56ab903bbb
+        with:
+          version: 2.117.0
+      - name: Frozen 9B tools and normal build
+        run: |
+          node blockchain/scripts/bootstrap.mjs
+          node blockchain/scripts/forge.mjs build --force
+          node blockchain/scripts/artifacts.mjs --check
+          node blockchain/scripts/backend-abi.mjs --check
+      - name: Format, lint, types and regression unit tests
+        run: |
+          npx --yes deno@2.2.12 fmt --check supabase/functions supabase/admin/blockchain.ts supabase/tests/blockchain_integration.ts supabase/tests/local_issuance_fixture.mjs blockchain/scripts/backend-abi.mjs blockchain/scripts/anvil-linux.mjs
+          npx --yes deno@2.2.12 lint supabase/functions supabase/admin/blockchain.ts supabase/tests/blockchain_integration.ts blockchain/scripts/backend-abi.mjs blockchain/scripts/anvil-linux.mjs
+          npx --yes deno@2.2.12 check --frozen --config supabase/functions/deno.json supabase/admin/blockchain.ts supabase/tests/blockchain_integration.ts supabase/functions/anchor-certificate/index.ts supabase/functions/anchor-progress/index.ts supabase/functions/reauthorize-anchor/index.ts
+          npx --yes deno@2.2.12 test --frozen --config supabase/functions/deno.json supabase/functions
+      - name: Fresh local database and least privilege
+        run: |
+          if ! supabase start >/dev/null 2>&1; then
+            echo 'Runner-local Supabase startup failed'
+            docker ps --format '{{.Names}} {{.Status}}'
+            exit 1
+          fi
+          supabase test db --local
+          supabase db lint --local --schema public,certichain_private --level warning --fail-on warning
+      - name: Sequential real Auth, Edge, private Storage, signed Anvil and recovery
+        run: npx --yes deno@2.2.12 run --allow-all --frozen --config supabase/functions/deno.json supabase/tests/blockchain_integration.ts
+      - name: Diff whitespace
+        run: git diff --check
+      - name: Stop only runner-local stack
+        if: always()
+        run: supabase stop --no-backup

@@ -1,5 +1,11 @@
 # CertificateRegistry v1 — fase 9B
 
+Backend local 9C: [operación](../docs/BLOCKCHAIN_OPERATIONS.md) y
+[aceptación](../docs/PHASE9C_ACCEPTANCE.md). El smoke de este README sigue siendo
+descartable y sus manifests históricos. El nuevo harness despliega otra cadena
+viva propia; firma raw en backend antes de enviar. Módulo ABI/runtime generado:
+`node blockchain/scripts/backend-abi.mjs` y `--check` para detectar drift.
+
 Implementación local del [protocolo normativo 9A](../docs/PHASE9A_BLOCKCHAIN_SPEC.md),
 base `b6051bc1c0489d84204ee1aae14e3feb7edf30e2`. No integra Supabase ni Flutter.
 Resultados y matriz de aceptación: [PHASE9B_ACCEPTANCE](../docs/PHASE9B_ACCEPTANCE.md).

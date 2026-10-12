@@ -179,6 +179,15 @@ y la parada del Anvil: no es una configuración viva para el worker de 9C.
 
 ## CI, limitaciones y dictamen
 
+Actualización observada durante 9C, 12/10/2026: SHA publicado
+`5d29a98580493bef07220c0b48780eec7348876c`. Reconsultados run, jobs y pasos:
+[38301216330](https://github.com/benjvm/certichain/actions/runs/38301216330),
+intento 1, Blockchain registry success (bootstrap, Anvil y artefactos ejecutados);
+[38301216385](https://github.com/benjvm/certichain/actions/runs/38301216385),
+intento 1, Database permissions success, database/flutter/android success.
+Ambos head_sha coinciden. Acreditan 9B/base, no el árbol local nuevo 9C.
+El NOT_OBSERVED de abajo conserva la historia anterior a publicación.
+
 [blockchain.yml](../.github/workflows/blockchain.yml) añade un job independiente
 para PR y push a main. Checkout/setup-node/upload-artifact por SHA comprobados;
 Foundry/solc oficiales y dependencias congeladas, fmt, build, unit/fuzz/invariantes,

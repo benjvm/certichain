@@ -87,3 +87,6 @@ Diseño blockchain 9A aceptado el 12/10/2026, implementación pendiente:
 0014 resuelve las recomendaciones históricas 0005/0006 (que no llegaron a
 crearse); no reutiliza esos números. Interfaz y protocolo normativos en
 [PHASE9A_BLOCKCHAIN_SPEC.md](PHASE9A_BLOCKCHAIN_SPEC.md).
+
+[ADR-0016](adr/0016-durable-evm-adapter-and-reverted-nonce.md): adaptador 9C,
+worker explícito y reautorización tras nonce revertido con identidad durable.

@@ -101,7 +101,7 @@ deben ser coherentes y `expires_at >= issued_at` si existe expiración.
 7A prepara el almacenamiento y la reserva; la ejecución autenticada se implementa
 en 7B.
 
-## Esquema actual y propuesta 9C
+## Esquema actual y persistencia 9C
 
 Tablas implementadas: public.profiles, institutions, institution_members,
 certificates, certificate_issuance_operations; certichain_private.public_verification_budget.
@@ -111,11 +111,11 @@ con roles owner/admin/issuer; no viewer. No existen certificate_types,
 blockchain_records ni verification_events. Los diseños antiguos de esas tablas
 se retiran de la propuesta vigente; no se han aplicado ni necesitan migrarse.
 
-La migración nueva 9C creará las tablas privadas siguientes y las UNIQUE de enlace
+La migración `20261012204952_durable_private_anchoring.sql` crea las tablas privadas siguientes y las UNIQUE de enlace
 indicadas en la especificación, sin modificar completed ni el enum active/revoked
 y sin backfill de certificados:
 
-| Tabla propuesta (no existe) | Responsabilidad |
+| Tabla privada implementada | Responsabilidad |
 |---|---|
 | blockchain_deployments | Anvil/Sepolia, chain ID, contrato/version, runtime/genesis/bloque de despliegue y política de evidencia |
 | blockchain_issuers | institución↔issuerId opaco estable; configuración deseada/observada de signer y permisos, sync durable |
@@ -129,6 +129,7 @@ observaciones orphaned, permisos, retención y recuperación:
 [PHASE9A_BLOCKCHAIN_SPEC.md](PHASE9A_BLOCKCHAIN_SPEC.md), secciones 6–8.
 RLS sin políticas cliente y grants retirados, también service_role sobre tablas;
 RPC estrechas con EXECUTE técnico, SECURITY DEFINER/search_path vacío.
+Comandos, reautorización y backups: [BLOCKCHAIN_OPERATIONS](BLOCKCHAIN_OPERATIONS.md).
 No SELECT de salt/hash por clientes ni nuevas escrituras directas de certificates.
 
 Operación lógica distinta de tx: un replacement no crea otro certificado ni salt.
@@ -137,7 +138,7 @@ no hay atomicidad PostgreSQL/EVM, ni transacción abierta esperando RPC.
 Históricos sin evidencia no se convierten en anclables por inventar campos.
 Un publicado anterior elegible requiere acción explícita autorizada para anclar.
 
-Relaciones futuras (todas las entidades BLOCKCHAIN/CERTIFICATE_ANCHORS son propuestas):
+Relaciones de persistencia 9C:
 
 ```mermaid
 erDiagram

@@ -59,18 +59,21 @@ Duplicados idénticos también revierten; backend reconcilia inclusión original
 para idempotencia. Misma K con otro C/I es divergence, nunca upsert.
 Revocación irreversible; rotar signer no altera I ni certificados.
 
-BlockchainRegistry es un puerto backend aún no implementado: validación de
+BlockchainRegistry es un puerto backend implementado en 9C: validación de
 despliegue, preparación firmada, envío, observación y lectura a bloque canónico.
-Solicitud explícita después de publicación SQL; tablas privadas futuras separan
+Solicitud explícita después de publicación SQL; tablas privadas 9C separan
 anchor, operación lógica y múltiples intentos/replacements. completed continúa
 significando publicación off-chain; certificate.status sigue active/revoked.
 No atomicidad PostgreSQL/EVM, locks durante RPC ni backfill automático.
 
 ## Estado de entregas
 
-9B contrato/tests Foundry/Anvil completada localmente; 9C migración, adaptador, firma, nonces y
-reconciliación; 9D cliente/evidencia v2/apertura autorizada; 9E aceptación local;
-10 revocación completa. DTO/RPC v1, credential_code, QR y PDF actuales intactos.
+9B contrato/tests Foundry/Anvil publicada y CI observada; 9C migración, adaptador,
+firma, nonces y reconciliación implementados localmente. 9D cliente/evidencia
+v2/apertura autorizada, 9E aceptación de producto y 10 revocación completa
+permanecen pendientes. DTO/RPC v1, credential_code, QR y PDF actuales intactos.
+Resultados: [PHASE9C_ACCEPTANCE](PHASE9C_ACCEPTANCE.md).
+Preparación y recuperación: [BLOCKCHAIN_OPERATIONS](BLOCKCHAIN_OPERATIONS.md).
 La especificación incluye matriz de errores/recuperación y criterios de prueba;
 ninguno se presenta como ejecutado en 9A. La aceptación 9B registra exclusivamente
 lo ejecutado ahora, incluido reset/limpieza propios; su manifiesto Anvil es

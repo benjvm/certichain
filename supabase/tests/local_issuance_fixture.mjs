@@ -363,6 +363,10 @@ export async function fixture() {
       expire,
       stored,
       close,
+      stopRuntime: () => {
+        terminate(runtime);
+        rmSync(directory, { recursive: true, force: true });
+      },
     };
   } catch (error) {
     await close();

@@ -1,5 +1,5 @@
 {
-  "imports": { "pdf-lib": "npm:pdf-lib@1.17.1" },
+  "imports": { "pdf-lib": "npm:pdf-lib@1.17.1", "ethers": "npm:ethers@6.15.0" },
   "compilerOptions": { "strict": true },
   "lint": { "rules": { "tags": ["recommended"] } }
 }

@@ -242,11 +242,14 @@ Otros pendientes humanos/plataformas conservan su alcance en
   compiladas, permisos/duplicados/revocación/eventos/rotación, fuzz/modelo e
   invariantes, cobertura/gas y smoke RPC real sobre cadena propia descartable.
   ABI y referencia normal reproducibles; manifiesto real invalidado tras reset.
-  Workflow independiente preparado; CI remoto del SHA nuevo no observado.
+  Publicada en `5d29a98580493bef07220c0b48780eec7348876c`: Actions 38301216330
+  y 38301216385 success observadas posteriormente durante 9C. Se conserva
+  la historia de aceptación local anterior a esa publicación.
   [Aceptación 9B](PHASE9B_ACCEPTANCE.md). No integración ni revocación desde app.
-- **9C — persistencia, adaptador, firma y reconciliación: pendiente.** Migración
-  nueva privada, solicitud durable explícita, salts/backups, nonces/replacements,
-  receipts/confirmaciones/finalidad, fault injection y preservación histórica.
+- **9C — backend privado implementado localmente.** Migración nueva, endpoint
+  Auth, EIP-1559 durable, nonces/replacements y reconciliación real Anvil. Evidencia,
+  límites y dictamen: [PHASE9C_ACCEPTANCE](PHASE9C_ACCEPTANCE.md). CI nueva sin
+  publicación/observación. Operación: [BLOCKCHAIN_OPERATIONS](BLOCKCHAIN_OPERATIONS.md).
 - **9D — cliente y evidencia pública: pendiente.** v2 separado; registro, anclaje,
   copia y fecha/origen diferenciados; apertura autorizada sin ampliar v1.
 - **9E — aceptación del recorrido local: pendiente.** Publicación→Anvil→evidencia,

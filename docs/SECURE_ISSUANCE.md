@@ -232,6 +232,15 @@ sin que el operador vuelva a ejecutar el comando. Usar una NUEVA clave tras
 failed/cleanup_pending; nunca sustituir bytes de una emisión publicada.
 Reservas antiguas de 7A sin metadatos siguen limpiables, no se inventa su título.
 
+## Anclaje explícito backend 9C
+
+Publicación sigue terminando en active/completed con PDF privado. Anclaje posterior
+mediante anchor-certificate, Auth real y autorización actual, nunca automático.
+Sus fallos no borran completed/certificado/PDF. 202/200 mínimo de operación no
+garantiza inclusión. Progreso/reautorización privados. Sin cambiar Flutter ni
+habilitar revocación. [Operación](BLOCKCHAIN_OPERATIONS.md) y
+[evidencia/límites](PHASE9C_ACCEPTANCE.md).
+
 ## Revocación y siguientes fases
 
 El trigger histórico de certificados solo controla UPDATE y no bloquea el INSERT

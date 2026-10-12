@@ -4,6 +4,15 @@
 # working directory name when running `supabase init`.
 project_id = "certichain"
 
+[functions.anchor-certificate]
+verify_jwt = true
+
+[functions.anchor-progress]
+verify_jwt = true
+
+[functions.reauthorize-anchor]
+verify_jwt = true
+
 [functions.verify-certificate]
 verify_jwt = false
 entrypoint = "./functions/verify-certificate/index.ts"

@@ -101,8 +101,10 @@ success en database/flutter/android para
 9A entrega decisiones/ABI objetivo/protocolo/persistencia futura, con Anvil,
 Sepolia y Foundry. 9B implementa el contrato y valida localmente unit/fuzz/
 invariantes, cobertura/gas, despliegue/smoke Anvil real y artefactos reproducibles.
-CI blockchain independiente preparada, sin ejecución remota observada del nuevo
-SHA. Backend 9C, cliente 9D, aceptación 9E y revocación completa 10 siguen pendientes.
+9B publicada en `5d29a98580493bef07220c0b48780eec7348876c`, con Actions blockchain
+y database success observadas; [aceptación 9B](docs/PHASE9B_ACCEPTANCE.md).
+Backend 9C implementado localmente; cliente 9D, aceptación 9E y revocación
+completa 10 siguen pendientes. La CI del árbol nuevo 9C no se ha ejecutado.
 Sin despliegue remoto; el Anvil de pruebas propio se resetea y descarta.
 
 ## Probar verificación y QR en Chrome local
@@ -142,7 +144,9 @@ y acciones del operador en [checklist 8D](docs/PHASE8_OPERATOR_CHECKLIST.md).
 Esta revisión trabaja solo en local; las ediciones posteriores necesitan CI del
 SHA que publique el operador.
 
-Dictamen al 12/10/2026: **9B validada localmente; blockchain aún no integrada**.
+Estado al 13/10/2026: **backend privado 9C implementado; validación local y límites
+en [aceptación 9C](docs/PHASE9C_ACCEPTANCE.md)**. Operación y recuperación:
+[BLOCKCHAIN_OPERATIONS](docs/BLOCKCHAIN_OPERATIONS.md).
 Comportamiento actual, DTO v1, códigos/enlaces/QR y PDF conservados. Omitir desde
 ahora todas las pruebas de cámara, con CERTICHAIN_TEST_CAMERA=0 y registro
 SKIP/NOT_RUN: «Omitidas por instrucción del usuario; no hay cámara física disponible».

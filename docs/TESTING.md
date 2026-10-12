@@ -1,5 +1,25 @@
 # Estrategia de pruebas
 
+## Backend privado 9C
+
+Desde checkout local con build 9B normal: `./supabase/tests/run_phase9c.ps1`.
+Stack propio separado, SQL antes de fixtures mutables secuenciales y Anvil propio
+con firma EIP-1559; no accounts unlocked para operaciones de producto.
+`npx --yes deno@2.2.12 test --frozen --config supabase/functions/deno.json supabase/functions`
+conserva suites y añade entrada HTTP cerrada, vector compartido y roundtrip de firma.
+Formato/lint/tipos, ABI --check y SQL lint en workflow anchoring.yml Ubuntu.
+Los checks previos siguen intactos. [Aceptación y resultados](PHASE9C_ACCEPTANCE.md)
+y [preparación/recuperación](BLOCKCHAIN_OPERATIONS.md).
+
+Harness real: Auth/7B/Storage, solicitudes y workers concurrentes, CAS antiguo,
+cortes firma/envío/receipt, fondos, pending/replacements, revert, nonce desconocido,
+reorg/reinclusión/reset, permisos y backup/restore. Reloj SQL y barreras de crash
+se instalan solo por postgres en el stack propio: no switches de producción.
+Replacements/reorg/receipts son de cadena real; edad/retención/leases son tiempo
+controlado. Unit tests HTTP/RPC son dobles y no sustituyen esas evidencias.
+Ningún dump, clave, salt o raw tx en outputs/artefactos. Cámara NOT_RUN:
+«Omitidas por instrucción del usuario; no hay cámara física disponible».
+
 ## Fase 9B — contrato y Anvil local (12/10/2026)
 
 Foundry 1.8.5, Solidity 0.8.37, OpenZeppelin 5.7.0 y forge-std 1.17.0 congelados

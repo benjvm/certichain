@@ -178,6 +178,19 @@ lista no modifica v1 ni sus RPC en 9A. Nunca titular, H/salt, PDF/ruta/capacidad
 privada o motivo de revocación. Fallos RPC no son ausencia, revocación ni PDF
 alterado. Tablas futuras privadas y retención en sección 6 de 9A.
 
+## Backend privado de anclaje 9C
+
+Seis tablas certichain_private sin exposición PostgREST, RLS sin políticas cliente
+y REVOKE directo también service_role. RPC técnicas SECURITY DEFINER/search_path
+vacío, EXECUTE solo service_role. Endpoint JWT/Auth real y membresía actual;
+UUID conocido no abre salt/raw/nonces. K/I/H/S/C, actor original y payload
+inmutables, FK compuestas. Firma EIP-1559 durable antes de envío, nonce exclusivo,
+lease/CAS, receipts canónicos e historial acotado. Administración separada.
+Raw tx es capacidad retransmisible privada. [Aceptación](PHASE9C_ACCEPTANCE.md)
+y [operación/recuperación](BLOCKCHAIN_OPERATIONS.md). No nueva proyección pública.
+La RPC de firma convierte fallos de constraints en error cerrado sin DETAIL
+de la fila privada. El arranque CI no vuelca claves locales de Supabase en logs.
+
 ## Limitación académica del MVP
 
 El MVP demuestra integridad técnica, no acredita legalmente a una institución ni sustituye marcos regulatorios como eIDAS. Cualquier lanzamiento real requiere revisión legal, DPIA cuando corresponda, gestión profesional de claves y respuesta a incidentes.

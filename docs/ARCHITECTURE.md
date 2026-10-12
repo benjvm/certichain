@@ -14,8 +14,8 @@ flowchart TD
     A[Flutter app] -->|HTTPS| B[Supabase API y Edge Functions]
     B --> C[(PostgreSQL)]
     B --> D[Storage privado]
-    B -. solicitud durable futura 9C .-> E[Worker y adaptador EVM]
-    E -. futuro 9B y 9C .-> F[CertificateRegistry]
+    C -->|cola privada 9C| E[Worker y adaptador EVM]
+    E --> F[CertificateRegistry v1]
     G[Verificador web o app] -->|URL o QR| B
 ```
 
@@ -86,7 +86,7 @@ Regla de dependencias: `presentation → domain ← data`. El dominio no depende
 - `HashComparisonRepository`: comparación pública de un hash candidato.
 - `ComparisonPdfPicker` / `PdfHasher` / `QrCamera`: capacidades locales de copia y QR.
 - `InstitutionRepository`: perfil, miembros y estado.
-- `BlockchainRegistry` (propuesto, no implementado): preparar/enviar/observar tx,
+- `BlockchainRegistry` (backend 9C): preparar/enviar/observar tx,
   consultar registro/emisor y validar despliegue; solo backend, DTO puro y
   adaptador RPC separados según [9A](PHASE9A_BLOCKCHAIN_SPEC.md).
 - `DocumentStorage`: guardar, recuperar y eliminar documentos según política.
@@ -117,7 +117,7 @@ POST desconocidos/inválidos y falla cerrado ante problemas de infraestructura.
 No hay cambios Flutter en 8A. Contrato y límites:
 [PUBLIC_VERIFICATION.md](PUBLIC_VERIFICATION.md), [ADR-0011](adr/0011-public-registry-verification.md).
 
-## Protocolo futuro definido en 9A (sin integración)
+## Backend privado 9C conforme al protocolo 9A
 
 Publicar active/completed conserva el flujo actual. Después, una solicitud de
 anclaje explícita y autorizada crea identidad/compromiso y operación durable en
@@ -133,6 +133,9 @@ anchoring/anchor_failed al certificado. Expired se deriva de fecha; confirmed
 no equivale a finalized. Salt/hash documental privados, compromiso público.
 Sepolia/Anvil y autoridad por I según [ADR-0014](adr/0014-evm-network-toolchain-and-authority.md).
 Recuperación/versionado según [ADR-0015](adr/0015-private-commitments-and-durable-anchoring.md).
+Ethers fijado, nonce revertido y despliegue local según
+[ADR-0016](adr/0016-durable-evm-adapter-and-reverted-nonce.md);
+[operación 9C](BLOCKCHAIN_OPERATIONS.md).
 
 La fase 10 añadirá revocación SQL irreversible inmediata y solicitud EVM durable
 cuando proceda, sin retrasar la advertencia pública por un RPC caído. El trigger
