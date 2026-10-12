@@ -3,6 +3,32 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 
+// Record the checkout actually exercised, without filenames or Git diagnostics.
+// A published SHA with local edits is not evidence of that commit alone.
+export function sourceRevision(cwd, git = spawnSync) {
+  const options = {
+    cwd,
+    encoding: "utf8",
+    windowsHide: true,
+    timeout: 5000,
+    maxBuffer: 1024 * 1024,
+    stdio: ["ignore", "pipe", "ignore"],
+  };
+  const head = git("git", ["rev-parse", "HEAD"], options);
+  const status = git("git", ["status", "--porcelain"], options);
+  const sha = head.stdout?.trim();
+  if (
+    head.status !== 0 || status.status !== 0 ||
+    !/^[0-9a-f]{40}$/.test(sha ?? "")
+  ) {
+    throw new Error("Cannot identify release source revision");
+  }
+  return {
+    source_commit: sha,
+    working_tree_dirty: status.stdout.trim() !== "",
+  };
+}
+
 // Diagnostics are allowlisted, never raw Chrome output, expression text, URLs,
 // remote-object values, request bodies, tokens or application exception messages.
 export function cdpFailure(method, detail = {}) {

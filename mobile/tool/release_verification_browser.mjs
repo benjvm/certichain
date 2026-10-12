@@ -21,6 +21,7 @@ import {
   launchChrome,
   navigateDocument,
   prepareDocument,
+  sourceRevision,
   stopChrome,
 } from "./browser_harness.mjs";
 import { cropRenderedQr, decodeQr } from "./verify_qr.mjs";
@@ -34,6 +35,8 @@ if (process.versions.node !== "24.14.0") {
 }
 const mobile = resolve("."),
   backend = resolve(process.env.CERTICHAIN_TEST_BACKEND_ROOT ?? "..");
+const revision = sourceRevision(mobile);
+const evaluatedAt = new Date().toISOString();
 const { fixture, check, until } = await import(
   pathToFileURL(join(backend, "supabase/tests/local_issuance_fixture.mjs"))
 );
@@ -77,6 +80,7 @@ let f,
   server,
   chrome,
   failure,
+  cameraDiagnostic,
   stage = "prepare",
   assertions = 0,
   artifactChecks = 0;
@@ -555,7 +559,10 @@ try {
   }
   async function capturePublic(cdp, name) {
     verify(
-      await evaluate(cdp, "location.hash.startsWith('#/verify/')"),
+      await evaluate(
+        cdp,
+        "location.hash === '#/verify' || location.hash.startsWith('#/verify/')",
+      ),
       "Only public synthetic captures",
     );
     writeFileSync(
@@ -699,6 +706,7 @@ try {
   await ready(anonymous, "Registro encontrado y vigente");
   verify(publicPosts === before + 1, "Anonymous link/init single public query");
   checkpoint("anonymous-link");
+  stage = "camera-real-decoder";
   await click(anonymous, "Consultar otro código");
   await browser("Browser.setPermission", {
     permission: { name: "camera" },
@@ -716,7 +724,25 @@ try {
   });
   const detectStarted = Date.now();
   await click(anonymous, "Activar cámara");
-  await outcome(anonymous, "Verificar código identificado");
+  try {
+    await outcome(anonymous, "Verificar código identificado");
+  } catch (error) {
+    // Only allowlisted media state and the synthetic anonymous route; no raw
+    // device labels, application text, URLs, frames or decoded payload in JSON.
+    cameraDiagnostic = await evaluate(
+      anonymous,
+      `({
+      videos: [...document.querySelectorAll('video')].map(v => ({
+        width: v.videoWidth, height: v.videoHeight, ready_state: v.readyState,
+        tracks: v.srcObject ? v.srcObject.getTracks().map(t => ({
+          kind: t.kind, state: t.readyState, enabled: t.enabled
+        })) : []
+      }))
+    })`,
+    );
+    await capturePublic(anonymous, "failure-synthetic");
+    throw error;
+  }
   timings.qr_detection_ms = Date.now() - detectStarted;
   before = publicPosts;
   await delay(500);
@@ -957,7 +983,8 @@ try {
     join(evidence, "result.json"),
     JSON.stringify(
       {
-        base_commit: "d31a2735b3c51a651f101da5b764612a45862cac",
+        ...revision,
+        evaluated_at: evaluatedAt,
         entrypoint: "lib/main.dart",
         mode: "release",
         build_reused: process.env.CERTICHAIN_RELEASE_SKIP_BUILD === "1",
@@ -985,9 +1012,12 @@ try {
     join(evidence, "failure.json"),
     JSON.stringify(
       {
+        ...revision,
+        evaluated_at: evaluatedAt,
         stage,
         result: "FAIL",
         error_type: error.constructor.name,
+        camera: cameraDiagnostic,
         elapsed_ms: Date.now() - started,
         stages,
       },

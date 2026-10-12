@@ -33,6 +33,7 @@ try {
         Stage 'Deno types' { npx --yes deno@2.2.12 check --frozen --config supabase/functions/deno.json supabase/functions/issue-certificate/index.ts supabase/functions/certificate-pdf/index.ts supabase/functions/verify-certificate/index.ts supabase/functions/compare-certificate-hash/index.ts }
         Stage 'Deno tests' { npx --yes deno@2.2.12 test --frozen --config supabase/functions/deno.json supabase/functions }
         Stage 'CDP and readiness' { node --test mobile/tool/browser_harness_test.mjs supabase/tests/edge_runtime_test.mjs }
+        Stage 'Native ADB diagnostics' { & ./mobile/tool/native_adb_test.ps1 }
     }
     Push-Location mobile/tool
     try {

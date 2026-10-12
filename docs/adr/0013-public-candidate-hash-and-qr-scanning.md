@@ -112,7 +112,11 @@ iOS y cámaras físicas pendientes. El smoke CDP corre en Windows y Ubuntu 24.04
 Los recorridos main.dart release/backend completos se ejecutaron en Chrome y Edge
 Windows. Actions 37350396753 intento 2 valida 8C en d31a273; no valida 8D.
 El cierre local 8D y los pendientes se registran en PHASE8_ACCEPTANCE.md.
-CI 8D, cámaras físicas, Firefox/Safari/iOS y recorrido Android completo pendientes.
+Aceptación CI 8D, cámaras físicas, Firefox/Safari/iOS y recorrido Android completo pendientes.
+Al 10/10, 8D está publicada en 6235486; el run 37373509169 intento 1 se canceló
+antes de ejecutar por runners hosted no adquiridos y error interno de GitHub.
+La revisión local posterior y las correcciones de herramientas no cambian esta
+decisión ni quedan validadas por ese run. Ver PHASE8_OPERATOR_CHECKLIST.md.
 
 La carrera histórica de 8B no se atribuye con certeza a un error sin detalles.
 El harness ahora espera nuevo loader/contexto/DOM antes de marcadores Flutter,

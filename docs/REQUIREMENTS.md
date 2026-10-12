@@ -10,7 +10,9 @@ Las capacidades siguientes describen el MVP objetivo. Tras Fase 6 se conservan
 Auth y las lecturas de wallet/detalle 4D. 7A–7D entregan emisión autenticada,
 PDF privado, recuperación y cliente institucional. Escrituras directas siguen
 cerradas; el flujo de revocación permanece pendiente. 8A añade backend público
-por código, todavía sin pantalla, QR ni blockchain.
+por código; 8B–8D entregan pantalla, QR/escáner y comparación local de copia.
+8D publicada en 6235486, con aceptación CI y plataformas pendientes según
+[PHASE8_ACCEPTANCE.md](PHASE8_ACCEPTANCE.md). Blockchain permanece pendiente.
 
 | Actor | Capacidades del MVP |
 |---|---|
@@ -84,8 +86,9 @@ por código, todavía sin pantalla, QR ni blockchain.
 - Presupuesto compartido global 60 POST/60 s, incluso entradas inválidas;
   agotamiento 429 y fallo técnico 503, nunca ausencia fabricada.
 - No requerir descarga del PDF para una comprobación normal.
-- 8B–8D pendientes: pantalla pública, QR/enlaces/escáner y comparación de copia
-  sin conservarla. `integrity_mismatch` requerirá su contrato posterior;
+- 8B–8D implementan pantalla pública, QR/enlaces/escáner y comparación de copia
+  sin subirla ni conservarla. `match`/`integrity_mismatch` están separados del
+  estado del certificado; `not_found` exige integridad `unavailable`.
   `pending` no existe sin un proceso blockchain real.
 
 ### RF-06 Revocación

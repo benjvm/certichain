@@ -226,7 +226,9 @@ service_role en el cliente ni --no-verify-jwt global. El stack habitual continú
 - **8C completada localmente y CI observada:** escáner y comparación;
   Actions 37350396753 intento 2 valida d31a273. Despliegue pendiente.
 - **8D implementada localmente:** recorrido main.dart release HTTPS y endurecimiento;
-  resultados y plataformas pendientes en PHASE8_ACCEPTANCE.md. CI 8D no observada.
+  publicada en 6235486; resultados y plataformas pendientes en PHASE8_ACCEPTANCE.md.
+  CI 37373509169 intento 1 observada el 10/10: run failure/jobs cancelled antes de pasos por
+  runners hosted no adquiridos/error interno GitHub; aceptación CI pendiente.
 
 Este reparto corrige la discrepancia del documento de 8A; su evidencia histórica
 se conserva. Blockchain y revocación completa tienen sus propios incrementos.

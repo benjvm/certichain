@@ -6,8 +6,10 @@
 vigentes de una institución verified pueden emitir. 7C incorpora el cliente
 Flutter institucional y `POST /functions/v1/certificate-pdf` para descarga privada.
 7D cierra las pruebas integrales y endurecimiento. 8A añade el backend público
-descrito en [PUBLIC_VERIFICATION.md](PUBLIC_VERIFICATION.md). Revocación, QR,
-pantalla de verificación y blockchain siguen pendientes.
+descrito en [PUBLIC_VERIFICATION.md](PUBLIC_VERIFICATION.md). 8B–8D entregan
+pantalla pública, QR, escáner y comparación local de copia. 8D está publicada en
+6235486; aceptación CI bloqueada antes de ejecutar por infraestructura GitHub
+(run 37373509169). Revocación de producto y blockchain siguen pendientes.
 No se ha desplegado ninguna función ni migración remota.
 
 Para servirlo manualmente, con el stack local reconstruido y la CLI 2.117.0:

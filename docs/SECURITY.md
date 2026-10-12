@@ -260,7 +260,8 @@ Secretos administrativos en host, nunca build/QR/petición pública. CDP comprue
 headers efectivamente transmitidos y un contexto aislado sin sesión. QR
 decodificado independientemente. 8C aborda cámara/archivo elegido/privacidad/
 recursos; 8D endurecimiento integral/abuso operativo. Sin enlaces nativos,
-identidad del presentador, comparación de copia, blockchain o despliegue.
+identidad del presentador, blockchain o despliegue. La comparación de copia está
+implementada mediante hash candidato, con bytes únicamente locales.
 
 
 ## Escáner y hash candidato — 8C

@@ -5,6 +5,7 @@ $adbPath = Join-Path $sdkPath 'platform-tools/adb.exe'
 $deviceXml = '/sdcard/Download/certichain-8d-camera-' + [Guid]::NewGuid().ToString('N') + '.xml'
 $installed = $false
 . "$PSScriptRoot/native_adb.ps1"
+if ($QrImage) { $QrImage = ResolveNativeQrImage $QrImage }
 function Adb([string[]]$Parameters) {
     return InvokeNativeAdb -AdbPath $adbPath -Serial $Serial -Parameters $Parameters
 }
@@ -52,7 +53,7 @@ try {
     TapNode (WaitNode { $_.text -like '*Cancelar escáner*' -or $_.'content-desc' -like '*Cancelar escáner*' })
     $null = WaitNode { $_.text -eq 'Open production scanner' -or $_.'content-desc' -eq 'Open production scanner' }
     if ($QrImage) {
-        $null = Adb -Parameters @('emu','virtualscene-image','wall',([IO.Path]::GetFullPath($QrImage)))
+        $null = Adb -Parameters @('emu','virtualscene-image','wall',$QrImage)
         TapNode (WaitNode { $_.text -eq 'Open production scanner' -or $_.'content-desc' -eq 'Open production scanner' })
         $script:stage='native-qr-decode'
         TapNode (WaitNode { $_.text -like '*Verificar código identificado*' -or $_.'content-desc' -like '*Verificar código identificado*' })

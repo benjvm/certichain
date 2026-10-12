@@ -88,10 +88,12 @@ global PostgreSQL, exclusivamente local. Estado y pruebas en
 [PUBLIC_VERIFICATION.md](docs/PUBLIC_VERIFICATION.md) y [TESTING.md](docs/TESTING.md).
 8B añade interfaz pública independiente de Auth, enlaces Web hash y QR/copia
 desde el certificado propio, comprobados en local. 8C añade escáner con decoder
-local y comparación privada de bytes PDF mediante hash candidato. 8D (pruebas
-integrales y endurecimiento completo), blockchain y nuevo
-flujo de revocación siguen pendientes. Sin push, merge, despliegue o CI nuevo
-atribuido a esta validación local.
+local y comparación privada de bytes PDF mediante hash candidato. 8D está
+implementada y publicada en `6235486` («8D stage»). El run
+[37373509169, intento 1](https://github.com/benjvm/certichain/actions/runs/37373509169)
+falló antes de ejecutar: GitHub no adquirió runners hosted y notificó un error
+interno. Su aceptación CI sigue pendiente; el success 8C en d31a273 no la valida.
+Blockchain, nuevo flujo de revocación y despliegue permanecen pendientes.
 
 ## Probar verificación y QR en Chrome local
 
@@ -125,4 +127,11 @@ automáticas descartables y límites en
 La fase 8D dispone de demo técnica local sobre main.dart Web release con HTTPS y
 stack descartable: [guion reproducible](docs/DEMO_VERIFICATION.md) y
 [aceptación/plataformas pendientes](docs/PHASE8_ACCEPTANCE.md). Las herramientas
-Node están fijadas a 24.14.0 en .node-version; CI 8D y despliegue siguen pendientes.
+Node están fijadas a 24.14.0 en .node-version. Estado vigente, resultados fechados
+y acciones del operador en [checklist 8D](docs/PHASE8_OPERATOR_CHECKLIST.md).
+Esta revisión trabaja solo en local; las ediciones posteriores necesitan CI del
+SHA que publique el operador.
+
+Dictamen al 10/10/2026: **Diseño 9A posible con aceptación 8D pendiente**.
+La revalidación local conserva CI bloqueada por infraestructura, QR nativo,
+recorrido Android completo, cámaras físicas y accesibilidad humana pendientes.

@@ -1,6 +1,55 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { cdpFailure, evaluate, navigateDocument } from "./browser_harness.mjs";
+import {
+  cdpFailure,
+  evaluate,
+  navigateDocument,
+  sourceRevision,
+} from "./browser_harness.mjs";
+
+test("release evidence identifies the actual clean or edited checkout without paths", () => {
+  const sha = "62354866e1c127e445c369bedee58742581ec2cd";
+  for (const dirty of [false, true]) {
+    const calls = [];
+    const revision = sourceRevision(
+      "own-checkout",
+      (command, args, options) => {
+        calls.push(args);
+        assert.equal(command, "git");
+        assert.equal(options.cwd, "own-checkout");
+        assert.equal(options.timeout, 5000);
+        assert.equal(options.stdio[2], "ignore");
+        return {
+          status: 0,
+          stdout: args[0] === "rev-parse"
+            ? sha + "\n"
+            : dirty
+            ? " M private-config.json\n"
+            : "",
+        };
+      },
+    );
+    assert.deepEqual(revision, {
+      source_commit: sha,
+      working_tree_dirty: dirty,
+    });
+    assert.doesNotMatch(JSON.stringify(revision), /private-config|d31a273/);
+    assert.deepEqual(calls, [["rev-parse", "HEAD"], ["status", "--porcelain"]]);
+  }
+});
+
+test("release evidence fails safely when Git cannot identify the revision", () => {
+  for (
+    const reply of [{ status: 1, stdout: "credential" }, {
+      status: 0,
+      stdout: "unexpected",
+    }]
+  ) {
+    assert.throws(() => sourceRevision("own-checkout", () => reply), {
+      message: "Cannot identify release source revision",
+    });
+  }
+});
 
 test("CDP diagnostics retain location/type, never remote messages or values", () => {
   const error = cdpFailure("Runtime.evaluate", {

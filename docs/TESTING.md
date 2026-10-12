@@ -1219,3 +1219,51 @@ Windows Chrome platform test mantiene la limitación documentada; no es PASS.
 La prueba Linux CI permanece obligatoria. Probes Android usan un emulador exclusivo,
 rechazan reemplazar un paquete ya instalado y limpian archivos/instalación propios.
 Cámara física y recorrido nativo completo siguen pendientes.
+
+## Revalidación del cierre 8D (10/10/2026)
+
+Checkout inicial main limpio, local/remoto **6235486** («8D stage»). La CI
+**37373509169 intento 1** falló antes de ejecutar: ambos jobs sin runner/pasos,
+anotación de adquisición hosted fallida y error interno GitHub confirmado por el
+operador. **No es fallo de tests ni CI validada.** 37350396753 intento 2 success
+se reconsultó: SHA d31a273, exclusivamente 8C. Detalle y acciones en
+[PHASE8_OPERATOR_CHECKLIST.md](PHASE8_OPERATOR_CHECKLIST.md).
+
+Se ejecutaron desde raíz en PowerShell 7.6.5 **run_phase8d.ps1 -Full (exit 0)**
+y **run_phase8d.ps1 (exit 0)**, cada uno con stack nuevo y finally. 611 SQL,
+68 Deno, 198 Flutter +1 omitido; HTTP 366/135/90/296/255 y suites Storage,
+concurrencia/preservación PASS. Builds y recorridos complementarios 7D/8B+8C/PDF
+PASS; main.dart release Chrome 155: 127 aserciones +141 checks de artefactos.
+Resultados/tiempos, Android, fallos y omisiones en
+[PHASE8_ACCEPTANCE.md](PHASE8_ACCEPTANCE.md); no reutilizar los números históricos.
+
+Correcciones locales solo de herramientas: SHA/working_tree_dirty/evaluated_at
+reales en evidencia (antes base_commit constante), ruta PNG nativa bajo
+Push-Location y KO de consola adb con exit 0. 8 tests Node CDP/readiness/metadatos
+y 7 regresiones PowerShell PASS, incluidas las añadidas después de arrancar Full
+y ejecutadas aparte. CI conserva suites y añade la regresión nativa con shell
+pwsh, sin quitar checks, cambiar pins ni continue-on-error. Cambios nuevos
+pendientes de publicación/CI del SHA exacto por el operador.
+
+El smoke Linux Docker se reconstruyó: 45 PASS, Ubuntu 24.04, Node 24.14.0,
+Chrome 154.0.8037.97; Windows smoke 45 PASS. No es recorrido completo Linux.
+Android main debug/release compilan; probe PDF y primer probe cámara/permisos/
+lifecycle PASS. QR nativo sin confirmación, intentos con deadlines y datos
+insuficientes para atribuir fallo al producto. No recorrido Android completo,
+cámaras físicas, Firefox/Safari/iOS ni revisión humana. APK main debug/release:
+1.812 comprobaciones de ausencia de valores técnicos, no emitidos.
+Edge 155 release: primer intento FAIL esperando confirmación QR; repetición
+acotada sin emulador activo **127 +141 PASS**, exit 0. Causa del primer fallo no
+confirmada; failure.json conservado separado, sin ocultarlo con retry de POST
+ni aumentar deadlines. Guiones ejecutados en Windows; no CI nueva observada.
+Dictamen vigente: **Diseño 9A posible con aceptación 8D pendiente**.
+Formato Deno ampliado del workflow: 43 archivos PASS; regeneración assets y
+git diff de migraciones/lockfiles/assets sin cambios. La causa histórica
+UND_ERR_SOCKET sigue sin confirmar.
+
+Una comprobación auxiliar de parseo YAML con Python no se pudo ejecutar por
+ausencia de PyYAML (ModuleNotFoundError); no se instaló otra dependencia. El
+fragmento añadido se revisó manualmente, las fuentes PowerShell se parsearon y
+sus siete regresiones pasan; la validación Linux/CI del workflow modificado queda
+pendiente del operador. La limpieza final de logs/PID e imagen de smoke fue
+rechazada automáticamente: recursos/rutas en PHASE8_OPERATOR_CHECKLIST.md.

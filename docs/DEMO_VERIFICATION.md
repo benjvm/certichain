@@ -5,6 +5,12 @@ con configuración pública válida y HTTPS loopback. Crea un stack **nuevo** fu
 del checkout, usa datos sintéticos y lo destruye en `finally`. Preserva el stack
 habitual `certichain`/54321. No ejecuta despliegues ni escribe blockchain.
 
+Estado al 10/10/2026: 8D publicada en 6235486. Actions 37373509169 intento 1 no
+ejecutó pasos por fallo interno/adquisición de runners hosted; aceptación CI
+pendiente. Resultados locales nuevos en [PHASE8_ACCEPTANCE.md](PHASE8_ACCEPTANCE.md),
+publicación/rerun exclusivamente del operador según
+[PHASE8_OPERATOR_CHECKLIST.md](PHASE8_OPERATOR_CHECKLIST.md).
+
 ## Preparación
 
 Windows/PowerShell 7, Docker Desktop Linux funcionando, Git, OpenSSL (Git para
@@ -68,6 +74,11 @@ en temporales del host y se limpian. El certificado TLS tiene SAN loopback y el
 navegador de pruebas confía únicamente en su SPKI; la app mantiene HTTPS obligatorio
 en release. No publicar ese build de demo: apunta al origen local del harness.
 
+El JSON vigente registra `source_commit` obtenido de Git, `working_tree_dirty`
+y `evaluated_at` UTC. Un working tree modificado no acredita exclusivamente ese
+SHA. Los JSON históricos con `base_commit=d31a273` usaban una constante; conservar
+su fecha/contexto y no emplear ese campo como identificación del commit ejecutado.
+
 ## Herramientas individuales y limpieza
 
 Para investigar una etapa, crear otro stack con `prepare_disposable_local.ps1
@@ -121,3 +132,27 @@ finally. El póster virtual opcional (-QrImage) no produjo detección dentro de 
 en esta ejecución: la decodificación QR Android y la cámara física siguen pendientes.
 No equivale a ejecutar main.dart completo en Android. Detener solo el emulador
 propio (por serial confirmado) al terminar; no guardar snapshot si es read-only.
+
+`-QrImage` debe ser un PNG propio cuyo contenido sea UUID estricto o enlace
+`https://certichain.example/#/verify/<UUID>` (base del probe). Un QR del harness Web
+con origen localhost se rechaza correctamente; no prueba fallo del decoder.
+Resolver la ruta con `Resolve-Path` desde mobile antes de inyectarla. La revisión
+del 10/10 corrigió la resolución relativa frente a Push-Location y detecta KO de
+la consola emulator aunque adb termine exit 0. El emulador puede aceptar una
+ruta inexistente con OK y mantener el póster por defecto: comprobar la captura
+antes de interpretar un timeout como fallo ML Kit.
+
+Para el recorrido Android **principal** pendiente, usar otra instancia dedicada,
+crear dos cuentas sintéticas mediante Auth y el alta institucional existente
+(SECURE_ISSUANCE.md/INSTITUTION_ADMIN.md), aprobar solo la institución de prueba y
+dar al emisor una membresía autorizada. El titular copia su UUID desde Mi perfil.
+Configurar una URL HTTPS de la app y una API HTTPS accesibles al dispositivo,
+con certificado de confianza. El TLS/SPKI del harness Chrome no configura confianza
+Android. No desactivar HTTPS ni validación TLS para hacer pasar el recorrido.
+Construir `flutter build apk --release --target=lib/main.dart` con
+`--dart-define=SUPABASE_URL=<API HTTPS>`,
+`--dart-define=SUPABASE_PUBLISHABLE_KEY=<clave pública del stack>` y
+`--dart-define=PUBLIC_VERIFICATION_BASE_URL=<app HTTPS>`; instalar únicamente en
+esa instancia sin paquete previo. Repetir pasos 1–8 anteriores, registrar versión,
+resultados y tiempos, y limpiar solo cuentas/objetos/instalación propios.
+No equivale al probe, ni al build main sin configuración que solo prueba compilación.

@@ -194,7 +194,11 @@ véase [SECURE_ISSUANCE.md](SECURE_ISSUANCE.md). No incluye todavía blockchain.
   explícitos; Node 24.14.0 fijado. main.dart Web release con HTTPS y stack descartable
   cubre emisión, descarga, QR/copia, cámara emulada/decoder real, comparación,
   errores/carreras y renovación temporal real. 198 tests Flutter y 68 Deno; suites
-  SQL/HTTP y harness anteriores conservados. CI 8D y despliegue no observados.
+  SQL/HTTP y harness anteriores conservados. Publicada en **6235486** («8D stage»).
+  Al 10/10/2026, Actions **37373509169 intento 1** terminó failure con ambos
+  jobs cancelled antes de ejecutar: runners hosted no adquiridos y error interno
+  GitHub, confirmado por anotaciones aportadas por el operador. **Aceptación CI
+  pendiente**, sin atribuir fallo a código o tests. Despliegue no realizado.
   Plataformas/cámara física/validación humana pendientes, sin marcarlas como PASS:
   [PHASE8_ACCEPTANCE.md](PHASE8_ACCEPTANCE.md). Demo/limpieza reproducibles en
   [DEMO_VERIFICATION.md](DEMO_VERIFICATION.md).
@@ -208,7 +212,10 @@ la entrega/evidencia histórica de 8A, sin atribuirle interfaz o CI posterior.
 
 ### Orden recomendado de los incrementos posteriores (pendientes)
 
-1. Validar CI 8D, cámaras físicas y plataformas/validación humana pendientes de la matriz.
+1. Resolver/reintentar el bloqueo externo y validar CI del SHA exacto de 8D;
+   completar cámaras físicas y plataformas/validación humana de la matriz.
+   [Checklist del operador](PHASE8_OPERATOR_CHECKLIST.md). El diseño de 9A puede
+   avanzar con aceptación 8D pendiente; no declarar todavía base validada por CI.
 2. Anclaje blockchain: contrato, adaptador de backend, estados e idempotencia.
 3. Revocación completa y endurecimiento: backend, sincronización blockchain,
    reconciliación, seguridad, recuperación y pruebas del recorrido completo.
