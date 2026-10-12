@@ -5,7 +5,8 @@ Aplicación móvil para emitir, custodiar y verificar títulos y certificados di
 ## Objetivo del MVP
 
 - Una institución autorizada emite un certificado y sube su PDF.
-- El sistema calcula su hash SHA-256 y registra la prueba en una red EVM de pruebas.
+- El sistema calcula SHA-256 exacto del PDF; el futuro anclaje registra un
+  compromiso con salt privado en Sepolia, sin publicar el hash documental.
 - El estudiante consulta y comparte sus certificados mediante un QR.
 - Cualquier verificador comprueba autenticidad, integridad, emisor y estado sin iniciar sesión.
 - La institución puede revocar certificados emitidos por ella.
@@ -64,6 +65,7 @@ flutter create --org com.benjvm --project-name certichain .
 - [Arquitectura](docs/ARCHITECTURE.md)
 - [Modelo de datos](docs/DATABASE.md)
 - [Integración blockchain](docs/BLOCKCHAIN.md)
+- [Especificación técnica del protocolo 9A](docs/PHASE9A_BLOCKCHAIN_SPEC.md)
 - [Seguridad](docs/SECURITY.md)
 - [Contrato vigente de emisión y acceso privado al PDF](docs/SECURE_ISSUANCE.md)
 - [Contrato, verificación pública y QR y comparación 8A–8C](docs/PUBLIC_VERIFICATION.md)
@@ -89,11 +91,14 @@ global PostgreSQL, exclusivamente local. Estado y pruebas en
 8B añade interfaz pública independiente de Auth, enlaces Web hash y QR/copia
 desde el certificado propio, comprobados en local. 8C añade escáner con decoder
 local y comparación privada de bytes PDF mediante hash candidato. 8D está
-implementada y publicada en `6235486` («8D stage»). El run
-[37373509169, intento 1](https://github.com/benjvm/certichain/actions/runs/37373509169)
-falló antes de ejecutar: GitHub no adquirió runners hosted y notificó un error
-interno. Su aceptación CI sigue pendiente; el success 8C en d31a273 no la valida.
-Blockchain, nuevo flujo de revocación y despliegue permanecen pendientes.
+implementada y publicada inicialmente en `6235486` («8D stage»). El fallo externo
+histórico de Actions 37373509169 se conserva en la aceptación. CI posterior:
+[38280055013, intento 1](https://github.com/benjvm/certichain/actions/runs/38280055013)
+success en database/flutter/android para
+`2066e908af30913462cf3daf77324eab2a63dfc4`, sin acreditar cámara física ni blockchain.
+9A entrega decisiones/ABI objetivo/protocolo/persistencia futura, con Anvil,
+Sepolia y Foundry; contrato 9B, backend 9C, cliente 9D, aceptación 9E y revocación
+completa 10 siguen pendientes. Sin despliegue.
 
 ## Probar verificación y QR en Chrome local
 
@@ -132,6 +137,15 @@ y acciones del operador en [checklist 8D](docs/PHASE8_OPERATOR_CHECKLIST.md).
 Esta revisión trabaja solo en local; las ediciones posteriores necesitan CI del
 SHA que publique el operador.
 
-Dictamen al 10/10/2026: **Diseño 9A posible con aceptación 8D pendiente**.
-La revalidación local conserva CI bloqueada por infraestructura, QR nativo,
-recorrido Android completo, cámaras físicas y accesibilidad humana pendientes.
+Dictamen al 12/10/2026: **9A especificada; blockchain aún no integrada**.
+Comportamiento actual, DTO v1, códigos/enlaces/QR y PDF conservados. Omitir desde
+ahora todas las pruebas de cámara, con CERTICHAIN_TEST_CAMERA=0 y registro
+SKIP/NOT_RUN: «Omitidas por instrucción del usuario; no hay cámara física disponible».
+Conservar funcionalidad/tests y verificaciones de códigos, imagen QR estática,
+PDF, Auth, backend y SQL. Hardware no bloquea fases siguientes ni reabre 8D.
+Otros límites de plataformas/revisión humana se conservan en aceptación/checklist.
+
+Blockchain aportará evidencia externa de compromiso y revocación; comprobar un
+PDF contra ese compromiso requiere apertura autorizada. Supabase sigue a cargo
+de identidad, membresías, PDF, metadatos y atribución institucional. La comparación
+pública actual sigue confiando en su hash esperado privado.

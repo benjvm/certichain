@@ -11,8 +11,10 @@ Auth y las lecturas de wallet/detalle 4D. 7A–7D entregan emisión autenticada,
 PDF privado, recuperación y cliente institucional. Escrituras directas siguen
 cerradas; el flujo de revocación permanece pendiente. 8A añade backend público
 por código; 8B–8D entregan pantalla, QR/escáner y comparación local de copia.
-8D publicada en 6235486, con aceptación CI y plataformas pendientes según
-[PHASE8_ACCEPTANCE.md](PHASE8_ACCEPTANCE.md). Blockchain permanece pendiente.
+CI posterior success en 2066e908af30913462cf3daf77324eab2a63dfc4 (Actions
+38280055013, intento 1); alcance/plataformas en
+[PHASE8_ACCEPTANCE.md](PHASE8_ACCEPTANCE.md). 9A entrega diseño blockchain;
+implementación 9B–9E y revocación completa fase 10 pendientes.
 
 | Actor | Capacidades del MVP |
 |---|---|
@@ -69,6 +71,9 @@ por código; 8B–8D entregan pantalla, QR/escáner y comparación local de copi
 - Crear un identificador público no secuencial y estable.
 - Registrar la prueba on-chain de forma idempotente.
 - Mostrar un estado de proceso si la transacción aún no está confirmada.
+- El anclaje será una solicitud durable separada: completed off-chain y
+  active/revoked no se reinterpretan como confirmación EVM. Compromiso con salt
+  privado según [9A](PHASE9A_BLOCKCHAIN_SPEC.md), sin hash documental público.
 
 ### RF-04 Wallet de certificados
 
@@ -98,6 +103,9 @@ por código; 8B–8D entregan pantalla, QR/escáner y comparación local de copi
   incluido `platform_admin`, utiliza UPDATE directo en `certificates`.
 - La revocación es irreversible en el MVP.
 - Persistir el resultado de blockchain y reflejarlo en la verificación.
+- Política fijada en 9A para fase 10: owner/admin de emisora verified o suspended;
+  revocación SQL inmediata irreversible y anclaje de revoke separado cuando
+  proceda. No esperar RPC para advertir revocación ni reactivar SQL por reorg.
 
 ## Requisitos no funcionales
 
@@ -120,5 +128,11 @@ por código; 8B–8D entregan pantalla, QR/escáner y comparación local de copi
 - LinkedIn social, marketplace de cursos o mensajería.
 
 ## Criterio de éxito de la demo
+
+9A solo especifica ese recorrido. Evidencia blockchain, registro CertiChain e
+integridad de copia se muestran separados. La comparación independiente del PDF
+contra el compromiso requiere apertura autorizada compartida voluntariamente;
+sin ella la comparación candidata continúa confiando en Supabase. No se acredita
+identidad del presentador ni veracidad académica por registrar un compromiso.
 
 Una institución aprobada emite un PDF; el alumno lo ve y comparte su QR; la verificación devuelve válido. Tras alterar una copia, la comprobación por archivo detecta el cambio. Tras revocarlo, el mismo QR devuelve revocado.

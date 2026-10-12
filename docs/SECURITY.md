@@ -88,7 +88,7 @@ debe controlarse operativamente. Procedimiento y revisiones manuales:
 |---|---|
 | Usuario emite sin permiso | RLS denegada y emisión privilegiada con comprobación servidor |
 | Acceso a PDF ajeno | Bucket privado, ruta no predecible y URL firmada corta |
-| Cambio de metadatos o PDF | Inmutabilidad tras emisión, SHA-256 y registro on-chain |
+| Cambio de metadatos o PDF | Inmutabilidad tras emisión y SHA-256; compromiso on-chain futuro, aún no implementado |
 | Clave blockchain extraída | Clave solo en backend/secret manager, nunca en app |
 | Abuso de endpoint público | Rate limit, respuesta uniforme y monitorización sin PII |
 | Archivo malicioso | Límite de tamaño, MIME real, PDF válido y análisis cuando proceda |
@@ -155,7 +155,30 @@ El nombre completo del estudiante no debe mostrarse públicamente por defecto. U
 - Dependencias auditadas y versiones fijadas.
 - Se ha probado PDF inválido, grande, alterado y duplicado.
 
-## Limitación académica
+## Privacidad y autoridad EVM — diseño 9A
+
+[9A](PHASE9A_BLOCKCHAIN_SPEC.md) selecciona compromiso documental con salt privado:
+SHA-256 del PDF no aparece en cadena, eventos, calldata ni DTO público. Omitirlo
+del API no lo mantendría privado si se publicase on-chain. K derivado del código
+y issuerId opaco siguen correlacionables. Sin apertura autorizada, un tercero
+no puede verificar la correspondencia PDF/compromiso; match candidato v1 sigue
+confiando en Supabase. Salt se persiste privado antes de firma, se conserva en
+reintentos/backup y nunca se sustituye bajo una clave ya registrada.
+
+Administrador EVM y firmante operativo backend separados. Cuenta de servicio
+compartida autorizada por issuerId; no acredita firma personal de cada universidad.
+Backend conserva Auth/membresías reales; emisión verified, revocación futura
+owner/admin de emisora verified o suspended. Cambios SQL/EVM no son atómicos y
+retirar una membresía no cancela una transacción ya firmada. No wallets/secretos
+en Flutter. RPC Anvil interno o loopback, sin exposición pública privilegiada.
+
+Evidencia v2 futura podrá publicar chain ID, contrato, versión, clave/compromiso/
+emisor opacos, transacción/bloque, confirmaciones/finalidad y fecha/origen. Esta
+lista no modifica v1 ni sus RPC en 9A. Nunca titular, H/salt, PDF/ruta/capacidad
+privada o motivo de revocación. Fallos RPC no son ausencia, revocación ni PDF
+alterado. Tablas futuras privadas y retención en sección 6 de 9A.
+
+## Limitación académica del MVP
 
 El MVP demuestra integridad técnica, no acredita legalmente a una institución ni sustituye marcos regulatorios como eIDAS. Cualquier lanzamiento real requiere revisión legal, DPIA cuando corresponda, gestión profesional de claves y respuesta a incidentes.
 

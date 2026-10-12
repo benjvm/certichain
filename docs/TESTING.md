@@ -1,5 +1,34 @@
 # Estrategia de pruebas
 
+## Instrucción vigente de cámara y alcance 9A — 12/10/2026
+
+Por instrucción del usuario, omitir pruebas de captura, permisos/ciclo de vida
+de cámara, escáner real, getUserMedia, vídeo emulado y probes QR nativos.
+Registrar **SKIP/NOT_RUN**, nunca PASS, motivo exacto:
+«Omitidas por instrucción del usuario; no hay cámara física disponible».
+CERTICHAIN_TEST_CAMERA=0 en harnesses. Conservar implementación/tests existentes;
+si una suite mezcla cámara y otros casos, excluir explícitamente solo esos
+escenarios (también unit/widget de permisos/captura/ciclo de vida), sin omitir
+la suite completa. Identificar por nombres/tags reales antes de ejecutar: no
+suponer que la variable de harness filtra flutter test o probes nativos.
+
+Siguen códigos manuales, enlaces, generación QR y decodificación estática,
+comparación PDF, Auth, backend, permisos SQL y blockchain. No reabrir 8D por
+hardware. Las instrucciones/comandos opt-in y PASS de cámara inferiores son
+históricos/capacidad existente, no autorización vigente para ejecutarlos.
+
+CI reconsultada: [38280055013](https://github.com/benjvm/certichain/actions/runs/38280055013),
+intento 1, SHA exacto `2066e908af30913462cf3daf77324eab2a63dfc4`, success
+database/flutter/android con pasos ejecutados y cámara deshabilitada en los
+harnesses. No demuestra cámara física ni blockchain; los unit/widget que aquel
+workflow ejecutó son evidencia histórica anterior a esta instrucción.
+
+9A es documental: inspección de código/migraciones/CI, fuentes/tags oficiales,
+vector Node crypto/.NET, comprobación de enlaces/coherencia y git diff --check.
+No se repiten Flutter/SQL/HTTP/Foundry/8D, no se resetean entornos ni se instalan
+toolchains. Pruebas EVM y recuperación planificadas, no ejecutadas:
+[PHASE9A_BLOCKCHAIN_SPEC.md](PHASE9A_BLOCKCHAIN_SPEC.md), secciones 8 y 11.
+
 Versiones actuales 8D: Node 24.14.0, Flutter 3.47.4/Dart 3.13.3, CLI 2.117.0 y
 Deno 2.2.12. Los resultados/versiones de entregas anteriores se conservan como
 evidencia histórica. Para ejecutar ahora, usar [DEMO_VERIFICATION.md](DEMO_VERIFICATION.md)
@@ -34,10 +63,10 @@ release también conserva la etapa SKIP. No se afirma cobertura completa del esc
 Los números anteriores de este documento son evidencia histórica de su modo/fecha,
 no expectativas fijas para el modo sin cámara.
 
-Comandos exactos y prerrequisitos para ambos modos:
-[DEMO_VERIFICATION.md](DEMO_VERIFICATION.md). La siguiente Actions debe confirmar
-los SKIP, la continuidad de PDF/estados/aislamiento y los tres jobs para el nuevo
-SHA. La captura permanece pendiente de validación específica en CI Linux.
+Comandos históricos y prerrequisitos para ambos modos:
+[DEMO_VERIFICATION.md](DEMO_VERIFICATION.md); usar ahora solo modo sin cámara.
+38280055013 acredita posteriormente los tres jobs. Captura queda omitida por
+instrucción vigente, sin convertir ese pendiente en PASS.
 
 Validación local de este cambio: Windows, Node 24.14.0, Chrome 155.0.8059.39,
 Flutter 3.47.4 y CLI 2.117.0, sobre un stack propio descartable. Sin cámara,

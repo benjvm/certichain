@@ -1,13 +1,45 @@
 # Aceptación de la fase 8D
 
-**Estado vigente al 10/10/2026:** 8D está publicada en
-`62354866e1c127e445c369bedee58742581ec2cd` («8D stage»). Checkout `main` limpio al
-iniciar esta revisión, idéntico a `main` remoto, sin commits posteriores.
-La aceptación CI está pendiente por un fallo externo anterior a la ejecución.
-Los cambios de documentación de esta revisión quedan locales, sin commit/push
-ni despliegue. Checklist: [PHASE8_OPERATOR_CHECKLIST.md](PHASE8_OPERATOR_CHECKLIST.md).
+**Estado vigente al 12/10/2026:** base técnica con CI success en
+`2066e908af30913462cf3daf77324eab2a63dfc4`, HEAD/remote main coincidentes y árbol
+limpio antes de 9A. Diseño 9A documentado, sin integración blockchain. Cambios 9A
+locales sin commit/push/despliegue. Checklist:
+[PHASE8_OPERATOR_CHECKLIST.md](PHASE8_OPERATOR_CHECKLIST.md).
 
-## CI observada el 10/10/2026
+## CI posterior confirmada — 12/10/2026
+
+[Actions 38280055013](https://github.com/benjvm/certichain/actions/runs/38280055013),
+intento **1**, SHA exacto **2066e908af30913462cf3daf77324eab2a63dfc4**:
+completed/success. Run/intento y jobs reconsultados por conector GitHub en 9A.
+
+| Job | ID | Resultado y alcance |
+|---|---|---|
+| database | 114914890741 | success; SQL/permisos/preservación, funciones/HTTP/Auth/Storage, journeys Web y release, artefactos, limpieza |
+| flutter | 114914890996 | success; formato/análisis/unit/widget, QR imagen estática, PDF/Chrome y build Web |
+| android | 114914891175 | success; JDK/NDK y APK debug main.dart, no recorrido en dispositivo |
+
+El workflow de ese SHA fija CERTICHAIN_TEST_CAMERA='0'; el success de journeys
+no convierte escenarios omitidos en PASS. No se atribuyen aquí contadores ni
+contenido de artefactos no descargados en 9A. El success acredita ese commit y
+checks ejecutados, no las ediciones documentales posteriores, cámara física,
+integración EVM, lanzamiento ni aceptación humana de accesibilidad.
+
+Desde esta instrucción: cámara **SKIP/NOT_RUN** con motivo
+«Omitidas por instrucción del usuario; no hay cámara física disponible».
+Incluye captura, permisos/ciclo de vida, escáner real, getUserMedia, vídeo
+emulado y probes QR nativos. Conservar implementación/tests y excluir solo
+escenarios de cámara en suites mixtas, manteniendo CERTICHAIN_TEST_CAMERA=0.
+Códigos, enlaces, QR/imagen estática, PDF, Auth, SQL y blockchain continúan.
+No reabrir 8D por estos pendientes ni bloquear 9A/fases posteriores.
+
+Los fallos previos permanecen como historia: 37373509169 sin runners; luego
+38268566730 (b45a067d26b279db90dd5890c0f279af83aa3a27) sin espacio al instalar
+NDK, y 38273699664 (6b46d05697ff17254993a239f2289b46a03df7e5) timeout de captura.
+Detalle conservado en [TESTING.md](TESTING.md). Los resultados de cámara anteriores
+son históricos de su fecha/modo, nunca cobertura actual. Otros límites de
+plataformas/humanos permanecen; no son una obligación de repetir 8D por documentación.
+
+## Historia — CI observada el 10/10/2026
 
 [Actions 37373509169](https://github.com/benjvm/certichain/actions/runs/37373509169),
 intento **1**, commit **6235486**, workflow `database.yml`: completed/failure.
@@ -30,7 +62,7 @@ esta revisión. El operador debe reejecutar tras resolver/comprobar disponibilid
 y, si reaparece, escalar a GitHub con run/UTC/ID de correlación. No se modifican
 checks, acciones fijadas ni timeouts para ocultarlo.
 
-## Revalidación local del 10/10/2026
+## Historia — revalidación local del 10/10/2026
 
 Windows/PowerShell **7.6.5**, Flutter **3.47.4** / Dart **3.13.3**, Node
 **24.14.0**, CLI **2.117.0**, Deno **2.2.12**. PostgreSQL **17.6**, Edge runtime
@@ -307,8 +339,9 @@ no se observó bloqueo sostenido.
 1. En Firefox/Safari/Android/iOS, stack sintético exclusivo y configuración pública
    HTTPS válida, ejecutar pasos de DEMO_VERIFICATION.md; registrar build/versión,
    duración/resultados sin credenciales ni payloads privados.
-2. Cámara física: permiso denegado/concedido/revocado, QR impreso/otra pantalla,
-   repetición/doble confirmación, cámara ocupada/inexistente, fondo/resume y salida.
+2. Cámara: **NOT_RUN** desde 12/10/2026, por instrucción vigente; no ejecutar
+   captura/permisos/ciclo de vida ni QR nativo. Motivo:
+   «Omitidas por instrucción del usuario; no hay cámara física disponible».
 3. Selector: cancelación/cambio, 0/8 MiB/8 MiB+1, salida durante lectura/hash/consulta,
    conservación de originales y liberación de copia propia.
 4. A 320 px/texto ×2: Tab/Shift+Tab/Enter, foco visible/orden, lector de pantalla,

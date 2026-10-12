@@ -1,72 +1,67 @@
-# Diseño blockchain
+# Diseño blockchain — decisión 9A
 
-## Propósito
+Estado al 12/10/2026: **protocolo especificado, sin contrato ejecutable ni integración**.
+Fuente normativa: [PHASE9A_BLOCKCHAIN_SPEC.md](PHASE9A_BLOCKCHAIN_SPEC.md).
+La emisión y verificación actuales continúan off-chain.
 
-Blockchain demuestra que una huella concreta fue registrada por un emisor autorizado y permite publicar su revocación. No sustituye la base de datos, el almacenamiento, la identidad ni el control de acceso.
+## Aportación y límites
 
-## Datos on-chain mínimos
+El futuro registro publicará un compromiso estable y su revocación, asociados
+a un emisor opaco autorizado. Permite contrastar evidencia fuera de Supabase.
+No comprueba identidad, titularidad del presentador, acreditación institucional
+ni verdad académica. La atribución institución↔emisor y los permisos humanos
+siguen confiando en backend/plataforma; el alumno no necesita wallet.
 
-- `certificateKey`: `bytes32` derivado de un identificador público con separación de dominio.
-- `documentHash`: SHA-256 del PDF, representado como `bytes32`.
-- `issuer`: dirección autorizada que ejecuta la operación.
-- `issuedAt`: timestamp de bloque.
-- `revoked`: booleano o timestamp de revocación.
+## Decisiones adoptadas
 
-No almacenar nombre, email, DNI, título legible, institución legible, URL, CID ni PDF.
+- Anvil 31337 local; Ethereum Sepolia 11155111 para una sola demo testnet.
+- Solidity 0.8.37, Foundry v1.8.5 y OpenZeppelin Contracts v5.7.0 propuestos y
+  fijados para 9B; commits/fuentes en
+  [ADR-0014](adr/0014-evm-network-toolchain-and-authority.md). Sin instalaciones 9A.
+- Contrato mínimo sin proxies, NFT, tokens, transferencias, pagos ni multichain.
+- Administrador Ownable2Step separado del firmante operativo backend. Configurar
+  signer y permisos issue/revoke por issuerId opaco estable. Cuenta operativa
+  compartida permitida en demo, con su límite de confianza explícito.
+- Emisión exige owner/admin/issuer real y institución verified. Revocación
+  futura owner/admin de emisora verified o suspended; no DML de cliente.
+- Anvil confirma con 1 bloque y no acredita finalidad PoS. Sepolia confirma
+  con 12 y solo finaliza contra bloque finalized canónico. Reorg invalida evidencia.
 
-## Interfaz conceptual
+## Privacidad y datos mínimos
 
-```solidity
-interface ICertificateRegistry {
-    function issue(bytes32 certificateKey, bytes32 documentHash) external;
-    function revoke(bytes32 certificateKey) external;
-    function getCertificate(bytes32 certificateKey)
-        external
-        view
-        returns (bytes32 documentHash, address issuer, uint64 issuedAt, bool revoked);
-}
-```
+H=SHA-256 de los bytes exactos del PDF final permanece privado. Se reemplaza la
+propuesta antigua de publicar documentHash por **compromiso C con salt privado**.
+Ocultar H del API no bastaría si apareciese en cadena. K se deriva de credential_code
+UUID binario, con separación de dominio; I identifica opacamente al emisor.
+Encoding literal, tamaños, vector hexadecimal comprobado, persistencia/recuperación
+de salt y acceso a apertura en la sección 3 de la especificación y
+[ADR-0015](adr/0015-private-commitments-and-durable-anchoring.md).
 
-Eventos:
+Estado/eventos/calldata: K/C/I, direcciones técnicas, permisos, versión y tiempos
+de bloque. Nunca H/salt, nombres, correo, DNI, titular, título legible, rutas,
+URLs privadas, PDF ni motivo interno. Identificadores opacos y fechas siguen
+correlacionables. Sin apertura un tercero no puede comparar su PDF con C de
+forma independiente; la comparación candidata actual depende de Supabase.
 
-```solidity
-event CertificateIssued(bytes32 indexed certificateKey, bytes32 documentHash, address indexed issuer);
-event CertificateRevoked(bytes32 indexed certificateKey, address indexed issuer);
-```
+## Interfaz, persistencia y recuperación
 
-## Autorización
+CertificateRegistry v1: issue(K,C,I), revoke(K), exists(K), getCertificate(K),
+setIssuer(I,signer,canIssue,canRevoke), getIssuer(I), protocolVersion().
+Duplicados idénticos también revierten; backend reconcilia inclusión original
+para idempotencia. Misma K con otro C/I es divergence, nunca upsert.
+Revocación irreversible; rotar signer no altera I ni certificados.
 
-El MVP puede usar roles administrados mediante OpenZeppelin AccessControl. Solo `ISSUER_ROLE` emite; la revocación debe comprobar además que quien solicita representa al emisor original, o delegarse a un servicio con una política explícita. Cualquier cambio de modelo exige ADR.
+BlockchainRegistry es un puerto backend aún no implementado: validación de
+despliegue, preparación firmada, envío, observación y lectura a bloque canónico.
+Solicitud explícita después de publicación SQL; tablas privadas futuras separan
+anchor, operación lógica y múltiples intentos/replacements. completed continúa
+significando publicación off-chain; certificate.status sigue active/revoked.
+No atomicidad PostgreSQL/EVM, locks durante RPC ni backfill automático.
 
-## Red y herramientas
+## Entregas pendientes
 
-- Desarrollo: Anvil local.
-- Demo: una testnet EVM elegida mediante ADR; Sepolia es candidata, no una decisión irreversible.
-- Tooling: Foundry para compilación, pruebas, cobertura y scripts.
-- Contratos de utilidad: OpenZeppelin fijado a una versión concreta.
-
-## Confirmaciones y fallos
-
-Una transacción enviada no equivale a emisión confirmada. El backend conserva estados `pending`, `confirmed` o `failed`, espera el número configurado de confirmaciones y puede reconciliar eventos. Los reintentos usan `certificateKey` estable para impedir emisiones duplicadas.
-
-## Hashing
-
-- Algoritmo documental: SHA-256.
-- Entrada: bytes exactos del archivo persistido.
-- Salida: 32 bytes; no aplicar hash a Base64, ruta o metadatos JSON.
-- Si se firma o normaliza el PDF, hacerlo antes del hash final.
-- Una copia alterada produce otro hash y debe devolver `integrity_mismatch`.
-
-## Pruebas mínimas
-
-- Emisor autorizado puede emitir.
-- Cuenta no autorizada no puede emitir ni revocar.
-- No se permite duplicar `certificateKey`.
-- El evento contiene los valores esperados.
-- Revocación cambia el estado y no puede deshacerse.
-- Un emisor no revoca credenciales ajenas según la política elegida.
-- Fuzz tests para claves y hashes arbitrarios.
-
-## Gestión de claves
-
-Las claves privadas nunca están en Flutter, Git, migraciones, logs o documentación. En local se usan cuentas efímeras de Anvil; en testnet, secretos del backend/CI. Antes de producción se evaluará una wallet de servicio con rotación, multisig o KMS.
+9B contrato/tests Foundry/Anvil; 9C migración, adaptador, firma, nonces y
+reconciliación; 9D cliente/evidencia v2/apertura autorizada; 9E aceptación local;
+10 revocación completa. DTO/RPC v1, credential_code, QR y PDF actuales intactos.
+La especificación incluye matriz de errores/recuperación y criterios de prueba;
+ninguno se presenta como ejecutado en 9A.

@@ -8,8 +8,11 @@ Flutter institucional y `POST /functions/v1/certificate-pdf` para descarga priva
 7D cierra las pruebas integrales y endurecimiento. 8A añade el backend público
 descrito en [PUBLIC_VERIFICATION.md](PUBLIC_VERIFICATION.md). 8B–8D entregan
 pantalla pública, QR, escáner y comparación local de copia. 8D está publicada en
-6235486; aceptación CI bloqueada antes de ejecutar por infraestructura GitHub
-(run 37373509169). Revocación de producto y blockchain siguen pendientes.
+6235486; el bloqueo histórico de 37373509169 se conserva. CI posterior success
+38280055013 intento 1 para 2066e908af30913462cf3daf77324eab2a63dfc4 en
+database/flutter/android. Cámara omitida por instrucción vigente; ver TESTING.
+Revocación de producto y blockchain siguen pendientes: [9A](PHASE9A_BLOCKCHAIN_SPEC.md)
+define el protocolo sin cambiar publicación/completed, hash o permisos actuales.
 No se ha desplegado ninguna función ni migración remota.
 
 Para servirlo manualmente, con el stack local reconstruido y la CLI 2.117.0:

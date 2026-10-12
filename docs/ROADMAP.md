@@ -210,15 +210,50 @@ El reparto autorizado de 8B corrige la asignación documental de QR/enlaces a 8C
 introducida en 8A (`e3f42255c459e57e73f16b9677722add7590227e`). Se conserva arriba
 la entrega/evidencia histórica de 8A, sin atribuirle interfaz o CI posterior.
 
-### Orden recomendado de los incrementos posteriores (pendientes)
+### Actualización de aceptación 8D — 12/10/2026
 
-1. Resolver/reintentar el bloqueo externo y validar CI del SHA exacto de 8D;
-   completar cámaras físicas y plataformas/validación humana de la matriz.
-   [Checklist del operador](PHASE8_OPERATOR_CHECKLIST.md). El diseño de 9A puede
-   avanzar con aceptación 8D pendiente; no declarar todavía base validada por CI.
-2. Anclaje blockchain: contrato, adaptador de backend, estados e idempotencia.
-3. Revocación completa y endurecimiento: backend, sincronización blockchain,
-   reconciliación, seguridad, recuperación y pruebas del recorrido completo.
+[Actions 38280055013](https://github.com/benjvm/certichain/actions/runs/38280055013),
+intento 1, success database/flutter/android para SHA exacto
+`2066e908af30913462cf3daf77324eab2a63dfc4`, reconsultado. El fallo externo de
+37373509169 y posteriores fallos de disco/captura quedan como historia, no
+como bloqueo CI vigente. Este success acredita solo los checks ejecutados.
+No acredita cámara física, recorrido Android completo ni blockchain.
+
+**Instrucción persistente del usuario:** omitir pruebas de captura, permisos,
+ciclo de vida, escáner real, getUserMedia, vídeo emulado y probes QR nativos.
+CERTICHAIN_TEST_CAMERA=0; registrar SKIP/NOT_RUN con motivo exacto:
+«Omitidas por instrucción del usuario; no hay cámara física disponible».
+Conservar implementación/tests; excluir cámara de forma acotada en suites mixtas,
+sin omitir códigos, enlaces, QR generado/imagen estática, PDF, Auth, backend,
+SQL ni blockchain. No reabrir 8D por hardware ni bloquear fases siguientes.
+Otros pendientes humanos/plataformas conservan su alcance en
+[checklist](PHASE8_OPERATOR_CHECKLIST.md).
+
+### Fase 9 — Blockchain incremental
+
+- **9A — decisiones y especificación: entregada documentalmente el 12/10/2026.**
+  [Protocolo normativo](PHASE9A_BLOCKCHAIN_SPEC.md), ADR-0014/0015: Anvil/Sepolia,
+  versiones Foundry/Solidity/OpenZeppelin fijadas para 9B, contrato mínimo,
+  autorización institucional, clave/compromiso privado, estados separados,
+  tablas futuras, firma/nonces, fallos/reorg y evidencia pública versionada.
+  Sin integración, migraciones, despliegue, commit ni push en este encargo.
+- **9B — contrato y pruebas Foundry/Anvil: pendiente.** ABI/implementación,
+  permisos, duplicados, revocación irreversible, eventos, rotación, fuzz/invariantes.
+- **9C — persistencia, adaptador, firma y reconciliación: pendiente.** Migración
+  nueva privada, solicitud durable explícita, salts/backups, nonces/replacements,
+  receipts/confirmaciones/finalidad, fault injection y preservación histórica.
+- **9D — cliente y evidencia pública: pendiente.** v2 separado; registro, anclaje,
+  copia y fecha/origen diferenciados; apertura autorizada sin ampliar v1.
+- **9E — aceptación del recorrido local: pendiente.** Publicación→Anvil→evidencia,
+  integridad con apertura, permisos y recuperación; demo Sepolia con evidencia
+  propia cuando exista despliegue autorizado. Sin pruebas de cámara.
+
+### Fase 10 — Revocación completa (pendiente)
+
+Solicitud owner/admin de emisora verified o suspended, motivo privado, transición
+SQL irreversible inmediata y revoke EVM durable cuando proceda. Tratar tx issue
+tardía, reorg y divergencia, conservar completed/PDF y escrituras directas cerradas.
+No se habilita ese recorrido por tener revoke probado en contrato 9B.
 
 ## Etapas conceptuales del MVP
 

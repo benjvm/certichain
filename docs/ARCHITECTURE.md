@@ -14,8 +14,8 @@ flowchart TD
     A[Flutter app] -->|HTTPS| B[Supabase API y Edge Functions]
     B --> C[(PostgreSQL)]
     B --> D[Storage privado]
-    B --> E[Adaptador EVM]
-    E --> F[CertificateRegistry]
+    B -. solicitud durable futura 9C .-> E[Worker y adaptador EVM]
+    E -. futuro 9B y 9C .-> F[CertificateRegistry]
     G[Verificador web o app] -->|URL o QR| B
 ```
 
@@ -86,7 +86,9 @@ Regla de dependencias: `presentation → domain ← data`. El dominio no depende
 - `HashComparisonRepository`: comparación pública de un hash candidato.
 - `ComparisonPdfPicker` / `PdfHasher` / `QrCamera`: capacidades locales de copia y QR.
 - `InstitutionRepository`: perfil, miembros y estado.
-- `BlockchainRegistry`: registrar, revocar y consultar una prueba.
+- `BlockchainRegistry` (propuesto, no implementado): preparar/enviar/observar tx,
+  consultar registro/emisor y validar despliegue; solo backend, DTO puro y
+  adaptador RPC separados según [9A](PHASE9A_BLOCKCHAIN_SPEC.md).
 - `DocumentStorage`: guardar, recuperar y eliminar documentos según política.
 
 Los nombres representan responsabilidades; no obligan a crear una clase por método.
@@ -115,33 +117,27 @@ POST desconocidos/inválidos y falla cerrado ante problemas de infraestructura.
 No hay cambios Flutter en 8A. Contrato y límites:
 [PUBLIC_VERIFICATION.md](PUBLIC_VERIFICATION.md), [ADR-0011](adr/0011-public-registry-verification.md).
 
-El flujo posterior con blockchain será:
+## Protocolo futuro definido en 9A (sin integración)
 
-1. Flutter envía metadatos y PDF a una operación autenticada.
-2. El backend verifica rol, institución aprobada, archivo y destinatario.
-3. Almacena el PDF privado y calcula SHA-256 sobre los bytes almacenados.
-4. Inserta el certificado con estado `anchoring` y una clave de idempotencia.
-5. Registra la prueba en el contrato y conserva transacción, red y bloque.
-6. Marca `active` cuando existe confirmación suficiente; ante fallo conserva `anchor_failed` para reintento controlado.
+Publicar active/completed conserva el flujo actual. Después, una solicitud de
+anclaje explícita y autorizada crea identidad/compromiso y operación durable en
+tablas privadas nuevas de 9C. Un worker backend revalida, firma, persiste intento
+antes de enviar y reconcilia receipt/evento/bloque/confirmaciones/finalidad.
+El adaptador vive bajo `supabase/functions/_shared/blockchain/data/`; su puerto
+y DTO puros en `domain/`. No hay transacción PostgreSQL abierta durante RPC ni
+atomicidad PostgreSQL/EVM. Flutter no firma ni contiene Web3 en dominio.
 
-## Estados futuros con blockchain (no implementados)
+`certificate.status` sigue active/revoked; emisión completed, anclaje e integridad
+de la copia tienen estados distintos. Se retira la propuesta antigua de añadir
+anchoring/anchor_failed al certificado. Expired se deriva de fecha; confirmed
+no equivale a finalized. Salt/hash documental privados, compromiso público.
+Sepolia/Anvil y autoridad por I según [ADR-0014](adr/0014-evm-network-toolchain-and-authority.md).
+Recuperación/versionado según [ADR-0015](adr/0015-private-commitments-and-durable-anchoring.md).
 
-El enum actual solo admite `active`/`revoked`; `expired` se deriva de la fecha
-en Flutter. `anchoring` y `anchor_failed` requieren migraciones posteriores.
-La revocación será una operación de backend autorizada, idempotente y
-sincronizada con el registro blockchain; el trigger actual no implementa ese flujo.
-
-```mermaid
-stateDiagram-v2
-    [*] --> anchoring
-    anchoring --> active: confirmado
-    anchoring --> anchor_failed: error
-    anchor_failed --> anchoring: reintento
-    active --> revoked: revocación confirmada
-    active --> expired: fecha superada
-```
-
-`expired` puede ser derivado de `expires_at`; no necesita escribirse continuamente. La revocación requiere evidencia confirmada.
+La fase 10 añadirá revocación SQL irreversible inmediata y solicitud EVM durable
+cuando proceda, sin retrasar la advertencia pública por un RPC caído. El trigger
+histórico no implementa ese flujo. Especificación completa:
+[PHASE9A_BLOCKCHAIN_SPEC.md](PHASE9A_BLOCKCHAIN_SPEC.md).
 
 ## Portabilidad futura
 

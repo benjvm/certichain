@@ -40,7 +40,7 @@ CertiChain permite emitir y verificar certificados académicos o profesionales. 
 ## Blockchain
 
 - No almacenar nombres, correos, documentos, rutas, DNI ni otros datos personales on-chain.
-- Registrar identificadores opacos, hash del documento, emisor, fecha y estado mínimo necesario.
+- Registrar identificadores opacos, compromiso documental con salt privado, emisor, fecha y estado mínimo necesario según `docs/PHASE9A_BLOCKCHAIN_SPEC.md`; no publicar el hash documental ni el salt on-chain.
 - El PDF se hashea sobre sus bytes exactos con SHA-256.
 - Ocultar la red EVM detrás de `BlockchainRegistry` o una interfaz equivalente.
 - Probar autorización, duplicados, revocación, eventos y casos de fallo del contrato.
@@ -56,6 +56,21 @@ CertiChain permite emitir y verificar certificados académicos o profesionales. 
 - No comprometer `.env`, credenciales ni archivos generados con secretos.
 
 ## Calidad
+
+### Exclusión persistente de cámara — instrucción del usuario, 12/10/2026
+
+- Omitir pruebas de captura, permisos/ciclo de vida de cámara, escáner real,
+  getUserMedia, vídeo de cámara emulada y probes QR nativos. No hay cámara física.
+- Mantener `CERTICHAIN_TEST_CAMERA=0` al ejecutar harnesses. Registrar esos
+  escenarios como SKIP/NOT_RUN, nunca PASS, con motivo exacto:
+  «Omitidas por instrucción del usuario; no hay cámara física disponible».
+- Conservar funcionalidad y pruebas existentes; en suites mixtas excluir de
+  forma explícita y acotada solo los escenarios de cámara, incluidos dobles
+  que prueben permisos/captura/ciclo de vida. No omitir toda la suite.
+- Conservar comprobaciones independientes: códigos manuales, enlaces, generación
+  QR, decodificación de imagen estática, comparación PDF, Auth, backend,
+  permisos SQL y blockchain. Este pendiente de hardware no bloquea fases
+  posteriores ni justifica reabrir 8D.
 
 - Antes de cambiar código, leer los documentos relevantes y exponer supuestos.
 - Realizar cambios pequeños, focalizados y coherentes con el alcance solicitado.

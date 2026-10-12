@@ -78,3 +78,12 @@ No crear ADR para cada detalle menor; reservarlos para decisiones caras de rever
 
 Comparación por hash candidato y escáner público 8C:
 [ADR-0013](adr/0013-public-candidate-hash-and-qr-scanning.md).
+
+Diseño blockchain 9A aceptado el 12/10/2026, implementación pendiente:
+
+- [ADR-0014: red, herramientas y autoridad EVM](adr/0014-evm-network-toolchain-and-authority.md).
+- [ADR-0015: compromiso privado y anclaje durable](adr/0015-private-commitments-and-durable-anchoring.md).
+
+0014 resuelve las recomendaciones históricas 0005/0006 (que no llegaron a
+crearse); no reutiliza esos números. Interfaz y protocolo normativos en
+[PHASE9A_BLOCKCHAIN_SPEC.md](PHASE9A_BLOCKCHAIN_SPEC.md).

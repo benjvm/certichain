@@ -101,119 +101,58 @@ deben ser coherentes y `expires_at >= issued_at` si existe expiración.
 7A prepara el almacenamiento y la reserva; la ejecución autenticada se implementa
 en 7B.
 
-## Modelo futuro propuesto (no es el contrato vigente)
+## Esquema actual y propuesta 9C
 
-### `profiles`
+Tablas implementadas: public.profiles, institutions, institution_members,
+certificates, certificate_issuance_operations; certichain_private.public_verification_budget.
+profiles no tiene avatar_path; institutions usa verification_status, no status/approved,
+y no tiene logo_path. institution_members tiene id UUID y UNIQUE(institution_id,user_id),
+con roles owner/admin/issuer; no viewer. No existen certificate_types,
+blockchain_records ni verification_events. Los diseños antiguos de esas tablas
+se retiran de la propuesta vigente; no se han aplicado ni necesitan migrarse.
 
-| Columna | Tipo | Regla |
-|---|---|---|
-| id | uuid | PK y FK a `auth.users(id)` |
-| full_name | text | obligatorio |
-| avatar_path | text | opcional |
-| created_at | timestamptz | default `now()` |
-| updated_at | timestamptz | actualizado por trigger |
+La migración nueva 9C creará las tablas privadas siguientes y las UNIQUE de enlace
+indicadas en la especificación, sin modificar completed ni el enum active/revoked
+y sin backfill de certificados:
 
-El correo y la contraseña no se duplican aquí.
+| Tabla propuesta (no existe) | Responsabilidad |
+|---|---|
+| blockchain_deployments | Anvil/Sepolia, chain ID, contrato/version, runtime/genesis/bloque de despliegue y política de evidencia |
+| blockchain_issuers | institución↔issuerId opaco estable; configuración deseada/observada de signer y permisos, sync durable |
+| certificate_anchors | certificado/emisión coherentes, K/H/salt/C inmutables, vínculo al deployment/emisor |
+| blockchain_operations | una operación lógica issue/revoke o cambio administrativo, actor autorizado, idempotencia, estados y lease |
+| blockchain_transaction_attempts | varios intentos/replacements de la misma operación; hash/nonce/raw/fees, receipt/bloque/hash/evento |
+| blockchain_signer_nonces | exclusión por firmante/deployment, reserva de nonce y operación sin resolver |
 
-### `institutions`
+Especificación de campos, CHECK/FK/UNIQUE compuestas, índices, estados,
+observaciones orphaned, permisos, retención y recuperación:
+[PHASE9A_BLOCKCHAIN_SPEC.md](PHASE9A_BLOCKCHAIN_SPEC.md), secciones 6–8.
+RLS sin políticas cliente y grants retirados, también service_role sobre tablas;
+RPC estrechas con EXECUTE técnico, SECURITY DEFINER/search_path vacío.
+No SELECT de salt/hash por clientes ni nuevas escrituras directas de certificates.
 
-| Columna | Tipo | Regla |
-|---|---|---|
-| id | uuid | PK, default UUID aleatorio |
-| name | text | obligatorio |
-| slug | text | unique |
-| website | text | opcional |
-| logo_path | text | opcional |
-| status | text | check: pending/approved/suspended/rejected |
-| created_at | timestamptz | default `now()` |
-| updated_at | timestamptz | default `now()` |
+Operación lógica distinta de tx: un replacement no crea otro certificado ni salt.
+La solicitud de anclaje explícita sucede después de publicación SQL coherente;
+no hay atomicidad PostgreSQL/EVM, ni transacción abierta esperando RPC.
+Históricos sin evidencia no se convierten en anclables por inventar campos.
+Un publicado anterior elegible requiere acción explícita autorizada para anclar.
 
-### `institution_members`
-
-| Columna | Tipo | Regla |
-|---|---|---|
-| institution_id | uuid | FK, parte de PK compuesta |
-| user_id | uuid | FK a `profiles`, parte de PK |
-| role | text | check: owner/issuer/viewer |
-| created_at | timestamptz | default `now()` |
-
-La pertenencia sustituye un único `role` global y permite que una persona participe en varias instituciones.
-
-### `certificate_types`
-
-| Columna | Tipo | Regla |
-|---|---|---|
-| id | uuid | PK |
-| institution_id | uuid | FK |
-| name | text | obligatorio |
-| description | text | opcional |
-| active | boolean | default true |
-
-Unique recomendado: `(institution_id, lower(name))` mediante índice de expresión.
-
-### `certificates`
-
-La tabla actual conserva `holder_id`, `issued_by`, `credential_code`,
-`document_path` y `document_hash` text nullable, y estados `active`/`revoked`.
-7A añadió `issuance_operation_id` nullable y la inmutabilidad de filas
-vinculadas. 8A reutiliza `credential_code`, UUID aleatorio independiente generado
-por 7B, único e inmutable en filas publicadas. No añade public_id; blockchain se modelará en otra migración, sin anticipar sus
-estados en esta tabla.
-
-### `blockchain_records`
-
-| Columna | Tipo | Regla |
-|---|---|---|
-| id | uuid | PK |
-| certificate_id | uuid | FK |
-| operation | text | issue/revoke |
-| network | text | identificador de red |
-| chain_id | bigint | obligatorio |
-| contract_address | text | obligatorio |
-| transaction_hash | text | unique |
-| block_number | bigint | opcional hasta confirmar |
-| payload_hash | bytea | 32 bytes |
-| status | text | pending/confirmed/failed |
-| error_code | text | opcional, sin secretos |
-| created_at | timestamptz | default `now()` |
-| confirmed_at | timestamptz | opcional |
-
-### `verification_events`
-
-| Columna | Tipo | Regla |
-|---|---|---|
-| id | bigint identity | PK |
-| certificate_id | uuid | FK opcional para not_found seguro |
-| result | text | conjunto cerrado de resultados |
-| method | text | qr/code/file |
-| request_fingerprint | text | opcional, seudonimizado y con retención |
-| created_at | timestamptz | default `now()` |
-
-Esta tabla es opcional para el primer incremento. No almacenar IP sin justificación y política de retención.
-
-## Relaciones del modelo futuro
+Relaciones futuras (todas las entidades BLOCKCHAIN/CERTIFICATE_ANCHORS son propuestas):
 
 ```mermaid
 erDiagram
-    PROFILES ||--o{ INSTITUTION_MEMBERS : pertenece
-    INSTITUTIONS ||--o{ INSTITUTION_MEMBERS : contiene
-    INSTITUTIONS ||--o{ CERTIFICATE_TYPES : define
-    INSTITUTIONS ||--o{ CERTIFICATES : emite
-    PROFILES ||--o{ CERTIFICATES : recibe
-    CERTIFICATES ||--o{ BLOCKCHAIN_RECORDS : registra
-    CERTIFICATES ||--o{ VERIFICATION_EVENTS : verifica
+    CERTIFICATES ||--o{ CERTIFICATE_ANCHORS : anclaje_explicito
+    CERTIFICATE_ISSUANCE_OPERATIONS ||--o{ CERTIFICATE_ANCHORS : publicacion_coherente
+    BLOCKCHAIN_DEPLOYMENTS ||--o{ BLOCKCHAIN_ISSUERS : configura
+    INSTITUTIONS ||--o{ BLOCKCHAIN_ISSUERS : atribucion_privada
+    BLOCKCHAIN_ISSUERS ||--o{ CERTIFICATE_ANCHORS : emisor
+    CERTIFICATE_ANCHORS ||--o{ BLOCKCHAIN_OPERATIONS : issue_revoke
+    BLOCKCHAIN_OPERATIONS ||--o{ BLOCKCHAIN_TRANSACTION_ATTEMPTS : intentos
 ```
 
-## Índices futuros propuestos
-
-- `certificates(holder_id, created_at desc)` si la paginación lo requiere.
-- `certificates(institution_id, created_at desc)`.
-- 8A reutiliza el índice UNIQUE de `certificates(credential_code)`; no necesita
-  otro índice para QR. La unicidad de idempotencia reside en
-  `(institution_id, idempotency_key)` de operaciones.
-- `blockchain_records(certificate_id, operation, created_at desc)`.
-- Unique `blockchain_records(chain_id, transaction_hash)`.
-- `verification_events(certificate_id, created_at desc)` si se activa historial.
+certificate.status, issuance.completed, estado de anclaje y file_integrity siguen
+separados; confirmado no equivale a finalizado. La tabla de presupuesto existente
+no almacena historial ni IP. No se propone verification_events para esta demo.
 
 ## RLS vigente
 

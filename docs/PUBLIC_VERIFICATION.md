@@ -21,6 +21,18 @@ estos cambios 8A; no se ejecutó ni se observó un nuevo GitHub Actions para 8A.
 
 ## Contrato v1
 
+Actualización de diseño 9A (12/10/2026): v1 y sus RPC permanecen intactos;
+credential_code, enlaces y QR conservan formato. Blockchain aún no integrada.
+La futura ampliación usará endpoint/schema v2 separado, con estado del registro,
+evidencia EVM, integridad de copia y fechas/orígenes independientes. Campos
+permitidos, confirmaciones/finalidad y contraste en explorador:
+[PHASE9A_BLOCKCHAIN_SPEC.md](PHASE9A_BLOCKCHAIN_SPEC.md), sección 10.
+El hash esperado no se publicará tampoco en cadena: se registra un compromiso
+con salt privado. Sin apertura, match v1 sigue confiando en Supabase; no se
+promete comparación documental independiente. RPC caído no significa
+not_found, revocado o integrity_mismatch. No se anuncia confirmado on-chain
+por tener completed/valid off-chain.
+
 `POST /functions/v1/verify-certificate`, sin sesión Auth, Authorization ni apikey.
 JSON UTF-8, Content-Type `application/json` (opcional `; charset=utf-8`), máximo
 **2048 bytes reales**, incluso sin Content-Length. Solo un campo permitido:

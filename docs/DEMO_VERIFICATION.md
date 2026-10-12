@@ -5,11 +5,15 @@ con configuración pública válida y HTTPS loopback. Crea un stack **nuevo** fu
 del checkout, usa datos sintéticos y lo destruye en `finally`. Preserva el stack
 habitual `certichain`/54321. No ejecuta despliegues ni escribe blockchain.
 
-Estado al 10/10/2026: 8D publicada en 6235486. Actions 37373509169 intento 1 no
-ejecutó pasos por fallo interno/adquisición de runners hosted; aceptación CI
-pendiente. Resultados locales nuevos en [PHASE8_ACCEPTANCE.md](PHASE8_ACCEPTANCE.md),
-publicación/rerun exclusivamente del operador según
-[PHASE8_OPERATOR_CHECKLIST.md](PHASE8_OPERATOR_CHECKLIST.md).
+Estado al 12/10/2026: Actions 38280055013 intento 1 success en
+2066e908af30913462cf3daf77324eab2a63dfc4, database/flutter/android. Fallos y
+límites conservados en [PHASE8_ACCEPTANCE.md](PHASE8_ACCEPTANCE.md).
+Instrucción vigente: CERTICHAIN_TEST_CAMERA=0; todas las pruebas de cámara,
+permisos/ciclo de vida, getUserMedia, vídeo emulado y QR nativo SKIP/NOT_RUN:
+«Omitidas por instrucción del usuario; no hay cámara física disponible».
+Las instrucciones opt-in inferiores documentan una capacidad existente y no
+autorizan ejecutarla ahora. Mantener códigos, enlaces, QR estático, PDF/Auth/SQL;
+no reabrir 8D por hardware ni repetir entornos por documentación 9A.
 
 ## Preparación
 
