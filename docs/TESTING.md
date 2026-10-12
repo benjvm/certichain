@@ -6,6 +6,68 @@ evidencia histórica. Para ejecutar ahora, usar [DEMO_VERIFICATION.md](DEMO_VERI
 y la matriz de [PHASE8_ACCEPTANCE.md](PHASE8_ACCEPTANCE.md).
 
 
+## Cámara Web opt-in — mantenimiento de CI del 12/10/2026
+
+La [ejecución 38273699664](https://github.com/benjvm/certichain/actions/runs/38273699664)
+del SHA `6b46d05697ff17254993a239f2289b46a03df7e5` pasó `android` y `flutter`,
+pero `database` falló en `public_verification_browser.mjs:582` esperando
+`Código identificado` (25 segundos). Los logs confirman el timeout de captura;
+no prueban una relación causal con límites de descarga Docker.
+
+`CERTICHAIN_TEST_CAMERA` vale `0` por defecto y explícitamente en `database`.
+`1` habilita la cámara voluntariamente; cualquier otro valor se rechaza.
+El helper compartido omite los callbacks y flags de cámara con `0`; los dos
+harnesses tampoco generan vídeos ni solicitan permisos en ese modo. Se omiten
+permiso denegado/reintento, captura/detección anónima, confirmación/detecciones
+repetidas/liberación de tracks y detección/confirmación con sesión (esta última
+en el harness público). Los escenarios se registran como `SKIP` con razón.
+Los errores de escenarios habilitados siguen abortando, sin cambiar plazos.
+
+Se mantienen QR/decodificación independiente de PNG, clipboard, enlace anónimo,
+entrada manual, comparación de PDF/hash, estados/error/cooldown, Auth, Storage,
+PostgreSQL y aislamiento. La continuación usa el código del certificado realmente
+emitido en el formulario; no simula backend. Siguen los tests unitarios del
+escáner, todas las suites y builds Web, y el job Android independiente.
+`public-verification-e2e/result.json` y `phase8d-evidence/result.json` contienen
+`camera_enabled`, `camera_scenarios` y contadores de aserciones/POST ejecutados;
+release también conserva la etapa SKIP. No se afirma cobertura completa del escáner.
+Los números anteriores de este documento son evidencia histórica de su modo/fecha,
+no expectativas fijas para el modo sin cámara.
+
+Comandos exactos y prerrequisitos para ambos modos:
+[DEMO_VERIFICATION.md](DEMO_VERIFICATION.md). La siguiente Actions debe confirmar
+los SKIP, la continuidad de PDF/estados/aislamiento y los tres jobs para el nuevo
+SHA. La captura permanece pendiente de validación específica en CI Linux.
+
+Validación local de este cambio: Windows, Node 24.14.0, Chrome 155.0.8059.39,
+Flutter 3.47.4 y CLI 2.117.0, sobre un stack propio descartable. Sin cámara,
+el harness público pasa **67 aserciones, 15 verify y 4 compare POST**, con dos
+SKIP; release pasa **126 aserciones y 141 comprobaciones de artefactos**,
+1 emisión, 11 verify y 24 compare POST, con un SKIP. Se comprobó durante release
+la ausencia de flags de cámara simulada y de `camera.y4m`; la evidencia no contiene
+`qr_detection_ms`. Los dos builds Web complementarios y el release se recompilaron.
+El opt-in público también pasa: **74 aserciones, 16 verify y 4 compare POST**,
+con ambos escenarios de captura ejecutados. Estos contadores son resultados
+observados de cada modo, no constantes requeridas por los scripts.
+Release con cámara también pasa: **126 aserciones y 141 checks de artefactos**,
+1 emisión, 11 verify y 24 compare POST, con captura PASS y tiempo de detección
+real. Este segundo recorrido reutilizó el build recién compilado para el mismo
+stack (`build_reused: true`) y guardó evidencia separada en
+`phase8d-evidence-camera`; el modo sin cámara está en `phase8d-evidence-nocamera`.
+Los dos opt-in se validaron en Windows; esto no acredita captura en CI Linux ni
+cámara física, que requieren validación específica.
+
+Formato Deno de los cuatro `.mjs`, sintaxis Node, `actionlint 1.7.12` y
+`git diff --check` pasan. Pasan 8 tests Node del helper, 45 checks reales de
+Chrome y los 40 tests Flutter de `phase8c_test.dart`/`phase8d_test.dart`, incluida
+la lógica del escáner sin dispositivo. El lint configurado de funciones pasa
+(20 archivos). Para las herramientas Node se ejecutó lint con
+`--rules-exclude=no-process-global,no-node-globals,no-inner-declarations,require-await`:
+estas categorías del lint genérico Deno ya aparecen en HEAD (globals Node,
+funciones internas y dobles de prueba async); no se cambió el lint del CI.
+Los jobs Android/Flutter son idénticos a HEAD. No se repitieron las suites
+SQL/HTTP independientes ni se lanzó Actions, commit, push o despliegue.
+
 ## Pirámide
 
 - Muchas pruebas unitarias para entidades, casos de uso, mapeos y estados.

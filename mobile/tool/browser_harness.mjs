@@ -1,6 +1,7 @@
 import { spawn, spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import process from "node:process";
 import { setTimeout as delay } from "node:timers/promises";
 
 // Record the checkout actually exercised, without filenames or Git diagnostics.
@@ -62,6 +63,42 @@ export function cdpFailure(method, detail = {}) {
   );
   error.transientNavigation = transient;
   return error;
+}
+
+// Video capture is opt-in in both Web journeys. Disabled scenarios never run.
+export function cameraTestMode(env = process.env, report = console.log) {
+  const value = env.CERTICHAIN_TEST_CAMERA ?? "0";
+  if (!["0", "1"].includes(value)) {
+    throw new Error("CERTICHAIN_TEST_CAMERA must be 0 or 1");
+  }
+  const enabled = value === "1", scenarios = [];
+  return {
+    enabled,
+    scenarios,
+    chromeArgs(video) {
+      return enabled
+        ? [
+          "--use-fake-device-for-media-stream",
+          `--use-file-for-fake-video-capture=${video}`,
+        ]
+        : [];
+    },
+    async run(stage, action) {
+      if (!enabled) {
+        const skipped = {
+          stage,
+          result: "SKIP",
+          reason:
+            "CERTICHAIN_TEST_CAMERA=0; camera capture requires explicit opt-in",
+        };
+        scenarios.push(skipped);
+        report(JSON.stringify(skipped));
+        return;
+      }
+      await action();
+      scenarios.push({ stage, result: "PASS" });
+    },
+  };
 }
 
 export async function launchChrome(profile, args = [], timeout = 20000) {

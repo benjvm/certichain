@@ -16,6 +16,7 @@ import { basename, extname, join, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 import { setTimeout as delay } from "node:timers/promises";
 import {
+  cameraTestMode,
   connectCdp,
   evaluate,
   launchChrome,
@@ -37,6 +38,7 @@ const mobile = resolve("."),
   backend = resolve(process.env.CERTICHAIN_TEST_BACKEND_ROOT ?? "..");
 const revision = sourceRevision(mobile);
 const evaluatedAt = new Date().toISOString();
+const camera = cameraTestMode();
 const { fixture, check, until } = await import(
   pathToFileURL(join(backend, "supabase/tests/local_issuance_fixture.mjs"))
 );
@@ -123,7 +125,7 @@ writeFileSync(join(directory, "limit.pdf"), Buffer.alloc(8388608));
 writeFileSync(join(directory, "oversize.pdf"), Buffer.alloc(8388609));
 const cameraVideo = join(directory, "camera.y4m");
 // Chrome opens this file when the camera starts, after the real QR is captured.
-writeFileSync(cameraVideo, "");
+if (camera.enabled) writeFileSync(cameraVideo, "");
 
 try {
   process.chdir(backend);
@@ -367,8 +369,7 @@ try {
   });
   const launched = await launchChrome(join(directory, "chrome"), [
     `--ignore-certificate-errors-spki-list=${spki}`,
-    "--use-fake-device-for-media-stream",
-    `--use-file-for-fake-video-capture=${cameraVideo}`,
+    ...camera.chromeArgs(cameraVideo),
     "about:blank",
   ]);
   chrome = launched.child;
@@ -690,7 +691,7 @@ try {
   writeFileSync(join(evidence, "qr-synthetic.png"), png);
   decodeQr(png, link);
   assertions++;
-  qrTestVideo(png, cameraVideo);
+  if (camera.enabled) qrTestVideo(png, cameraVideo);
   writeFileSync(join(evidence, "qr-synthetic.png"), png);
   checkpoint("holder-download-share");
   const context =
@@ -706,32 +707,33 @@ try {
   await ready(anonymous, "Registro encontrado y vigente");
   verify(publicPosts === before + 1, "Anonymous link/init single public query");
   checkpoint("anonymous-link");
-  stage = "camera-real-decoder";
   await click(anonymous, "Consultar otro código");
-  await browser("Browser.setPermission", {
-    permission: { name: "camera" },
-    setting: "denied",
-    origin,
-    browserContextId: context,
-  });
-  await click(anonymous, "Escanear QR");
-  await outcome(anonymous, "Permiso de cámara denegado");
-  await browser("Browser.setPermission", {
-    permission: { name: "camera" },
-    setting: "granted",
-    origin,
-    browserContextId: context,
-  });
-  const detectStarted = Date.now();
-  await click(anonymous, "Activar cámara");
-  try {
-    await outcome(anonymous, "Verificar código identificado");
-  } catch (error) {
-    // Only allowlisted media state and the synthetic anonymous route; no raw
-    // device labels, application text, URLs, frames or decoded payload in JSON.
-    cameraDiagnostic = await evaluate(
-      anonymous,
-      `({
+  await camera.run("camera-real-decoder", async () => {
+    stage = "camera-real-decoder";
+    await browser("Browser.setPermission", {
+      permission: { name: "camera" },
+      setting: "denied",
+      origin,
+      browserContextId: context,
+    });
+    await click(anonymous, "Escanear QR");
+    await outcome(anonymous, "Permiso de cámara denegado");
+    await browser("Browser.setPermission", {
+      permission: { name: "camera" },
+      setting: "granted",
+      origin,
+      browserContextId: context,
+    });
+    const detectStarted = Date.now();
+    await click(anonymous, "Activar cámara");
+    try {
+      await outcome(anonymous, "Verificar código identificado");
+    } catch (error) {
+      // Only allowlisted media state and the synthetic anonymous route; no raw
+      // device labels, application text, URLs, frames or decoded payload in JSON.
+      cameraDiagnostic = await evaluate(
+        anonymous,
+        `({
       videos: [...document.querySelectorAll('video')].map(v => ({
         width: v.videoWidth, height: v.videoHeight, ready_state: v.readyState,
         tracks: v.srcObject ? v.srcObject.getTracks().map(t => ({
@@ -739,31 +741,49 @@ try {
         })) : []
       }))
     })`,
+      );
+      await capturePublic(anonymous, "failure-synthetic");
+      throw error;
+    }
+    timings.qr_detection_ms = Date.now() - detectStarted;
+    before = publicPosts;
+    await delay(500);
+    verify(
+      publicPosts === before,
+      "Repeated frames require explicit confirmation",
     );
-    await capturePublic(anonymous, "failure-synthetic");
-    throw error;
+    await click(anonymous, "Verificar código identificado");
+    await outcome(anonymous, "Registro encontrado y vigente");
+    verify(
+      publicPosts === before + 1 && decoderSeen,
+      "One confirmation; real local ZXing decoder",
+    );
+    verify(
+      await evaluate(
+        anonymous,
+        "[...document.querySelectorAll('video')].every(v=>!v.srcObject || v.srcObject.getTracks().every(t=>t.readyState==='ended'))",
+      ),
+      "Camera tracks stopped after detection",
+    );
+    checkpoint("camera-real-decoder");
+  });
+  if (!camera.enabled) {
+    stages.push({
+      ...camera.scenarios.at(-1),
+      elapsed_ms: Date.now() - started,
+    });
+    stage = "manual-issued-code";
+    before = publicPosts;
+    await enter(anonymous, "Código del certificado", row.credential_code);
+    await click(anonymous, "Verificar");
+    await outcome(anonymous, "Registro encontrado y vigente");
+    verify(
+      publicPosts === before + 1,
+      "One manual query for the actual issued credential",
+    );
+    checkpoint("manual-issued-code");
   }
-  timings.qr_detection_ms = Date.now() - detectStarted;
-  before = publicPosts;
-  await delay(500);
-  verify(
-    publicPosts === before,
-    "Repeated frames require explicit confirmation",
-  );
-  await click(anonymous, "Verificar código identificado");
-  await outcome(anonymous, "Registro encontrado y vigente");
-  verify(
-    publicPosts === before + 1 && decoderSeen,
-    "One confirmation; real local ZXing decoder",
-  );
-  verify(
-    await evaluate(
-      anonymous,
-      "[...document.querySelectorAll('video')].every(v=>!v.srcObject || v.srcObject.getTracks().every(t=>t.readyState==='ended'))",
-    ),
-    "Camera tracks stopped after detection",
-  );
-  checkpoint("camera-real-decoder");
+  stage = "pdf-comparison";
   for (
     const [file, message] of [[original, "El PDF coincide byte a byte"], [
       renamed,
@@ -989,6 +1009,8 @@ try {
         mode: "release",
         build_reused: process.env.CERTICHAIN_RELEASE_SKIP_BUILD === "1",
         result: "PASS",
+        camera_enabled: camera.enabled,
+        camera_scenarios: camera.scenarios,
         node: process.versions.node,
         chrome: browserInfo.Browser,
         assertions,
@@ -1005,7 +1027,9 @@ try {
     ) + "\n",
   );
   console.log(
-    `PASS 8D production release: ${assertions} assertions; ${publicPosts} verify, ${comparePosts} compare POST`,
+    `PASS 8D production release: ${assertions} assertions; ${publicPosts} verify, ${comparePosts} compare POST; camera capture ${
+      camera.enabled ? "enabled" : "SKIP"
+    }`,
   );
 } catch (error) {
   writeFileSync(
@@ -1016,6 +1040,8 @@ try {
         evaluated_at: evaluatedAt,
         stage,
         result: "FAIL",
+        camera_enabled: camera.enabled,
+        camera_scenarios: camera.scenarios,
         error_type: error.constructor.name,
         camera: cameraDiagnostic,
         elapsed_ms: Date.now() - started,

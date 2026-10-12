@@ -14,6 +14,7 @@ jobs:
     timeout-minutes: 65
     env:
       CERTICHAIN_TEST_DISPOSABLE: '1'
+      CERTICHAIN_TEST_CAMERA: '0'
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -103,7 +104,7 @@ jobs:
           node prepare_decoder.mjs
           node prepare_decoder.mjs --check
           git diff --exit-code -- ../web/decoder
-      - name: Public Flutter Web, real emulated camera, private PDF comparison, QR and main startup failure
+      - name: Public Flutter Web, links, private PDF comparison, QR and main startup failure (camera opt-in)
         working-directory: mobile
         env:
           CERTICHAIN_TEST_DISPOSABLE: '1'
@@ -111,7 +112,7 @@ jobs:
           flutter build web --no-web-resources-cdn --target=tool/public_verification_browser.dart --output=build/public-verification-e2e
           flutter build web --debug --no-web-resources-cdn --base-href=/production/ --dart-define=SUPABASE_URL=http://127.0.0.1:54321 --dart-define=PUBLIC_VERIFICATION_BASE_URL=http://127.0.0.1:7357/production/ --output=build/public-verification-main
           node tool/public_verification_browser.mjs
-      - name: Production main.dart release over HTTPS, real UI and complete public journey
+      - name: Production main.dart release over HTTPS and public journey (camera opt-in)
         working-directory: mobile
         env:
           CERTICHAIN_TEST_DISPOSABLE: '1'

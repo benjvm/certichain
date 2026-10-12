@@ -1,11 +1,64 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  cameraTestMode,
   cdpFailure,
   evaluate,
   navigateDocument,
   sourceRevision,
 } from "./browser_harness.mjs";
+
+test("camera capture defaults to SKIP and never runs media callbacks or flags", async () => {
+  for (const env of [{}, { CERTICHAIN_TEST_CAMERA: "0" }]) {
+    const logs = [], camera = cameraTestMode(env, (line) => logs.push(line));
+    assert.equal(camera.enabled, false);
+    assert.deepEqual(camera.chromeArgs("unused.y4m"), []);
+    await camera.run("capture", () => {
+      throw new Error(
+        "Disabled camera requested permissions or generated video",
+      );
+    });
+    assert.deepEqual(camera.scenarios, [{
+      stage: "capture",
+      result: "SKIP",
+      reason:
+        "CERTICHAIN_TEST_CAMERA=0; camera capture requires explicit opt-in",
+    }]);
+    assert.deepEqual(logs.map(JSON.parse), camera.scenarios);
+  }
+});
+
+test("camera opt-in executes capture and records PASS only after success", async () => {
+  const camera = cameraTestMode({ CERTICHAIN_TEST_CAMERA: "1" });
+  assert.deepEqual(camera.chromeArgs("real-qr.y4m"), [
+    "--use-fake-device-for-media-stream",
+    "--use-file-for-fake-video-capture=real-qr.y4m",
+  ]);
+  let calls = 0;
+  await camera.run("capture", async () => {
+    assert.deepEqual(camera.scenarios, []);
+    await Promise.resolve();
+    calls++;
+  });
+  assert.equal(calls, 1);
+  assert.deepEqual(camera.scenarios, [{ stage: "capture", result: "PASS" }]);
+  const failure = new Error("Timed out: Código identificado");
+  await assert.rejects(
+    camera.run("capture-failure", () => {
+      throw failure;
+    }),
+    (error) => error === failure,
+  );
+  assert.equal(camera.scenarios.length, 1);
+});
+
+test("camera configuration rejects ambiguous values", () => {
+  for (const value of ["", "true", "2", "yes"]) {
+    assert.throws(() => cameraTestMode({ CERTICHAIN_TEST_CAMERA: value }), {
+      message: "CERTICHAIN_TEST_CAMERA must be 0 or 1",
+    });
+  }
+});
 
 test("release evidence identifies the actual clean or edited checkout without paths", () => {
   const sha = "62354866e1c127e445c369bedee58742581ec2cd";

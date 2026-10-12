@@ -1,5 +1,6 @@
 import { createServer } from "node:http";
 import {
+  cameraTestMode,
   connectCdp,
   evaluate,
   launchChrome,
@@ -21,6 +22,8 @@ if (process.env.CERTICHAIN_TEST_DISPOSABLE !== "1") {
 }
 const build = resolve("build/public-verification-e2e");
 const mainBuild = resolve("build/public-verification-main");
+const camera = cameraTestMode();
+rmSync(join(build, "result.json"), { force: true });
 const backend = resolve(process.env.CERTICHAIN_TEST_BACKEND_ROOT ?? "..");
 const { fixture, check, until } = await import(
   pathToFileURL(join(backend, "supabase/tests/local_issuance_fixture.mjs"))
@@ -188,8 +191,7 @@ try {
     "No service key in Web build",
   );
   const launched = await launchChrome(profile, [
-    "--use-fake-device-for-media-stream",
-    `--use-file-for-fake-video-capture=${cameraVideo}`,
+    ...camera.chromeArgs(cameraVideo),
     "about:blank",
   ]);
   chrome = launched.child;
@@ -471,16 +473,18 @@ try {
     link,
   );
   assertions++;
-  qrTestVideo(
-    Buffer.from(
-      await evaluate(
-        page,
-        "document.documentElement.getAttribute('data-8b-qr')",
+  if (camera.enabled) {
+    qrTestVideo(
+      Buffer.from(
+        await evaluate(
+          page,
+          "document.documentElement.getAttribute('data-8b-qr')",
+        ),
+        "base64",
       ),
-      "base64",
-    ),
-    cameraVideo,
-  );
+      cameraVideo,
+    );
+  }
   const originalPath = join(profile, "original.pdf"),
     renamedPath = join(profile, "same-bytes-new-name.pdf"),
     changedPath = join(profile, "changed.pdf");
@@ -537,68 +541,93 @@ try {
     ),
     "Same-origin cookie present before public requests",
   );
-  const beforeScan = publicRequests;
-  await browser("Browser.setPermission", {
-    permission: { name: "camera" },
-    setting: "denied",
-    origin,
-    browserContextId,
-  });
-  const beforeDeniedCamera = publicRequests;
-  await command("click", { label: "Escanear QR" }, anonymous);
-  try {
-    await outcome(
-      "Permiso de cámara denegado. Puedes introducir el código manualmente.",
-      anonymous,
-    );
-  } catch (error) {
-    writeFileSync(
-      join(build, "camera-denied-diagnostic.png"),
-      Buffer.from(
-        (await anonymous("Page.captureScreenshot", { format: "png" })).data,
-        "base64",
-      ),
-    );
-    const permission = await evaluate(
-      anonymous,
-      "navigator.permissions.query({name:'camera'}).then(p => p.state)",
-    );
-    throw new Error(
-      `Camera denied deadline; browser permission=${permission}`,
-      { cause: error },
+  await camera.run(
+    "anonymous-camera-denial-detection-confirmation",
+    async () => {
+      const beforeScan = publicRequests;
+      await browser("Browser.setPermission", {
+        permission: { name: "camera" },
+        setting: "denied",
+        origin,
+        browserContextId,
+      });
+      const beforeDeniedCamera = publicRequests;
+      await command("click", { label: "Escanear QR" }, anonymous);
+      try {
+        await outcome(
+          "Permiso de cámara denegado. Puedes introducir el código manualmente.",
+          anonymous,
+        );
+      } catch (error) {
+        writeFileSync(
+          join(build, "camera-denied-diagnostic.png"),
+          Buffer.from(
+            (await anonymous("Page.captureScreenshot", { format: "png" })).data,
+            "base64",
+          ),
+        );
+        const permission = await evaluate(
+          anonymous,
+          "navigator.permissions.query({name:'camera'}).then(p => p.state)",
+        );
+        throw new Error(
+          `Camera denied deadline; browser permission=${permission}`,
+          { cause: error },
+        );
+      }
+      verify(
+        publicRequests === beforeDeniedCamera,
+        "Real camera denial makes no verification request",
+      );
+      await browser("Browser.setPermission", {
+        permission: { name: "camera" },
+        setting: "granted",
+        origin,
+        browserContextId,
+      });
+      await command("click", { label: "Activar cámara" }, anonymous);
+      await outcome("Código identificado", anonymous);
+      verify(
+        localDecoderSeen,
+        "Production decoder asset fetched locally; no CDN",
+      );
+      verify(
+        publicRequests === beforeScan,
+        "Real video scanner identifies without query",
+      );
+      await command(
+        "click",
+        { label: "Verificar código identificado" },
+        anonymous,
+      );
+      await outcome("Registro encontrado y vigente", anonymous);
+      verify(
+        publicRequests === beforeScan + 1,
+        "Repeated video detections yield one confirmed public query",
+      );
+      await until(
+        async () =>
+          await evaluate(
+            anonymous,
+            "[...document.querySelectorAll('video')].every(v => !v.srcObject || v.srcObject.getTracks().every(t => t.readyState === 'ended'))",
+          ),
+        "Camera resources released",
+      );
+    },
+  );
+  if (!camera.enabled) {
+    const beforeManual = publicRequests;
+    await command("enter", {
+      label: "Código del certificado",
+      value: record.credential_code,
+    }, anonymous);
+    await command("click", { label: "Verificar" }, anonymous);
+    await outcome("Registro encontrado y vigente", anonymous);
+    verify(
+      publicRequests === beforeManual + 1,
+      "Real issued code verified manually without camera",
     );
   }
-  verify(
-    publicRequests === beforeDeniedCamera,
-    "Real camera denial makes no verification request",
-  );
-  await browser("Browser.setPermission", {
-    permission: { name: "camera" },
-    setting: "granted",
-    origin,
-    browserContextId,
-  });
-  await command("click", { label: "Activar cámara" }, anonymous);
-  await outcome("Código identificado", anonymous);
-  verify(localDecoderSeen, "Production decoder asset fetched locally; no CDN");
-  verify(
-    publicRequests === beforeScan,
-    "Real video scanner identifies without query",
-  );
-  await command("click", { label: "Verificar código identificado" }, anonymous);
-  await outcome("Registro encontrado y vigente", anonymous);
-  verify(
-    publicRequests === beforeScan + 1,
-    "Repeated video detections yield one confirmed public query",
-  );
-  await until(
-    async () =>
-      await evaluate(
-        anonymous,
-        "[...document.querySelectorAll('video')].every(v => !v.srcObject || v.srcObject.getTracks().every(t => t.readyState === 'ended'))",
-      ),
-    "Camera resources released",
-  );
   async function compareFile(path, expected) {
     await command("click", { label: "Comparar mi PDF" }, anonymous);
     await until(
@@ -741,24 +770,26 @@ try {
     (await state()).public,
     "Existing other session can use public verification",
   );
-  await browser("Browser.setPermission", {
-    permission: { name: "camera" },
-    setting: "granted",
-    origin,
+  await camera.run("signed-in-camera-detection-confirmation", async () => {
+    await browser("Browser.setPermission", {
+      permission: { name: "camera" },
+      setting: "granted",
+      origin,
+    });
+    const beforeSignedScan = publicRequests;
+    await command("click", { label: "Escanear QR" });
+    await outcome("Código identificado");
+    await command("click", { label: "Verificar código identificado" });
+    await outcome("Certificado revocado");
+    await until(
+      async () => publicRequests === beforeSignedScan + 1,
+      "Signed-in scanner single confirmation",
+    );
+    verify(
+      (await state()).session === f.outsider.id,
+      "Real scanner also works with an existing session without using its credentials",
+    );
   });
-  const beforeSignedScan = publicRequests;
-  await command("click", { label: "Escanear QR" });
-  await outcome("Código identificado");
-  await command("click", { label: "Verificar código identificado" });
-  await outcome("Certificado revocado");
-  await until(
-    async () => publicRequests === beforeSignedScan + 1,
-    "Signed-in scanner single confirmation",
-  );
-  verify(
-    (await state()).session === f.outsider.id,
-    "Real scanner also works with an existing session without using its credentials",
-  );
   console.log(
     "Checked production adapters, anonymous links, history, states, QR, clipboard and private logout",
   );
@@ -830,8 +861,25 @@ try {
     "Bounded observed public queries, production budget unchanged",
   );
   if (failure) throw failure;
+  writeFileSync(
+    join(build, "result.json"),
+    JSON.stringify(
+      {
+        result: "PASS",
+        camera_enabled: camera.enabled,
+        camera_scenarios: camera.scenarios,
+        assertions,
+        verification_posts: publicRequests,
+        comparison_posts: comparisonRequests,
+      },
+      null,
+      2,
+    ) + "\n",
+  );
   console.log(
-    `PASS: ${assertions} host assertions; ${publicRequests} verification and ${comparisonRequests} comparison POSTs; real emulated camera/decoder/PDF; real Auth/Edge/PostgreSQL/QR/clipboard/history`,
+    `PASS: ${assertions} host assertions; ${publicRequests} verification and ${comparisonRequests} comparison POSTs; camera capture ${
+      camera.enabled ? "enabled" : "SKIP"
+    }; real PDF/Auth/Edge/PostgreSQL/QR/clipboard/history`,
   );
 } finally {
   sockets.forEach((s) => s.close());

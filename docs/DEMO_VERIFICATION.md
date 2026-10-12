@@ -34,6 +34,35 @@ Desde la raíz del repositorio:
 ./supabase/tests/run_phase8d.ps1 -Full
 ```
 
+La captura Web está desactivada por defecto, también en el CI habitual:
+`CERTICHAIN_TEST_CAMERA=0`. Ambos harnesses (`public_verification_browser.mjs`
+y `release_verification_browser.mjs`) registran los escenarios de cámara como
+`SKIP`, con razón explícita. No generan vídeo Y4M, no configuran dispositivos
+de cámara simulada ni solicitan permisos. El QR pintado y su decodificación
+independiente desde PNG siguen activos; la consulta previa a comparar PDF usa
+el código real emitido mediante entrada manual. Los contadores solo incluyen
+aserciones ejecutadas. Este modo no acredita captura ni detección del escáner.
+
+Desde raíz, con los requisitos anteriores, para ejecutar ambos harnesses:
+
+```powershell
+$env:CERTICHAIN_TEST_CAMERA = '0'
+./supabase/tests/run_phase8d.ps1 -Full
+# Opt-in específico de captura; mantiene los plazos y falla ante cualquier error.
+$env:CERTICHAIN_TEST_CAMERA = '1'
+./supabase/tests/run_phase8d.ps1 -Full
+Remove-Item Env:CERTICHAIN_TEST_CAMERA
+```
+
+Sin `-Full`, estos mismos valores controlan el recorrido release. Para un stack
+descartable ya preparado y builds correspondientes, desde `mobile/`:
+`node tool/public_verification_browser.mjs` y luego
+`node tool/release_verification_browser.mjs`, siempre secuenciales. En Bash se
+selecciona el modo anteponiendo `CERTICHAIN_TEST_CAMERA=0` o
+`CERTICHAIN_TEST_CAMERA=1` a cada comando. Solo se aceptan los valores `0` y `1`.
+La captura permanece pendiente de validación específica del entorno objetivo;
+los resultados históricos con cámara no validan el nuevo CI sin cámara.
+
 El script rechaza otras versiones Node, prepara un proyecto `certichain_8d_*`,
 regenera/verifica assets, construye release y ejecuta el recorrido. Cada etapa
 fallida aborta la ejecución y conserva un diagnóstico sanitizado. Finalmente
@@ -50,9 +79,11 @@ Si detener Docker falla, conserva ese directorio para inspección y comunica err
    contiene el código público.
 3. Abre ese enlace en otro contexto anónimo, con una cookie previa en el mismo
    origen. Comprueba una única consulta pública sin cookie/Authorization/apikey.
-4. Niega permiso de cámara, lo concede después y lee un vídeo de ese QR renderizado
+4. Solo con `CERTICHAIN_TEST_CAMERA=1`, niega permiso de cámara, lo concede después
+   y lee un vídeo de ese QR renderizado
    mediante getUserMedia y ZXing de producción. Confirma una sola consulta y
-   verifica que la cámara se detiene.
+   verifica que la cámara se detiene. Con `0`, registra `SKIP` y verifica mediante
+   entrada manual el código real emitido antes de continuar con el PDF.
 5. Selecciona el PDF original y la copia renombrada: `match`; cambia un byte:
    `integrity_mismatch`. Cancela selección, prueba vacío, 8 MiB+1 y exactamente
    8 MiB. El navegador envía únicamente código/hash, nunca el documento.
@@ -68,7 +99,8 @@ Si detener Docker falla, conserva ese directorio para inspección y comunica err
 
 En el host quedan solamente `mobile/build/phase8d-evidence/result.json` y capturas
 públicas sintéticas `comparison-*.png` y `qr-synthetic.png`. El JSON contiene etapas, versiones,
-contadores y tiempos; no payloads privados ni URLs firmadas. El build contiene
+contadores y tiempos, `camera_enabled` y `camera_scenarios` con PASS/SKIP y razón;
+no payloads privados ni URLs firmadas. El build contiene
 solo configuración pública; TLS, clave de servicio y fixtures técnicos quedan
 en temporales del host y se limpian. El certificado TLS tiene SAN loopback y el
 navegador de pruebas confía únicamente en su SPKI; la app mantiene HTTPS obligatorio
