@@ -237,8 +237,13 @@ Otros pendientes humanos/plataformas conservan su alcance en
   autorización institucional, clave/compromiso privado, estados separados,
   tablas futuras, firma/nonces, fallos/reorg y evidencia pública versionada.
   Sin integración, migraciones, despliegue, commit ni push en este encargo.
-- **9B — contrato y pruebas Foundry/Anvil: pendiente.** ABI/implementación,
-  permisos, duplicados, revocación irreversible, eventos, rotación, fuzz/invariantes.
+- **9B — contrato y pruebas Foundry/Anvil: completada localmente el 12/10/2026.**
+  CertificateRegistry v1 conforme a 9A, toolchain/dependencias congeladas y
+  compiladas, permisos/duplicados/revocación/eventos/rotación, fuzz/modelo e
+  invariantes, cobertura/gas y smoke RPC real sobre cadena propia descartable.
+  ABI y referencia normal reproducibles; manifiesto real invalidado tras reset.
+  Workflow independiente preparado; CI remoto del SHA nuevo no observado.
+  [Aceptación 9B](PHASE9B_ACCEPTANCE.md). No integración ni revocación desde app.
 - **9C — persistencia, adaptador, firma y reconciliación: pendiente.** Migración
   nueva privada, solicitud durable explícita, salts/backups, nonces/replacements,
   receipts/confirmaciones/finalidad, fault injection y preservación histórica.

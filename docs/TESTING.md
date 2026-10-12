@@ -1,5 +1,39 @@
 # Estrategia de pruebas
 
+## Fase 9B — contrato y Anvil local (12/10/2026)
+
+Foundry 1.8.5, Solidity 0.8.37, OpenZeppelin 5.7.0 y forge-std 1.17.0 congelados
+por commit/checksum. Configuración Cancun/optimizer 200/via_ir=false compilada
+en Windows x64. [Guía operativa](../blockchain/README.md) y
+[matriz completa de aceptación](PHASE9B_ACCEPTANCE.md), con comandos y límites.
+
+Desde raíz: `node blockchain/scripts/bootstrap.mjs` y
+`node blockchain/scripts/validate.mjs`. Preparan herramientas aisladas y ejecutan
+fmt/build, unit/fuzz/invariantes, vector Node/.NET, guards RPC, gas/snapshot,
+coverage, regeneración/comparación de artefactos y smoke Anvil real con limpieza.
+Validación repetida desde un clon temporal externo sin .tools/lib/out.
+No cambios ni pruebas de Flutter, Auth, SQL, Storage o funciones Supabase.
+
+Resultados: 21 unit/fuzz (cuatro propiedades ×512), seis escenarios de gas y
+dos invariantes agrupadas en un caso reportado por Foundry: 28 PASS reportados.
+Handler/modelo: 128 runs/depth 64, seed 0x9b20261012, 8.192 llamadas con operaciones
+válidas y rechazos comprobados. Código propio: 47/47 líneas, 63/63 sentencias,
+11/11 ramas reportadas y 10/10 funciones. Cobertura excluye dependencias/tests y
+no es demostración formal ni prueba de todas las subcondiciones.
+
+Anvil: 22 checks y 16 receipts canónicos (ocho exitosos y ocho rechazos esperados),
+runtime normal, eventos/estado, rotación, revocación, manifiesto y reset real que
+invalida la referencia. Solo se termina el proceso propio. Evidencia sanitizada
+en blockchain/evidence, LCOV en blockchain/coverage; outputs ignorados en Git.
+Nunca desplegar el build instrumentado: artifacts.mjs reconstruye normalmente.
+
+Workflow blockchain separado con acciones por SHA y resolución congelada,
+validado localmente con actionlint; **CI remoto del SHA nuevo no observado**.
+Los workflows anteriores permanecen intactos. Revoke en contrato no habilita
+revocación desde app: corresponde a fase 10. 9C/9D/9E pendientes.
+CERTICHAIN_TEST_CAMERA=0; cámara **NOT_RUN**:
+«Omitidas por instrucción del usuario; no hay cámara física disponible».
+
 ## Instrucción vigente de cámara y alcance 9A — 12/10/2026
 
 Por instrucción del usuario, omitir pruebas de captura, permisos/ciclo de vida

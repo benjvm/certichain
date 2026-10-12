@@ -1,0 +1,29 @@
+[profile.default]
+src = "src"
+test = "test"
+script = "script"
+out = "out"
+libs = ["lib"]
+solc_version = "0.8.37"
+evm_version = "cancun"
+optimizer = true
+optimizer_runs = 200
+via_ir = false
+dynamic_test_linking = false
+bytecode_hash = "ipfs"
+cbor_metadata = true
+gas_reports = ["CertificateRegistry"]
+fs_permissions = [{ access = "read", path = "./fixtures" }]
+
+[profile.default.fuzz]
+runs = 512
+seed = "0x9b20261012"
+
+[profile.default.invariant]
+runs = 128
+depth = 64
+fail_on_revert = true
+show_metrics = true
+
+[fmt]
+line_length = 110

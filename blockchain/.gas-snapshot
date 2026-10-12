@@ -1,0 +1,6 @@
+CertificateRegistryGasTest:testGasConfigure() (gas: 54519)
+CertificateRegistryGasTest:testGasDeploy() (gas: 674597)
+CertificateRegistryGasTest:testGasIssue() (gas: 101998)
+CertificateRegistryGasTest:testGasRead() (gas: 10987)
+CertificateRegistryGasTest:testGasRevoke() (gas: 37717)
+CertificateRegistryGasTest:testGasRotate() (gas: 37428)

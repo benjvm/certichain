@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "protocolVersion": 1,
+  "normativeBase": "b6051bc1c0489d84204ee1aae14e3feb7edf30e2",
+  "compiler": "0.8.37+commit.f401782d",
+  "foundry": {
+    "version": "1.8.5",
+    "commit": "51a52c59cffd940f76eddd0b4bb1791aa4b5ac7f"
+  },
+  "dependencies": [
+    {
+      "name": "openzeppelin-contracts",
+      "version": "5.7.0",
+      "commit": "cab19933c33c2ad1d4c7a84864a3601dddfd16f3",
+      "archiveSha256": "55d04b52de7ee78e036ec8fcf23f82fd65b05fc18c9f4a2bec825c224a85a178"
+    },
+    {
+      "name": "forge-std",
+      "version": "1.17.0",
+      "commit": "f3dae6e6ee381f25eb6a246f7da9b85c91a68219",
+      "archiveSha256": "e1eab5f0891018e368a0417bfe266d93f8b9af9484e5a15b15f87f1f4b7c50aa"
+    }
+  ],
+  "settings": {
+    "compilationTarget": {
+      "src/CertificateRegistry.sol": "CertificateRegistry"
+    },
+    "evmVersion": "cancun",
+    "libraries": {},
+    "metadata": {
+      "bytecodeHash": "ipfs"
+    },
+    "optimizer": {
+      "enabled": true,
+      "runs": 200
+    },
+    "remappings": [
+      ":@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
+      ":forge-std/=lib/forge-std/src/",
+      ":openzeppelin-contracts/=lib/openzeppelin-contracts/"
+    ]
+  },
+  "sources": {
+    "lib/openzeppelin-contracts/contracts/access/Ownable.sol": {
+      "keccak256": "0xff6d0bb2e285473e5311d9d3caacb525ae3538a80758c10649a4d61029b017bb"
+    },
+    "lib/openzeppelin-contracts/contracts/access/Ownable2Step.sol": {
+      "keccak256": "0xdcad8898fda432696597752e8ec361b87d85c82cb258115427af006dacf7128c"
+    },
+    "lib/openzeppelin-contracts/contracts/utils/Context.sol": {
+      "keccak256": "0x493033a8d1b176a037b2cc6a04dad01a5c157722049bbecf632ca876224dd4b2"
+    },
+    "src/CertificateRegistry.sol": {
+      "keccak256": "0xaaf80a9224fab2761e9f12a93969bdcc639f1618a29458786388d9f7dd6f8567"
+    }
+  },
+  "toolchainLockSha256": "911a219a4e02a61bfee36cf4c2114caa08d264eedb6494879911fae7043c2f97",
+  "foundryConfigSha256": "a88ef2f492fe9bbd3692c2b5e38c9c15a612fcf4517c3508ad34f7bdfe1f0ec0",
+  "testDynamicLinking": false,
+  "abiSha256": "e5c1c0dd0cb2d3e71ffb6f8dcd663b28ce337a8dc0ff4cc3afe13dca019ba652",
+  "creationCodeHash": "0xcf7c30c4eb60f05d8d1e32c80f90920d6d4cc4484b2e3c3a21fc50a1f13e3067",
+  "runtimeCodeHash": "0xa42546b2c85a5cac10660b194927686cf1147797b68088dc441fc50299f6da00",
+  "runtimeBytes": 2580,
+  "instrumented": false
+}

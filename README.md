@@ -29,7 +29,7 @@ certichain/
 │   └── seed.sql            # Datos locales no sensibles
 ├── blockchain/
 │   ├── src/                # Contratos Solidity
-│   ├── script/             # Despliegues
+│   ├── scripts/            # Bootstrap, despliegue Anvil y artefactos
 │   └── test/               # Pruebas de contratos
 ├── docs/                   # Especificaciones y decisiones
 ├── .github/workflows/      # CI
@@ -66,6 +66,8 @@ flutter create --org com.benjvm --project-name certichain .
 - [Modelo de datos](docs/DATABASE.md)
 - [Integración blockchain](docs/BLOCKCHAIN.md)
 - [Especificación técnica del protocolo 9A](docs/PHASE9A_BLOCKCHAIN_SPEC.md)
+- [Contrato Foundry/Anvil y comandos 9B](blockchain/README.md)
+- [Aceptación local y límites 9B](docs/PHASE9B_ACCEPTANCE.md)
 - [Seguridad](docs/SECURITY.md)
 - [Contrato vigente de emisión y acceso privado al PDF](docs/SECURE_ISSUANCE.md)
 - [Contrato, verificación pública y QR y comparación 8A–8C](docs/PUBLIC_VERIFICATION.md)
@@ -97,8 +99,11 @@ histórico de Actions 37373509169 se conserva en la aceptación. CI posterior:
 success en database/flutter/android para
 `2066e908af30913462cf3daf77324eab2a63dfc4`, sin acreditar cámara física ni blockchain.
 9A entrega decisiones/ABI objetivo/protocolo/persistencia futura, con Anvil,
-Sepolia y Foundry; contrato 9B, backend 9C, cliente 9D, aceptación 9E y revocación
-completa 10 siguen pendientes. Sin despliegue.
+Sepolia y Foundry. 9B implementa el contrato y valida localmente unit/fuzz/
+invariantes, cobertura/gas, despliegue/smoke Anvil real y artefactos reproducibles.
+CI blockchain independiente preparada, sin ejecución remota observada del nuevo
+SHA. Backend 9C, cliente 9D, aceptación 9E y revocación completa 10 siguen pendientes.
+Sin despliegue remoto; el Anvil de pruebas propio se resetea y descarta.
 
 ## Probar verificación y QR en Chrome local
 
@@ -137,7 +142,7 @@ y acciones del operador en [checklist 8D](docs/PHASE8_OPERATOR_CHECKLIST.md).
 Esta revisión trabaja solo en local; las ediciones posteriores necesitan CI del
 SHA que publique el operador.
 
-Dictamen al 12/10/2026: **9A especificada; blockchain aún no integrada**.
+Dictamen al 12/10/2026: **9B validada localmente; blockchain aún no integrada**.
 Comportamiento actual, DTO v1, códigos/enlaces/QR y PDF conservados. Omitir desde
 ahora todas las pruebas de cámara, con CERTICHAIN_TEST_CAMERA=0 y registro
 SKIP/NOT_RUN: «Omitidas por instrucción del usuario; no hay cámara física disponible».
@@ -149,3 +154,8 @@ Blockchain aportará evidencia externa de compromiso y revocación; comprobar un
 PDF contra ese compromiso requiere apertura autorizada. Supabase sigue a cargo
 de identidad, membresías, PDF, metadatos y atribución institucional. La comparación
 pública actual sigue confiando en su hash esperado privado.
+
+Para reproducir 9B desde un checkout limpio: `node blockchain/scripts/bootstrap.mjs`
+y `node blockchain/scripts/validate.mjs`. El contrato registra compromisos opacos
+y revocación; no demuestra que un commitment arbitrario corresponda a un PDF.
+Revoke probado en contrato no habilita revocación Auth/SQL/EVM desde la app.

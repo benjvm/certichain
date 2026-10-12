@@ -1,8 +1,15 @@
-# Diseño blockchain — decisión 9A
+# Blockchain — protocolo 9A y contrato local 9B
 
-Estado al 12/10/2026: **protocolo especificado, sin contrato ejecutable ni integración**.
+Estado al 12/10/2026: **contrato 9B implementado y validado localmente; sin integración**.
 Fuente normativa: [PHASE9A_BLOCKCHAIN_SPEC.md](PHASE9A_BLOCKCHAIN_SPEC.md).
 La emisión y verificación actuales continúan off-chain.
+
+CertificateRegistry v1, pruebas Foundry, despliegue/smoke RPC Anvil y artefactos
+reproducibles en [blockchain/README.md](../blockchain/README.md).
+Matriz, versiones, cobertura/gas y límites en
+[PHASE9B_ACCEPTANCE.md](PHASE9B_ACCEPTANCE.md). CI independiente preparada,
+sin ejecución remota observada del nuevo SHA. Revoke probado en contrato
+todavía no habilita revocación Auth/SQL/EVM desde la app.
 
 ## Aportación y límites
 
@@ -15,9 +22,10 @@ siguen confiando en backend/plataforma; el alumno no necesita wallet.
 ## Decisiones adoptadas
 
 - Anvil 31337 local; Ethereum Sepolia 11155111 para una sola demo testnet.
-- Solidity 0.8.37, Foundry v1.8.5 y OpenZeppelin Contracts v5.7.0 propuestos y
-  fijados para 9B; commits/fuentes en
-  [ADR-0014](adr/0014-evm-network-toolchain-and-authority.md). Sin instalaciones 9A.
+- Solidity 0.8.37, Foundry v1.8.5 y OpenZeppelin Contracts v5.7.0 fijados;
+  compatibilidad compilada en 9B, forge-std 1.17.0 para tests. Commits/fuentes en
+  [ADR-0014](adr/0014-evm-network-toolchain-and-authority.md), checksums en el lock
+  de blockchain. Sin instalaciones en la entrega histórica 9A.
 - Contrato mínimo sin proxies, NFT, tokens, transferencias, pagos ni multichain.
 - Administrador Ownable2Step separado del firmante operativo backend. Configurar
   signer y permisos issue/revoke por issuerId opaco estable. Cuenta operativa
@@ -58,10 +66,13 @@ anchor, operación lógica y múltiples intentos/replacements. completed contin�
 significando publicación off-chain; certificate.status sigue active/revoked.
 No atomicidad PostgreSQL/EVM, locks durante RPC ni backfill automático.
 
-## Entregas pendientes
+## Estado de entregas
 
-9B contrato/tests Foundry/Anvil; 9C migración, adaptador, firma, nonces y
+9B contrato/tests Foundry/Anvil completada localmente; 9C migración, adaptador, firma, nonces y
 reconciliación; 9D cliente/evidencia v2/apertura autorizada; 9E aceptación local;
 10 revocación completa. DTO/RPC v1, credential_code, QR y PDF actuales intactos.
 La especificación incluye matriz de errores/recuperación y criterios de prueba;
-ninguno se presenta como ejecutado en 9A.
+ninguno se presenta como ejecutado en 9A. La aceptación 9B registra exclusivamente
+lo ejecutado ahora, incluido reset/limpieza propios; su manifiesto Anvil es
+histórico y queda invalidado al descartar la instancia. ABI estable, referencia
+de build normal y ejemplo sintético se distinguen de ese manifiesto real.

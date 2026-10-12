@@ -1,0 +1,43 @@
+name: Blockchain registry
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  blockchain:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      CERTICHAIN_TEST_CAMERA: '0'
+    defaults:
+      run:
+        working-directory: blockchain
+    steps:
+      - name: Checkout clean sources
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - name: Use existing pinned Node version
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24.14.0
+      - name: Verify tags, official checksums and frozen dependency archives
+        run: node scripts/bootstrap.mjs
+      - name: Format, build, unit, fuzz, invariants, coverage, gas, artifacts and real Anvil RPC
+        run: node scripts/validate.mjs
+      - name: Generated artifacts remain reproducible
+        run: git diff --exit-code -- artifacts fixtures .gas-snapshot
+      - name: Upload sanitized blockchain evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: phase9b-blockchain-evidence
+          path: |
+            blockchain/evidence/
+            blockchain/coverage/lcov.info
+          if-no-files-found: error

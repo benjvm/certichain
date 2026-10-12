@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "foundry": {
+    "version": "1.8.5",
+    "tag": "v1.8.5",
+    "commit": "51a52c59cffd940f76eddd0b4bb1791aa4b5ac7f",
+    "repository": "https://github.com/foundry-rs/foundry.git",
+    "platforms": {
+      "win32-x64": {
+        "url": "https://github.com/foundry-rs/foundry/releases/download/v1.8.5/foundry_v1.8.5_win32_amd64.zip",
+        "checksumUrl": "https://github.com/foundry-rs/foundry/releases/download/v1.8.5/foundry_v1.8.5_win32_amd64.sha256",
+        "sha256": "21f86b563d87404a68481f513bf3e419780ee536307b89c658215ae6f8f5aa45"
+      },
+      "linux-x64": {
+        "url": "https://github.com/foundry-rs/foundry/releases/download/v1.8.5/foundry_v1.8.5_linux_amd64.tar.gz",
+        "checksumUrl": "https://github.com/foundry-rs/foundry/releases/download/v1.8.5/foundry_v1.8.5_linux_amd64.sha256",
+        "sha256": "6c66ffcc55fa4249197721baa3098bc208014ea1d8aa04b2ed50ac6bccffb226"
+      }
+    }
+  },
+  "solidity": {
+    "version": "0.8.37",
+    "tag": "v0.8.37",
+    "commit": "f401782df49be312ea4ef52a2d467cf5183b5906",
+    "repository": "https://github.com/argotorg/solidity.git",
+    "checksumSource": "https://api.github.com/repos/argotorg/solidity/releases/tags/v0.8.37",
+    "platforms": {
+      "win32-x64": {
+        "url": "https://github.com/argotorg/solidity/releases/download/v0.8.37/solc-windows.exe",
+        "sha256": "967743b2d12155f59a0ddf9410afe25c7deaa73f4fe3d33c4dc0739f627d9ec9"
+      },
+      "linux-x64": {
+        "url": "https://github.com/argotorg/solidity/releases/download/v0.8.37/solc-static-linux",
+        "sha256": "5de843c2c93563cc66425c99a4fb13fdbf32b4c4ae07469480faaf126e14404a"
+      }
+    }
+  },
+  "dependencies": [
+    {
+      "name": "openzeppelin-contracts",
+      "version": "5.7.0",
+      "tag": "v5.7.0",
+      "commit": "cab19933c33c2ad1d4c7a84864a3601dddfd16f3",
+      "repository": "https://github.com/OpenZeppelin/openzeppelin-contracts.git",
+      "url": "https://codeload.github.com/OpenZeppelin/openzeppelin-contracts/tar.gz/cab19933c33c2ad1d4c7a84864a3601dddfd16f3",
+      "sha256": "55d04b52de7ee78e036ec8fcf23f82fd65b05fc18c9f4a2bec825c224a85a178"
+    },
+    {
+      "name": "forge-std",
+      "version": "1.17.0",
+      "tag": "v1.17.0",
+      "commit": "f3dae6e6ee381f25eb6a246f7da9b85c91a68219",
+      "repository": "https://github.com/foundry-rs/forge-std.git",
+      "url": "https://codeload.github.com/foundry-rs/forge-std/tar.gz/f3dae6e6ee381f25eb6a246f7da9b85c91a68219",
+      "sha256": "e1eab5f0891018e368a0417bfe266d93f8b9af9484e5a15b15f87f1f4b7c50aa"
+    }
+  ]
+}
