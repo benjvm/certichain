@@ -255,6 +255,54 @@ pruebas de PDF, Storage, emisión, revocación, verificación pública o blockch
 
 ### Workflow real de base de datos
 
+Mantenimiento de CI del 12/10/2026: la
+[ejecución 38268566730](https://github.com/benjvm/certichain/actions/runs/38268566730)
+del commit `b45a067d26b279db90dd5890c0f279af83aa3a27` pasó las suites SQL,
+funciones, HTTP y Web y el job `flutter`, pero falló instalando el NDK
+`28.2.13676358` al final de `database`: `No space left on device` durante
+la descompresión; `sdkmanager` terminó con exit 1. La parada final de Supabase
+sí pasó. El runner acumulaba imágenes Docker, Flutter y varias compilaciones Web.
+
+La compilación se mueve al job independiente `android`, en ubuntu-24.04 con
+timeout de 35 minutos y sin `needs`, Supabase, Docker ni suites Web. Tiene checkout
+propio sin credenciales persistidas, Flutter 3.47.4 verificado contra
+`9584c6713b324636289d067944a46fd6b49df14b` y
+`flutter pub get --enforce-lockfile`. Configura explícitamente Temurin JDK 17,
+compatible con Gradle 9.3.1 y AGP 9.1.0 según la
+[matriz de AGP 9.1](https://developer.android.com/build/releases/agp-9-1-0-release-notes)
+y la [matriz de Gradle 9.3.1](https://github.com/gradle/gradle/blob/v9.3.1/platforms/documentation/docs/src/docs/userguide/releases/compatibility.adoc).
+La acción nueva setup-java v4.8.0 está fijada a
+`c1e323688fd81a25caa38c78aa6df2d33d3e20d9`, verificado con `git ls-remote`
+en su repositorio oficial; se mantienen los permisos `contents: read`.
+
+El job muestra `df -h` al inicio, antes de instalar el NDK y antes de compilar.
+Comprueba que `28.2.13676358` coincide con `flutter.ndkVersion` del SDK fijado,
+resuelve el SDK mediante `ANDROID_HOME`/`ANDROID_SDK_ROOT` y `sdkmanager` desde
+ese SDK o PATH, instala el paquete explícitamente y verifica su revisión.
+La instalación y la compilación tienen pasos separados para distinguir sus fallos.
+No se borran recursos del runner ni se añaden limpiezas a scripts locales.
+
+El comando permanece `flutter build apk --debug --target=lib/main.dart`:
+comprueba el entrypoint real mediante un APK **debug**, sin validar release,
+firma de producción ni despliegue. Los pasos restantes de `database` y todo
+el job `flutter` se conservan, incluido `supabase stop --no-backup` con
+`if: always()`. Este mantenimiento no completa nuevas fases del roadmap.
+La siguiente ejecución debe confirmar los tres jobs para el nuevo SHA, la
+instalación del NDK, el espacio disponible y la compilación; la validación local
+del workflow o del APK no demuestra que el nuevo job pase en Actions.
+
+Validación local de este mantenimiento (12/10/2026): `actionlint 1.7.12` y
+`git diff --check` sin errores; sintaxis Bash de los cuatro bloques nuevos válida.
+Siete comprobaciones con herramientas simuladas pasan: SDK por ambas variables,
+`sdkmanager` por SDK/PATH, rechazo de NDK distinto, SDK/herramienta ausentes y
+propagación del fallo de instalación. La comparación contra HEAD confirma que
+`database` solo pierde el build Android y `flutter` permanece idéntico.
+En Windows, con JBR 21 de Android Studio, Flutter fijado y NDK ya instalado,
+`flutter pub get --enforce-lockfile`
+y `flutter build apk --debug --target=lib/main.dart` terminan con exit 0.
+No se reinstaló el NDK ni se reprodujo el runner Linux; tampoco se repitieron
+las suites SQL/HTTP/Web conservadas ni se lanzó una nueva ejecución de Actions.
+
 `.github/workflows/database.yml` se dispara en cada pull request y push a main.
 Usa ubuntu-24.04, permisos contents:read, checkout sin persistir credenciales,
 Supabase local y CLI fijada a 2.117.0. No exige SUPABASE_ACCESS_TOKEN, project ref,

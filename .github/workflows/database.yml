@@ -123,14 +123,63 @@ jobs:
           name: phase8d-release-evidence
           path: mobile/build/phase8d-evidence
           if-no-files-found: ignore
-      - name: Compile Android production entrypoint
-        working-directory: mobile
-        run: flutter build apk --debug --target=lib/main.dart
       - name: Diff whitespace
         run: git diff --check
       - name: Stop local Supabase
         if: always()
         run: supabase stop --no-backup
+  android:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      ANDROID_NDK_VERSION: '28.2.13676358'
+    defaults:
+      run:
+        shell: bash
+        working-directory: mobile
+    steps:
+      - name: Runner disk space at start
+        working-directory: ${{ runner.temp }}
+        run: df -h
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - name: Install JDK 17 for Gradle 9.3.1 and AGP 9.1.0
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4.8.0
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install pinned stable Flutter
+        run: |
+          git clone --depth 1 --branch 3.47.4 https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter"
+          test "$(git -C "$RUNNER_TEMP/flutter" rev-parse HEAD)" = 9584c6713b324636289d067944a46fd6b49df14b
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+      - name: Select the configured JDK and resolve frozen dependencies
+        run: |
+          flutter config --jdk-dir="$JAVA_HOME"
+          java -version
+          flutter pub get --enforce-lockfile
+      - name: Install the NDK required by pinned Flutter
+        run: |
+          df -h
+          flutter_ndk_version=$(sed -n 's/^[[:space:]]*val ndkVersion: String = "\([^"]*\)".*/\1/p' "$RUNNER_TEMP/flutter/packages/flutter_tools/gradle/src/main/kotlin/FlutterExtension.kt")
+          test "$flutter_ndk_version" = "$ANDROID_NDK_VERSION"
+          sdk_root="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          test -n "$sdk_root" && test -d "$sdk_root"
+          sdkmanager="$sdk_root/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$sdkmanager" ]; then
+            sdkmanager=$(command -v sdkmanager)
+          fi
+          test -x "$sdkmanager"
+          printf 'Android SDK: %s\nsdkmanager: %s\nNDK: %s\n' "$sdk_root" "$sdkmanager" "$flutter_ndk_version"
+          flutter config --android-sdk="$sdk_root"
+          "$sdkmanager" --sdk_root="$sdk_root" --install "ndk;$ANDROID_NDK_VERSION"
+          grep -Fx "Pkg.Revision = $ANDROID_NDK_VERSION" "$sdk_root/ndk/$ANDROID_NDK_VERSION/source.properties"
+      - name: Compile Android main.dart entrypoint (debug APK)
+        run: |
+          df -h
+          flutter build apk --debug --target=lib/main.dart
   flutter:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
