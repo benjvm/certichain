@@ -1,5 +1,17 @@
 # Fundamentos visuales Flutter — Fase 4D
 
+## Incremento vigente 9D
+
+Sin rediseño global: Inter/tokens, AppButton/AppTopBar, Cards, scroll, texto
+seleccionable y semántica de mensajes conservados. Registro CertiChain,
+Blockchain, Mi copia y Validez de la apertura se presentan por separado.
+Anvil confirmado dice finalidad no aplicable; evidencia previa tiene etiqueta,
+fecha y fuente propias. Acciones manuales, loading real y sin badges/progreso
+simulados. Institución confirma anclaje del certificado publicado; titular
+consulta evidencia pública y obtiene/copia/exporta apertura explícitamente.
+Layouts 320 px y texto ×2 ejercitados en phase9d_test.dart, sin cámara.
+Los apartados inferiores preservan fundamentos y revisiones históricas.
+
 ## Referencia inspeccionada
 
 [Figma · CertiChain](https://www.figma.com/design/XRk4TDOeU4yZwBHIRBRXJ6/CertiChain)

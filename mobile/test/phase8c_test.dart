@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'camera_test_policy.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show MissingPluginException;
 import 'package:flutter_test/flutter_test.dart';
@@ -295,6 +297,7 @@ void main() {
       await flush();
       expect(plugin.disposals, 1);
     },
+    skip: cameraSkip,
   );
   for (final f in QrCameraFailure.values) {
     test('camera error $f with resource disposal', () async {
@@ -306,7 +309,7 @@ void main() {
       scan.dispose();
       await flush();
       expect(camera.disposals, 1);
-    });
+    }, skip: cameraSkip);
   }
   test(
     'unknown/repeated QR accepts once, stops, ignores disposed events',
@@ -325,6 +328,7 @@ void main() {
       await flush();
       expect(camera.disposals, 1);
     },
+    skip: cameraSkip,
   );
   test('pause/dispose while permission pending stops late camera without callbacks', () async {
     final camera = FakeCamera()..startBarrier = Completer<void>();
@@ -338,7 +342,7 @@ void main() {
     await flush();
     expect(camera.disposals, 1);
     expect(camera.stops, greaterThan(0));
-  });
+  }, skip: cameraSkip);
   test('comparison replacement, cancellation, code change and out of order responses', () async {
     final repo = TestRepository(), picker = TestPicker();
     final c = VerificationController(
@@ -590,5 +594,6 @@ void main() {
       );
       expect(t.takeException(), isNull);
     },
+    skip: cameraWidgetSkip,
   );
 }

@@ -1,5 +1,27 @@
 # Arquitectura Flutter
 
+## Incremento 9D
+
+issuance/domain añade AnchorScope, AnchorOperation/Status, recibos, puertos de
+anclaje/apertura/transferencia. data implementa POST cerrado con JWT actual,
+abort/deadline/límite/parse estricto y barrera token/identidad al recibir, y
+preferencias mínimas por usuario/institución/certificado (20/7 días).
+AnchoringController guarda key antes de POST, evita doble envío y descarta
+trabajos al cambiar sesión/ámbito/disponer; acciones manuales de progreso y
+reautorización. UI institucional reutiliza certificado ya publicado.
+
+verification/domain mantiene registro v1, añade evidencia y apertura puras y
+caso de cálculo protocol-v1 SHA-256/UUID exacto con crypto ya existente.
+data traduce DTO v2/apertura y gateways de archivo JSON acotados. main.dart
+compone HttpVerificationRepository(useV2:true); v1 continúa disponible para
+consumidores previos/tests y compare independiente, sin fallback de v2.
+OpeningCheckController procesa solo memoria local; panel distingue cuatro juicios.
+certificates/presentation permite evidencia pública del titular y apertura
+autorizada/copy/export explícitos, nunca anchor-progress al holder.
+Router compartido conserva hash/recarga/historial y cooldown. No SDK en UI/dominio,
+dependencias nuevas, firma, claves ni caché persistente de H/S/apertura.
+[ADR-0017](adr/0017-public-blockchain-evidence-and-private-opening.md).
+
 La aplicación móvil usa una organización **feature-first** inspirada en Clean
 Architecture. El objetivo es mantener límites claros sin introducir
 abstracciones hasta que exista un caso de uso que las necesite.

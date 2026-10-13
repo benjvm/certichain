@@ -449,3 +449,19 @@ en el host. El navegador recibe solo URL pública y anon key pública para las
 operaciones privadas. Las consultas públicas utilizan credentials=omit incluso
 con cookies en el mismo origen. [DEMO_VERIFICATION.md](DEMO_VERIFICATION.md) explica
 preparación, ejecución y limpieza. Los harness 7D/8B/8C siguen como complementos.
+# Ampliación vigente 9D
+
+Producción Flutter consulta el endpoint independiente verify-certificate-v2,
+schema_version='2', sin Auth/apikey/cookies. registry conserva v1 literal;
+blockchain muestra evidencia y fecha/origen propios, con ausencia uniforme y
+off_chain_only. No se modifican verify-certificate/compare-certificate-hash v1.
+Los tres comparten presupuesto global atómico 60 POST/60 s y cooldown de UI.
+Una comparación v1 trae su propio registro; evidencia de otro snapshot se marca
+anterior. Fallo v2 jamás se sustituye por aparente confirmación v1.
+
+Apertura autenticada en certificate-opening, compartición explícita y cálculo
+H/K/C local con PDF <=8 MiB y JSON <=2 KiB. Nunca H/salt en API pública/enlaces/QR.
+Estados/finality/deadlines/configuración y comandos completos:
+[BLOCKCHAIN_VERIFICATION](BLOCKCHAIN_VERIFICATION.md),
+[ADR-0017](adr/0017-public-blockchain-evidence-and-private-opening.md).
+Los apartados de 8A–8D inferiores conservan contratos v1 e historia.

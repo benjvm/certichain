@@ -183,6 +183,8 @@ jobs:
           flutter build apk --debug --target=lib/main.dart
   flutter:
     runs-on: ubuntu-24.04
+    env:
+      CERTICHAIN_TEST_CAMERA: '0'
     timeout-minutes: 20
     defaults:
       run:

@@ -443,3 +443,10 @@ enabled = true
 # Public candidate comparison only; authenticated issuance/PDF remain protected.
 [functions.compare-certificate-hash]
 verify_jwt = false
+
+# 9D public read only. Anchoring/opening keep JWT and real Auth.
+[functions.verify-certificate-v2]
+verify_jwt = false
+
+[functions.certificate-opening]
+verify_jwt = true

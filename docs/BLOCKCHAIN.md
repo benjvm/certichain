@@ -1,5 +1,12 @@
 # Blockchain — protocolo 9A y contrato local 9B
 
+Estado vigente 13/10/2026: 9C backend real, 9D cliente conectado/v2/apertura y
+cálculo documental local implementados. Contrato/ABI/criptografía 9B intactos.
+9E aceptación ampliada y 10 revocación de producto permanecen pendientes.
+Resultados actuales: [PHASE9D_ACCEPTANCE](PHASE9D_ACCEPTANCE.md);
+contratos: [BLOCKCHAIN_VERIFICATION](BLOCKCHAIN_VERIFICATION.md).
+Los apartados fechados inferiores conservan la historia de 9A–9C.
+
 Estado al 12/10/2026: **contrato 9B implementado y validado localmente; sin integración**.
 Fuente normativa: [PHASE9A_BLOCKCHAIN_SPEC.md](PHASE9A_BLOCKCHAIN_SPEC.md).
 La emisión y verificación actuales continúan off-chain.

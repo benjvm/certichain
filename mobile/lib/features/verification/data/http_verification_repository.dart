@@ -6,6 +6,8 @@ import 'package:http/http.dart' as http;
 import '../domain/verification_repository.dart';
 import '../domain/hash_comparison.dart';
 import 'public_http_client.dart';
+import '../../../core/files/strict_json.dart';
+import 'blockchain_models.dart';
 
 class HttpVerificationRepository
     implements
@@ -16,9 +18,11 @@ class HttpVerificationRepository
     required String apiUrl,
     http.Client? client,
     this.timeout = const Duration(seconds: 15),
+    this.useV2 = false,
   }) : _endpoint = Uri.parse('$apiUrl/functions/v1/verify-certificate'),
        _client = client ?? createPublicHttpClient();
   final Uri _endpoint;
+  final bool useV2;
   final http.Client _client;
   final _pendingAborts = <Completer<void>>{};
   @override
@@ -37,8 +41,11 @@ class HttpVerificationRepository
   static const maxResponseBytes = 8192;
 
   @override
-  Future<VerificationResult> verify(String input) =>
-      _run(input, decode: (value, code) => decodeResult(value, code));
+  Future<VerificationResult> verify(String input) => _run(
+    input,
+    decode: (value, code) =>
+        useV2 ? decodeV2(value, code) : decodeResult(value, code),
+  );
 
   @override
   Future<HashComparison> compare(String input, String documentSha256) {
@@ -121,7 +128,14 @@ class HttpVerificationRepository
         http.AbortableRequest(
             'POST',
             hash == null
-                ? _endpoint
+                ? (useV2
+                      ? _endpoint.replace(
+                          path: _endpoint.path.replaceFirst(
+                            'verify-certificate',
+                            'verify-certificate-v2',
+                          ),
+                        )
+                      : _endpoint)
                 : _endpoint.replace(
                     path: _endpoint.path.replaceFirst(
                       'verify-certificate',
@@ -161,7 +175,7 @@ class HttpVerificationRepository
       case 503:
         throw const VerificationException(VerificationFailure.unavailable);
       case 200:
-        return jsonDecode(utf8.decode(bytes));
+        return decodeStrictJson(utf8.decode(bytes));
       default:
         throw const VerificationException(VerificationFailure.unexpected);
     }
@@ -216,16 +230,16 @@ class HttpVerificationRepository
         code: requestedCode,
         title: value['title'] as String,
         issuer: issuer['name'] as String,
-        issuedAt: _date(value['issued_at']),
-        checkedAt: _date(value['checked_at']),
+        issuedAt: decodeDate(value['issued_at']),
+        checkedAt: decodeDate(value['checked_at']),
         expiresAt: value['expires_at'] == null
             ? null
-            : _date(value['expires_at']),
+            : decodeDate(value['expires_at']),
       ),
     );
   }
 
-  static DateTime _date(Object? input) {
+  static DateTime decodeDate(Object? input) {
     const unexpected = VerificationException(VerificationFailure.unexpected);
     if (input is! String) throw unexpected;
     final match = RegExp(

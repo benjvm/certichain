@@ -90,3 +90,6 @@ crearse); no reutiliza esos números. Interfaz y protocolo normativos en
 
 [ADR-0016](adr/0016-durable-evm-adapter-and-reverted-nonce.md): adaptador 9C,
 worker explícito y reautorización tras nonce revertido con identidad durable.
+# Decisión 9D
+
+[ADR-0017 — Evidencia pública v2 y apertura privada](adr/0017-public-blockchain-evidence-and-private-opening.md).

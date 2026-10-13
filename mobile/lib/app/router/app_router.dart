@@ -9,6 +9,8 @@ import '../../features/certificates/presentation/certificate_detail_screen.dart'
 import '../../features/certificates/domain/certificate_document_repository.dart';
 import '../../features/verification/domain/verification_repository.dart';
 import '../../features/verification/domain/verification_link.dart';
+import '../../features/issuance/domain/anchoring_repository.dart';
+import '../../features/verification/presentation/public_query_cooldown.dart';
 
 enum AuthenticatedSection { home, wallet, profile }
 
@@ -29,6 +31,10 @@ abstract final class AppRouter {
     CredentialRepository? credentials,
     VerificationLink? verificationLink,
     Listenable? sessionChanges,
+    OpeningRepository? openings,
+    OpeningTransfer? openingTransfer,
+    VerificationRepository? verification,
+    PublicQueryCooldown? publicCooldown,
   }) => MaterialPageRoute<void>(
     settings: RouteSettings(
       name: certificateDetailRoute,
@@ -43,6 +49,10 @@ abstract final class AppRouter {
       credentials: credentials,
       verificationLink: verificationLink,
       sessionChanges: sessionChanges,
+      openings: openings,
+      openingTransfer: openingTransfer,
+      verification: verification,
+      publicCooldown: publicCooldown,
     ),
   );
 

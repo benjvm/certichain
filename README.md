@@ -144,8 +144,13 @@ y acciones del operador en [checklist 8D](docs/PHASE8_OPERATOR_CHECKLIST.md).
 Esta revisión trabaja solo en local; las ediciones posteriores necesitan CI del
 SHA que publique el operador.
 
-Estado al 13/10/2026: **backend privado 9C implementado; validación local y límites
-en [aceptación 9C](docs/PHASE9C_ACCEPTANCE.md)**. Operación y recuperación:
+Estado al 13/10/2026: **cliente 9D, evidencia pública v2 y apertura privada implementados**;
+contratos/configuración en [BLOCKCHAIN_VERIFICATION](docs/BLOCKCHAIN_VERIFICATION.md)
+y resultados locales en [PHASE9D_ACCEPTANCE](docs/PHASE9D_ACCEPTANCE.md).
+9E y revocación de producto 10 siguen pendientes. No hay despliegue remoto.
+
+Backend privado 9C implementado; validación local y límites
+en [aceptación 9C](docs/PHASE9C_ACCEPTANCE.md). Operación y recuperación:
 [BLOCKCHAIN_OPERATIONS](docs/BLOCKCHAIN_OPERATIONS.md).
 Comportamiento actual, DTO v1, códigos/enlaces/QR y PDF conservados. Omitir desde
 ahora todas las pruebas de cámara, con CERTICHAIN_TEST_CAMERA=0 y registro

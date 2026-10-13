@@ -1,5 +1,16 @@
 # Emisión privada autenticada — Fases 7B, 7C y 7D
 
+## Integración posterior 9D
+
+Emisión sigue publicando active/completed y PDF privado exactamente como antes.
+Cliente institucional permite anclaje explícito de ese certificado, sin repetir
+formulario/PDF. Recibo/key aislados antes del POST, recuperar misma solicitud
+ante respuesta perdida; progreso/reautorización manuales. 202 no confirma cadena;
+worker confiable externo conserva toda firma. Wallet, v1, QR y códigos intactos.
+Apertura es otro endpoint Auth protegido, con permisos propios equivalentes al
+documento; ningún fallo de anclaje borra la publicación.
+[Contrato/operación](BLOCKCHAIN_VERIFICATION.md), [aceptación 9D](PHASE9D_ACCEPTANCE.md).
+
 ## Estado y límite de confianza
 
 7B implementa `POST /functions/v1/issue-certificate`. Solo owner/admin/issuer

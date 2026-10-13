@@ -19,6 +19,10 @@ import 'document_action.dart';
 import '../../verification/domain/verification_repository.dart';
 import '../../verification/domain/verification_link.dart';
 import '../../verification/presentation/credential_share.dart';
+import '../../issuance/domain/anchoring_repository.dart';
+import '../../verification/presentation/public_query_cooldown.dart';
+import 'holder_blockchain.dart';
+import 'opening_action.dart';
 
 enum CertificateDetailSection { details, blockchain, history }
 
@@ -32,9 +36,17 @@ class CertificateDetailScreen extends StatefulWidget {
     this.credentials,
     this.verificationLink,
     this.sessionChanges,
+    this.openings,
+    this.openingTransfer,
+    this.verification,
+    this.publicCooldown,
     super.key,
   });
   final String userId;
+  final OpeningRepository? openings;
+  final OpeningTransfer? openingTransfer;
+  final VerificationRepository? verification;
+  final PublicQueryCooldown? publicCooldown;
   final String certificateId;
   final CertificateRepository repository;
   final CertificateDocumentRepository? documents;
@@ -277,11 +289,39 @@ class _CertificateDetailScreenState extends State<CertificateDetailScreen>
             ),
           ),
         ),
-        CertificateDetailSection.blockchain => const ReadEmpty(
-          title: 'Sin datos de blockchain',
-          message: 'No hay información de registro o verificación blockchain disponible.',
-          icon: AppIcons.security,
-        ),
+        CertificateDetailSection.blockchain =>
+          widget.verification != null &&
+                  widget.credentials != null &&
+                  widget.publicCooldown != null
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    HolderBlockchain(
+                      key: ValueKey((widget.userId, certificate.id)),
+                      userId: widget.userId,
+                      certificateId: certificate.id,
+                      credentials: widget.credentials!,
+                      verification: widget.verification!,
+                      cooldown: widget.publicCooldown!,
+                      sessionChanges: widget.sessionChanges,
+                    ),
+                    if (widget.openings != null &&
+                        widget.openingTransfer != null)
+                      OpeningAction(
+                        userId: widget.userId,
+                        certificateId: certificate.id,
+                        repository: widget.openings!,
+                        transfer: widget.openingTransfer!,
+                        onSessionExpired: widget.onSessionExpired ?? () {},
+                        sessionChanges: widget.sessionChanges,
+                      ),
+                  ],
+                )
+              : const ReadEmpty(
+                  title: 'Sin datos de blockchain',
+                  message: 'No hay información de registro o verificación blockchain disponible.',
+                  icon: AppIcons.security,
+                ),
         CertificateDetailSection.history => const ReadEmpty(
           title: 'Historial no disponible',
           message: 'El backend todavía no proporciona un historial de este certificado.',

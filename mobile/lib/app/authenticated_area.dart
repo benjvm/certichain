@@ -23,6 +23,8 @@ import '../features/issuance/domain/issuance_repository.dart';
 import '../features/certificates/domain/certificate_document_repository.dart';
 import '../features/verification/domain/verification_repository.dart';
 import '../features/verification/domain/verification_link.dart';
+import '../features/issuance/domain/anchoring_repository.dart';
+import '../features/verification/presentation/public_query_cooldown.dart';
 
 /// Owned by the session-keyed navigator. Never retained across identities.
 class AuthenticatedArea extends StatefulWidget {
@@ -39,9 +41,21 @@ class AuthenticatedArea extends StatefulWidget {
     this.credentials,
     this.verificationLink,
     this.onVerify,
+    this.anchoring,
+    this.anchorStore,
+    this.openings,
+    this.openingTransfer,
+    this.verification,
+    this.publicCooldown,
     super.key,
   });
   final AuthController controller;
+  final AnchoringRepository? anchoring;
+  final AnchorReceiptStore? anchorStore;
+  final OpeningRepository? openings;
+  final OpeningTransfer? openingTransfer;
+  final VerificationRepository? verification;
+  final PublicQueryCooldown? publicCooldown;
   final String userId;
   final ProfileRepository profiles;
   final CertificateRepository certificates;
@@ -178,6 +192,10 @@ class _AuthenticatedAreaState extends State<AuthenticatedArea>
           picker: widget.picker!,
           store: widget.pendingStore!,
           documents: widget.documents,
+          anchoring: widget.anchoring,
+          anchorStore: widget.anchorStore,
+          openings: widget.openings,
+          openingTransfer: widget.openingTransfer,
           onSessionExpired: widget.controller.requireSignIn,
           sessionChanges: widget.controller,
         ),
@@ -202,6 +220,10 @@ class _AuthenticatedAreaState extends State<AuthenticatedArea>
         verificationLink: widget.verificationLink,
         sessionChanges: widget.controller,
         documents: widget.documents,
+        openings: widget.openings,
+        openingTransfer: widget.openingTransfer,
+        verification: widget.verification,
+        publicCooldown: widget.publicCooldown,
         onSessionExpired: widget.controller.requireSignIn,
       ),
     );

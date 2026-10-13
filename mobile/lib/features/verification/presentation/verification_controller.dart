@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../domain/verification_repository.dart';
 import '../domain/hash_comparison.dart';
+import '../domain/blockchain_verification.dart';
 import 'public_query_cooldown.dart';
 
 class VerificationController extends ChangeNotifier {
@@ -44,6 +45,7 @@ class VerificationController extends ChangeNotifier {
   int _generation = 0;
   VerificationResult? result;
   bool resultIsPrevious = false;
+  BlockchainEvidence? previousBlockchain;
   VerificationFailure? failure;
   int get waitSeconds => _cooldown.waitSeconds;
 
@@ -55,6 +57,7 @@ class VerificationController extends ChangeNotifier {
     _generation++;
     loading = false;
     result = null;
+    previousBlockchain = null;
     resultIsPrevious = false;
     if (failure != VerificationFailure.rateLimited) failure = null;
     notifyListeners();
@@ -63,10 +66,11 @@ class VerificationController extends ChangeNotifier {
   Future<void> submit() async {
     if (!canSubmit || _disposed) return;
     final code = normalizeCredentialCode(input);
-    result = null;
-    resultIsPrevious = false;
+    final previous = result;
+    resultIsPrevious = previous != null;
     failure = null;
     if (code == null) {
+      result = null;
       failure = VerificationFailure.invalidInput;
       notifyListeners();
       return;
@@ -80,6 +84,8 @@ class VerificationController extends ChangeNotifier {
       final response = await repository.verify(code);
       if (_disposed || generation != _generation) return;
       result = response;
+      resultIsPrevious = false;
+      previousBlockchain = null;
     } catch (error) {
       // A rate limit belongs to the public budget, even if its form was replaced.
       if (error is VerificationException &&
@@ -203,6 +209,7 @@ class VerificationController extends ChangeNotifier {
           fileGeneration != _fileGeneration) {
         return;
       }
+      previousBlockchain = result?.blockchain ?? previousBlockchain;
       result = response.verification;
       resultIsPrevious = false;
       integrity = response.integrity;

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../features/verification/domain/verification_repository.dart';
 import '../../features/verification/domain/hash_comparison.dart';
+import '../../features/verification/domain/blockchain_verification.dart';
 import '../../features/verification/domain/verification_link.dart';
 import '../../features/verification/presentation/qr_scanner_panel.dart';
 import '../../features/verification/presentation/public_query_cooldown.dart';
@@ -58,13 +59,16 @@ class PublicRouter extends RouterDelegate<PublicLocation>
     this.hasher,
     this.link,
     this.scanner,
+    this.openingInput,
   });
   final HashComparisonRepository? Function()? comparison;
+  final OpeningInput? Function()? openingInput;
   final ComparisonPdfPicker? Function()? picker;
   final PdfHasher? Function()? hasher;
   final VerificationLink? Function()? link;
   final ScannerSession Function()? Function()? scanner;
   final _cooldown = PublicQueryCooldown();
+  PublicQueryCooldown get cooldown => _cooldown;
   @override
   void dispose() {
     _cooldown.dispose();
@@ -156,6 +160,7 @@ class PublicRouter extends RouterDelegate<PublicLocation>
       comparisonRepository: comparison?.call(),
       comparisonPicker: picker?.call(),
       pdfHasher: hasher?.call(),
+      openingInput: openingInput?.call(),
       verificationLink: link?.call(),
       scannerFactory: scanner?.call(),
       initialCode: _location.code,

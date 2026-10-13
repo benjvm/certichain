@@ -24,15 +24,17 @@ export async function digest(...parts: Uint8Array[]): Promise<Hex> {
   }
   return hex(new Uint8Array(await crypto.subtle.digest("SHA-256", joined)));
 }
-export async function commitment(code: string, I: Hex, H: Hex, S: Hex) {
+export async function certificateKey(code: string) {
   if (!uuidPattern.test(code)) throw new RegistryError("invalid_input");
-  const encode = new TextEncoder();
-  const K = await digest(
-    encode.encode("certichain:certificate-key:v1\0"),
+  return await digest(
+    new TextEncoder().encode("certichain:certificate-key:v1\0"),
     bytes(`0x${code.toLowerCase().replaceAll("-", "")}`, 16),
   );
+}
+export async function commitment(code: string, I: Hex, H: Hex, S: Hex) {
+  const K = await certificateKey(code);
   const C = await digest(
-    encode.encode("certichain:document-commitment:v1\0"),
+    new TextEncoder().encode("certichain:document-commitment:v1\0"),
     bytes(K, 32),
     bytes(I, 32),
     bytes(H, 32),

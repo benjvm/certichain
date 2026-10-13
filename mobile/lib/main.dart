@@ -20,6 +20,9 @@ import 'features/verification/data/sha256_pdf_hasher.dart';
 import 'app/verification_scanner.dart';
 import 'features/verification/data/supabase_credential_repository.dart';
 import 'features/verification/domain/verification_link.dart';
+import 'features/issuance/data/supabase_anchoring_repository.dart';
+import 'features/issuance/data/anchor_receipt_preferences.dart';
+import 'features/verification/data/protocol_opening_tools.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -35,6 +38,7 @@ class CertiChainBootstrap extends StatefulWidget {
 
 class _CertiChainBootstrapState extends State<CertiChainBootstrap> {
   HttpVerificationRepository? _verification;
+  HttpVerificationRepository? _holderVerification;
   VerificationLink? _link;
   SupabaseAuthRepository? _auth;
   SupabaseProfileRepository? _profiles;
@@ -43,6 +47,9 @@ class _CertiChainBootstrapState extends State<CertiChainBootstrap> {
   SupabaseIssuanceRepository? _issuance;
   SupabaseCertificateDocumentRepository? _documents;
   SupabaseCredentialRepository? _credentials;
+  SupabaseAnchoringRepository? _anchoring;
+  final _anchorStore = AnchorReceiptPreferences();
+  final _openingTools = ProtocolOpeningTools();
   final _picker = PlatformPdfPicker();
   final _comparisonPicker = PlatformComparisonPdfPicker();
   final _pdfHasher = Sha256PdfHasher();
@@ -54,7 +61,11 @@ class _CertiChainBootstrapState extends State<CertiChainBootstrap> {
     const api = String.fromEnvironment('SUPABASE_URL');
     try {
       AppConfig.validateBackendUrl(api, allowLocalHttp: kDebugMode);
-      _verification = HttpVerificationRepository(apiUrl: api);
+      _verification = HttpVerificationRepository(apiUrl: api, useV2: true);
+      _holderVerification = HttpVerificationRepository(
+        apiUrl: api,
+        useV2: true,
+      );
     } on FormatException {
       _message = 'Configuración del servicio no válida.';
     }
@@ -92,6 +103,11 @@ class _CertiChainBootstrapState extends State<CertiChainBootstrap> {
           publicKey: config.supabasePublishableKey,
         );
         _credentials = SupabaseCredentialRepository(client);
+        _anchoring = SupabaseAnchoringRepository(
+          client,
+          apiUrl: config.supabaseUrl,
+          publicKey: config.supabasePublishableKey,
+        );
       });
     } catch (_) {
       if (mounted) {
@@ -105,6 +121,8 @@ class _CertiChainBootstrapState extends State<CertiChainBootstrap> {
   @override
   void dispose() {
     _verification?.close();
+    _holderVerification?.close();
+    _anchoring?.close();
     super.dispose();
   }
 
@@ -118,7 +136,13 @@ class _CertiChainBootstrapState extends State<CertiChainBootstrap> {
     pdfPicker: _picker,
     pendingStore: _store,
     documents: _documents,
+    anchoring: _anchoring,
+    anchorStore: _anchorStore,
+    openings: _anchoring,
+    openingTransfer: _openingTools,
+    openingInput: _openingTools,
     verification: _verification,
+    holderVerification: _holderVerification,
     comparison: _verification,
     comparisonPicker: _comparisonPicker,
     pdfHasher: _pdfHasher,

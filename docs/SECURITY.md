@@ -1,5 +1,21 @@
 # Seguridad y privacidad
 
+## Controles añadidos en 9D
+
+v2 público es lector sin signer, con métodos RPC permitidos, deadline total,
+límites y validación estricta SQL/RPC/JSON. No escribe/encola/reconcilia. Ausencia
+elegible uniforme sin EVM; estado, evidencia fechada y documento independientes.
+last_evidence siempre anterior y sin fecha refrescada. Discrepancia de revocación
+SQL/EVM impide presentar conjunto válido. No cambia v1 ni grants SELECT/DML.
+
+certificate-opening exige JWT/Auth real y RPC técnica service_role: titular propio
+(también emisor suspended), o owner/admin/issuer actual de verified. Plataforma
+sin propiedad/membresía no recibe acceso. Vínculos/H/K/I/S/C revalidados, no-store,
+sin Storage/raw/nonces/claves. H/salt no pasan a público, logs, QR, enlaces,
+analytics, preferencias ni cachés de Flutter. Copiar/exportar es explícito y las
+copias externas no se pueden retirar. Entradas/copia se procesan localmente.
+[Contrato y límites](BLOCKCHAIN_VERIFICATION.md), [ADR-0017](adr/0017-public-blockchain-evidence-and-private-opening.md).
+
 ## Activos sensibles
 
 - Documentos PDF y datos personales del estudiante.

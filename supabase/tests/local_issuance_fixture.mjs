@@ -34,7 +34,7 @@ export function terminate(child) {
     });
   } else child.kill("SIGTERM");
 }
-export async function fixture() {
+export async function fixture(readRpcUrl) {
   assertDisposableStack();
   const local = localStatus();
   const users = [], institutions = [];
@@ -45,7 +45,15 @@ export async function fixture() {
     "Unsafe fixture directory",
   );
   const envFile = join(directory, "functions.env");
-  writeFileSync(envFile, `CERTICHAIN_LOCAL_FAULT_TOKEN=${faultToken}\n`);
+  if (readRpcUrl && !/^http:\/\/anvil:8545$/.test(readRpcUrl)) {
+    throw new Error("Fixture read RPC must be owned private Anvil");
+  }
+  writeFileSync(
+    envFile,
+    `CERTICHAIN_LOCAL_FAULT_TOKEN=${faultToken}\n${
+      readRpcUrl ? `EVM_RPC_URL=${readRpcUrl}\n` : ""
+    }`,
+  );
   const edge = startRuntime(envFile);
   const runtime = edge.child;
   async function json(path, token, body, method = "POST") {

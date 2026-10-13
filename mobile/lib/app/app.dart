@@ -16,6 +16,8 @@ import '../features/verification/domain/verification_repository.dart';
 import '../features/verification/domain/verification_link.dart';
 import '../features/verification/domain/hash_comparison.dart';
 import '../features/verification/presentation/qr_scanner_panel.dart';
+import '../features/verification/domain/blockchain_verification.dart';
+import '../features/issuance/domain/anchoring_repository.dart';
 
 class CertiChainApp extends StatefulWidget {
   const CertiChainApp({
@@ -28,6 +30,7 @@ class CertiChainApp extends StatefulWidget {
     this.pendingStore,
     this.documents,
     this.verification,
+    this.holderVerification,
     this.credentials,
     this.verificationLink,
     this.comparison,
@@ -35,9 +38,19 @@ class CertiChainApp extends StatefulWidget {
     this.pdfHasher,
     this.scannerFactory,
     this.startupMessage,
+    this.anchoring,
+    this.anchorStore,
+    this.openings,
+    this.openingTransfer,
+    this.openingInput,
     super.key,
   });
   final AuthRepository? authRepository;
+  final AnchoringRepository? anchoring;
+  final AnchorReceiptStore? anchorStore;
+  final OpeningRepository? openings;
+  final OpeningTransfer? openingTransfer;
+  final OpeningInput? openingInput;
   final ProfileRepository? profileRepository;
   final CertificateRepository? certificateRepository;
   final InstitutionRepository? institutionRepository;
@@ -46,6 +59,7 @@ class CertiChainApp extends StatefulWidget {
   final PendingAttemptStore? pendingStore;
   final CertificateDocumentRepository? documents;
   final VerificationRepository? verification;
+  final VerificationRepository? holderVerification;
   final CredentialRepository? credentials;
   final VerificationLink? verificationLink;
   final HashComparisonRepository? comparison;
@@ -76,6 +90,7 @@ class _CertiChainAppState extends State<CertiChainApp> {
       hasher: () => widget.pdfHasher,
       link: () => widget.verificationLink,
       scanner: () => widget.scannerFactory,
+      openingInput: () => widget.openingInput,
     );
   }
 
@@ -147,6 +162,13 @@ class _CertiChainAppState extends State<CertiChainApp> {
                   picker: widget.pdfPicker,
                   pendingStore: widget.pendingStore,
                   documents: widget.documents,
+                  anchoring: widget.anchoring,
+                  anchorStore: widget.anchorStore,
+                  openings: widget.openings,
+                  openingTransfer: widget.openingTransfer,
+                  verification:
+                      widget.holderVerification ?? widget.verification,
+                  publicCooldown: _router.cooldown,
                   credentials: widget.credentials,
                   verificationLink: widget.verificationLink,
                   onVerify: _router.showVerification,

@@ -1,5 +1,22 @@
 # Operación privada de anclajes — 9C
 
+## Lectura Edge y cliente 9D
+
+Edge verify-certificate-v2 añade EVM_RPC_URL **solo para lectura**, junto con
+EVM_ENVIRONMENT_ID; no claves de firma/administración. En Docker, conectar su
+contenedor a la red privada Anvil propia y usar http://anvil:8545. El lector
+no invoca worker, no encola, no firma ni concilia escrituras. Flutter nunca
+recibe esa URL, secretos ni un manifiesto histórico como configuración viva.
+Conservar backend worker host y sus variables privadas 9C. Sin worker activo,
+la solicitud institucional permanece requested/pending, sin progreso ficticio.
+
+El operador registra despliegue vivo normal nuevo, configura I/signer mediante
+administración durable y ejecuta worker explícito como abajo. Flutter solicita,
+recupera y actualiza operation_id/status reales; reautoriza blocked/failed,
+divergence requiere revisión. Titular solo lee proyección pública y apertura.
+Preparación, APIs y reproducción integral: [BLOCKCHAIN_VERIFICATION](BLOCKCHAIN_VERIFICATION.md),
+`./supabase/tests/run_phase9d.ps1`. No automatización/cron ni Sepolia en 9D.
+
 Publicación 7B → solicitud explícita autorizada → firma durable → envío raw →
 receipt/evento/estado/bloque canónicos → confirmación persistida. completed no
 encola EVM. Flutter, API pública v1 e históricos conservan su comportamiento.

@@ -1,5 +1,26 @@
 # Estrategia de pruebas
 
+## Cliente/verificación 9D
+
+CERTICHAIN_TEST_CAMERA=0 siempre. Unit/widget de captura/permisos/ciclo de vida
+y callback de captura del helper Node se omiten expresamente con motivo exacto:
+«Omitidas por instrucción del usuario; no hay cámara física disponible».
+La comparación/layout PDF de la suite mixta se preserva en phase9d_test.dart;
+códigos, QR generado/imagen estática, Auth, backend y SQL siguen ejecutándose.
+
+Desde mobile: `dart format --output=none --set-exit-if-changed lib test tool`,
+`flutter analyze`, `flutter test`. phase9d_test.dart prueba parsers/vectores,
+combinaciones, idempotencia/pérdida de respuesta, 401/403/409/429/503,
+token/logout/dispose/ámbitos, límites/cancelación local, copy/export explícito y
+320 px/texto ×2. Sin cambios en locks/dependencias.
+Desde raíz: Deno fmt/lint/check --frozen/test functions; SQL nuevo junto con
+regresiones; `./supabase/tests/run_phase9d.ps1` reconstruye un stack propio y
+ejecuta HTTP/Anvil + main.dart release HTTPS. Worker solo en host del harness.
+`-BackendOnly` no acredita Flutter. No mocks para acreditar recorrido real.
+CI verification.yml usa toolchains existentes fijadas y checks previos intactos.
+Solo evidencia sanitizada, nunca apertura/H/S/PDF/raw/credenciales.
+Resultados, fallos corregidos, alcance y CI exacto: [PHASE9D_ACCEPTANCE](PHASE9D_ACCEPTANCE.md).
+
 ## Backend privado 9C
 
 Desde checkout local con build 9B normal: `./supabase/tests/run_phase9c.ps1`.

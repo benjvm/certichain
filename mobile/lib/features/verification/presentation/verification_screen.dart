@@ -14,6 +14,9 @@ import 'qr_scanner_panel.dart';
 import 'public_query_cooldown.dart';
 import '../domain/hash_comparison.dart';
 import '../domain/verification_link.dart';
+import '../domain/blockchain_verification.dart';
+import 'blockchain_evidence_panel.dart';
+import 'opening_check_panel.dart';
 
 class VerificationScreen extends StatefulWidget {
   const VerificationScreen({
@@ -27,9 +30,11 @@ class VerificationScreen extends StatefulWidget {
     this.scannerFactory,
     this.onHome,
     this.onCode,
+    this.openingInput,
     super.key,
   });
   final VerificationRepository repository;
+  final OpeningInput? openingInput;
   final PublicQueryCooldown? cooldown;
   final HashComparisonRepository? comparisonRepository;
   final ComparisonPdfPicker? comparisonPicker;
@@ -48,6 +53,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
   late final TextEditingController _text;
   final _focus = FocusNode();
   bool _scanning = false;
+  bool _openingCheck = false;
   @override
   void initState() {
     super.initState();
@@ -68,6 +74,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.initialCode != widget.initialCode) {
       _scanning = false;
+      _openingCheck = false;
       _text.text = widget.initialCode ?? '';
       _controller.changeCode(_text.text);
       if (widget.initialCode != null) unawaited(_controller.submit());
@@ -90,6 +97,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
 
   void _another() {
     _text.clear();
+    _openingCheck = false;
     _controller.changeCode('');
     widget.onCode?.call(null);
     _focus.requestFocus();
@@ -242,13 +250,21 @@ class _VerificationScreenState extends State<VerificationScreen> {
                       result: result,
                       previous: _controller.resultIsPrevious,
                     ),
+                    if (result.blockchain ?? _controller.previousBlockchain
+                        case final evidence?)
+                      BlockchainEvidencePanel(
+                        evidence: evidence,
+                        previous:
+                            _controller.resultIsPrevious ||
+                            result.blockchain == null,
+                      ),
                     if ((result.record != null ||
                             _controller.comparisonPhase !=
                                 ComparisonPhase.idle) &&
                         widget.comparisonRepository != null) ...[
                       const SizedBox(height: AppSpacing.lg),
                       const Text(
-                        'Integridad de tu copia del PDF',
+                        'Mi copia · Integridad del PDF',
                         style: TextStyle(fontWeight: FontWeight.w600),
                       ),
                       const Text(
@@ -265,6 +281,11 @@ class _VerificationScreenState extends State<VerificationScreen> {
                         liveRegion: true,
                         child: Text(_comparisonMessage()),
                       ),
+                      if (_controller.comparisonPhase == ComparisonPhase.done &&
+                          result.record != null)
+                        Text(
+                          'Comparación: ${result.record!.checkedAt.toUtc().toIso8601String()} · registro CertiChain (comparación candidata v1).',
+                        ),
                       if (_controller.comparisonPhase ==
                               ComparisonPhase.error &&
                           _controller.comparisonFailure != null)
@@ -282,6 +303,37 @@ class _VerificationScreenState extends State<VerificationScreen> {
                         TextButton(
                           onPressed: _controller.cancelComparison,
                           child: const Text('Cancelar comparación'),
+                        ),
+                    ],
+                    if (result.record != null &&
+                        widget.openingInput != null &&
+                        widget.comparisonPicker != null &&
+                        widget.pdfHasher != null) ...[
+                      TextButton(
+                        onPressed: _controller.loading
+                            ? null
+                            : () => setState(
+                                () => _openingCheck = !_openingCheck,
+                              ),
+                        child: Text(
+                          _openingCheck
+                              ? 'Cerrar comprobación con apertura'
+                              : 'Comprobar con apertura',
+                        ),
+                      ),
+                      if (_openingCheck)
+                        OpeningCheckPanel(
+                          key: ValueKey((
+                            result.record!.code,
+                            result.blockchain,
+                          )),
+                          code: result.record!.code,
+                          evidence: _controller.resultIsPrevious
+                              ? null
+                              : result.blockchain,
+                          input: widget.openingInput!,
+                          picker: widget.comparisonPicker!,
+                          hasher: widget.pdfHasher!,
                         ),
                     ],
                     const SizedBox(height: AppSpacing.lg),
@@ -348,6 +400,10 @@ class _Result extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              const Text(
+                'Registro CertiChain',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
               Icon(icon, color: color, size: 40),
               const SizedBox(height: AppSpacing.md),
               Text(
@@ -377,6 +433,7 @@ class _Result extends StatelessWidget {
                   '${previous ? 'Consulta anterior' : 'Comprobado'}: ${_date(record.checkedAt)}',
                 ),
                 const Text('Todas las fechas se muestran en UTC.'),
+                const Text('Origen: registro CertiChain.'),
               ],
             ],
           ),

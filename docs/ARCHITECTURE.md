@@ -1,5 +1,18 @@
 # Arquitectura
 
+## Cliente y lectura 9D
+
+Flutter institucional → AnchoringRepository → endpoints Auth 9C; worker externo
+conserva firma/secretos y nunca se ejecuta desde cliente. Titular → código propio
+autorizado → verify-certificate-v2 pública, sin abrir progreso institucional.
+Verificador anónimo → presupuesto global → snapshot SQL coherente → lector EVM
+sin signer y con métodos/deadline acotados. SQL fallido es error técnico; RPC
+fallido deja registro + unavailable y evidencia anterior fechada.
+certificate-opening Auth → RPC técnica con autorización actual → apertura mínima.
+Flutter recalcula SHA-256/compromiso localmente, sin Web3 ni upload de PDF/apertura.
+No atomicidad SQL/EVM ni cambios de contrato/v1. [ADR-0017](adr/0017-public-blockchain-evidence-and-private-opening.md)
+y [contratos](BLOCKCHAIN_VERIFICATION.md).
+
 ## Principios
 
 1. El dominio define el producto; Supabase y EVM son adaptadores reemplazables.

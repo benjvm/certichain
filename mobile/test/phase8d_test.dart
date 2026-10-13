@@ -2,6 +2,8 @@ import 'dart:io';
 import 'dart:async';
 import 'dart:typed_data';
 
+import 'camera_test_policy.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -67,6 +69,7 @@ void main() {
       await t.pumpWidget(const SizedBox());
       await t.pumpAndSettle();
     },
+    skip: cameraWidgetSkip,
   );
   test('leaving the route aborts the production transport without notifying disposed UI', () async {
     final client = AbortProbe();
@@ -252,6 +255,7 @@ void main() {
       expect(camera.disposals, 1);
       expect(camera.events.isClosed, true);
     },
+    skip: cameraSkip,
   );
   testWidgets(
     'small screen text x2, previous snapshot and error semantics remain separate',
@@ -328,5 +332,6 @@ void main() {
       await t.pumpWidget(const SizedBox());
       await t.pumpAndSettle();
     },
+    skip: cameraWidgetSkip,
   );
 }

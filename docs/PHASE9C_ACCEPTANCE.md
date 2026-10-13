@@ -156,6 +156,15 @@ reautorización explícita. Esa pasada fallida no se incluye como PASS final.
 
 ## CI y límites
 
+Actualización observada durante 9D, 13/10/2026: remoto main y checkout base
+`e39dd40118139d1bf05d944b2b2926abcae53622`. Reconsultados por conector GitHub run,
+intento 1 y jobs/pasos: [Database permissions 38316317965](https://github.com/benjvm/certichain/actions/runs/38316317965),
+[Private durable anchoring 38316317900](https://github.com/benjvm/certichain/actions/runs/38316317900)
+y [Blockchain registry 38316317855](https://github.com/benjvm/certichain/actions/runs/38316317855),
+todos success y mismo head_sha. Database/flutter/android, SQL/Deno/HTTP,
+worker/Anvil y Foundry fueron ejecutados. Acreditan base publicada 9C, **no**
+árbol local 9D sin commit. NOT_OBSERVED inferior conserva la historia anterior.
+
 Base 9B reconsultada por GitHub: runs 38301216330 y 38301216385, intento 1,
 success y pasos ejecutados, SHA 5d29a985…; historia en aceptación 9B.
 No acredita este árbol 9C sin commit. `anchoring.yml` añade Ubuntu 24.04,

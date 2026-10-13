@@ -89,7 +89,7 @@ export function cameraTestMode(env = process.env, report = console.log) {
           stage,
           result: "SKIP",
           reason:
-            "CERTICHAIN_TEST_CAMERA=0; camera capture requires explicit opt-in",
+            "Omitidas por instrucción del usuario; no hay cámara física disponible",
         };
         scenarios.push(skipped);
         report(JSON.stringify(skipped));

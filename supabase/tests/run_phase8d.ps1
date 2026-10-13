@@ -3,7 +3,7 @@ $ErrorActionPreference = 'Stop'
 $source = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 $target = [IO.Path]::GetFullPath((Join-Path ([IO.Path]::GetTempPath()) ('certichain-8d-' + [guid]::NewGuid())))
 $saved = @{}
-foreach ($name in @('CERTICHAIN_TEST_DISPOSABLE','CERTICHAIN_TEST_BACKEND_ROOT','CERTICHAIN_RELEASE_SKIP_BUILD')) { $saved[$name] = [Environment]::GetEnvironmentVariable($name,'Process') }
+foreach ($name in @('CERTICHAIN_TEST_CAMERA','CERTICHAIN_TEST_DISPOSABLE','CERTICHAIN_TEST_BACKEND_ROOT','CERTICHAIN_RELEASE_SKIP_BUILD')) { $saved[$name] = [Environment]::GetEnvironmentVariable($name,'Process') }
 function Stage([string]$Name, [scriptblock]$Action) {
     Write-Output "8D stage: $Name"
     & $Action
@@ -11,6 +11,7 @@ function Stage([string]$Name, [scriptblock]$Action) {
 }
 Push-Location -LiteralPath $source
 try {
+    $env:CERTICHAIN_TEST_CAMERA='0'
     if ((node --version) -ne 'v24.14.0') { throw 'Use Node 24.14.0 from .node-version.' }
     $null = & "$PSScriptRoot/prepare_disposable_local.ps1" -Destination $target -Start
     $env:CERTICHAIN_TEST_DISPOSABLE = '1'

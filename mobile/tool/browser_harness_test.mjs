@@ -1,4 +1,5 @@
 import { test } from "node:test";
+import process from "node:process";
 import assert from "node:assert/strict";
 import {
   cameraTestMode,
@@ -22,13 +23,17 @@ test("camera capture defaults to SKIP and never runs media callbacks or flags", 
       stage: "capture",
       result: "SKIP",
       reason:
-        "CERTICHAIN_TEST_CAMERA=0; camera capture requires explicit opt-in",
+        "Omitidas por instrucción del usuario; no hay cámara física disponible",
     }]);
     assert.deepEqual(logs.map(JSON.parse), camera.scenarios);
   }
 });
 
-test("camera opt-in executes capture and records PASS only after success", async () => {
+test("camera opt-in executes capture and records PASS only after success", {
+  skip: process.env.CERTICHAIN_TEST_CAMERA === "1"
+    ? false
+    : "Omitidas por instrucción del usuario; no hay cámara física disponible",
+}, async () => {
   const camera = cameraTestMode({ CERTICHAIN_TEST_CAMERA: "1" });
   assert.deepEqual(camera.chromeArgs("real-qr.y4m"), [
     "--use-fake-device-for-media-stream",

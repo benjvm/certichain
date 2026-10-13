@@ -16,6 +16,9 @@ import '../../certificates/presentation/document_action.dart';
 import '../../issuance/domain/issuance_repository.dart';
 import '../../issuance/presentation/issuance_screen.dart';
 import '../domain/institution_repository.dart';
+import '../../issuance/domain/anchoring_repository.dart';
+import '../../issuance/presentation/anchoring_panel.dart';
+import '../../certificates/presentation/opening_action.dart';
 
 class InstitutionWorkspace extends StatefulWidget {
   const InstitutionWorkspace({
@@ -27,9 +30,17 @@ class InstitutionWorkspace extends StatefulWidget {
     required this.onSessionExpired,
     this.documents,
     this.sessionChanges,
+    this.anchoring,
+    this.anchorStore,
+    this.openings,
+    this.openingTransfer,
     super.key,
   });
   final String userId;
+  final AnchoringRepository? anchoring;
+  final AnchorReceiptStore? anchorStore;
+  final OpeningRepository? openings;
+  final OpeningTransfer? openingTransfer;
   final InstitutionRepository repository;
   final IssuanceRepository issuance;
   final PdfPicker picker;
@@ -47,6 +58,8 @@ class _InstitutionWorkspaceState extends State<InstitutionWorkspace>
   Future<CertificateWallet>? _issued;
   String? _active;
   String? _documentId;
+  String? _anchorId;
+  String? _openingId;
   bool _opening = false;
   int _generation = 0;
   Timer? _timer;
@@ -63,6 +76,8 @@ class _InstitutionWorkspaceState extends State<InstitutionWorkspace>
     final generation = ++_generation;
     _issued = null;
     _documentId = null;
+    _anchorId = null;
+    _openingId = null;
     _members = widget.repository.readMemberships(widget.userId);
     unawaited(
       _members.then((members) {
@@ -190,6 +205,8 @@ class _InstitutionWorkspaceState extends State<InstitutionWorkspace>
                           setState(() {
                             _active = id;
                             _documentId = null;
+                            _anchorId = null;
+                            _openingId = null;
                             _readIssued();
                           });
                         }
@@ -267,6 +284,77 @@ class _InstitutionWorkspaceState extends State<InstitutionWorkspace>
                                             ),
                                           ),
                                         ),
+                                        if (widget.anchoring != null &&
+                                            widget.anchorStore != null &&
+                                            selected.canIssue)
+                                          if (_anchorId != c.id)
+                                            TextButton(
+                                              onPressed: () => setState(
+                                                () => _anchorId = c.id,
+                                              ),
+                                              child: Text(
+                                                c.validityAt(DateTime.now()) ==
+                                                        CertificateValidity
+                                                            .valid
+                                                    ? 'Solicitar anclaje / consultar operación'
+                                                    : 'Consultar operación de anclaje',
+                                              ),
+                                            )
+                                          else
+                                            AnchoringPanel(
+                                              key: ValueKey((
+                                                widget.userId,
+                                                _active,
+                                                c.id,
+                                              )),
+                                              scope: AnchorScope(
+                                                widget.userId,
+                                                _active!,
+                                                c.id,
+                                              ),
+                                              canRequest:
+                                                  c.validityAt(
+                                                    DateTime.now(),
+                                                  ) ==
+                                                  CertificateValidity.valid,
+                                              repository: widget.anchoring!,
+                                              store: widget.anchorStore!,
+                                              onSessionExpired:
+                                                  widget.onSessionExpired,
+                                              sessionChanges:
+                                                  widget.sessionChanges,
+                                            ),
+                                        if (widget.openings != null &&
+                                            selected.canIssue &&
+                                            _openingId != c.id)
+                                          TextButton(
+                                            onPressed: () => setState(
+                                              () => _openingId = c.id,
+                                            ),
+                                            child: const Text(
+                                              'Consultar apertura privada',
+                                            ),
+                                          ),
+                                        if (widget.openings != null &&
+                                            widget.openingTransfer != null &&
+                                            selected.canIssue &&
+                                            _openingId == c.id)
+                                          OpeningAction(
+                                            key: ValueKey((
+                                              'opening',
+                                              widget.userId,
+                                              _active,
+                                              c.id,
+                                            )),
+                                            userId: widget.userId,
+                                            certificateId: c.id,
+                                            repository: widget.openings!,
+                                            transfer: widget.openingTransfer!,
+                                            onSessionExpired:
+                                                widget.onSessionExpired,
+                                            sessionChanges:
+                                                widget.sessionChanges,
+                                          ),
                                         if (widget.documents != null &&
                                             selected.canIssue &&
                                             _documentId != c.id)

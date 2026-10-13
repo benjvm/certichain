@@ -1,5 +1,19 @@
 # Modelo de datos y migraciones
 
+## Incremento 9D: proyección coherente y apertura protegida
+
+Migración nueva `20261013110000_blockchain_verification_opening.sql`, sin editar
+ninguna aplicada. Dos RPC técnicas SECURITY DEFINER/search_path vacío/EXECUTE
+service_role: lookup_public_certificate_v2(text,text), registro v1 y snapshot
+técnico mínimo del entorno backend en una sentencia SQL; y
+authorize_certificate_opening(uuid,uuid,text), autorización actual y
+revalidación completed/IDs/institución/binding/deployment/H/K/I/S/C.
+No tabla, índice, política RLS, grant de tablas, backfill ni DML cliente nuevo.
+Tablas 9C permanecen privadas. No devuelve blockchain_job ni snapshots completos.
+JSON technical no pasa literalmente a público; Edge construye evidencia mínima.
+El titular conserva apertura con institución suspendida; plataforma sin relación
+no recibe acceso. Contrato: [BLOCKCHAIN_VERIFICATION](BLOCKCHAIN_VERIFICATION.md).
+
 La primera migración, `initial_schema`, define cuatro tablas: `profiles`,
 `institutions`, `institution_members` y `certificates`. La Fase 7A añade
 `certificate_issuance_operations`. Otras tablas descritas más abajo son

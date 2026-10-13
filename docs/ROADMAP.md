@@ -248,10 +248,14 @@ Otros pendientes humanos/plataformas conservan su alcance en
   [Aceptación 9B](PHASE9B_ACCEPTANCE.md). No integración ni revocación desde app.
 - **9C — backend privado implementado localmente.** Migración nueva, endpoint
   Auth, EIP-1559 durable, nonces/replacements y reconciliación real Anvil. Evidencia,
-  límites y dictamen: [PHASE9C_ACCEPTANCE](PHASE9C_ACCEPTANCE.md). CI nueva sin
-  publicación/observación. Operación: [BLOCKCHAIN_OPERATIONS](BLOCKCHAIN_OPERATIONS.md).
-- **9D — cliente y evidencia pública: pendiente.** v2 separado; registro, anclaje,
-  copia y fecha/origen diferenciados; apertura autorizada sin ampliar v1.
+  límites y dictamen: [PHASE9C_ACCEPTANCE](PHASE9C_ACCEPTANCE.md). Publicada en
+  e39dd401…: Actions 38316317965/38316317900/38316317855, intento 1, success
+  reconsultadas durante 9D. Operación: [BLOCKCHAIN_OPERATIONS](BLOCKCHAIN_OPERATIONS.md).
+- **9D — cliente y evidencia pública: implementada localmente.** Cliente
+  institucional 9C real, v2 separado, registro/evidencia/copia/apertura y fechas/
+  fuentes independientes. Apertura Auth y cálculo SHA-256 local, sin ampliar v1,
+  grants o contrato 9B. Resultados y dictamen: [PHASE9D_ACCEPTANCE](PHASE9D_ACCEPTANCE.md).
+  Sin commit/publicación; CI del árbol nuevo NOT_OBSERVED.
 - **9E — aceptación del recorrido local: pendiente.** Publicación→Anvil→evidencia,
   integridad con apertura, permisos y recuperación; demo Sepolia con evidencia
   propia cuando exista despliegue autorizado. Sin pruebas de cámara.

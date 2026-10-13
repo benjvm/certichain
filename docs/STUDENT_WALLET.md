@@ -1,5 +1,16 @@
 # Wallet personal y detalle — Fases 4D y 7C
 
+## Ampliación 9D del detalle
+
+Wallet, emisión, PDF privado y QR/enlace existentes conservados. La pestaña
+Blockchain permite consultar v2 mediante código propio autorizado y obtener
+apertura autenticada; nunca progreso institucional. Estado EVM, fecha y fuente
+se muestran independientemente de la vigencia SQL. Obtener/copy/export son
+acciones explícitas; sesión/token/salida descartan referencias a la apertura.
+Titular mantiene acceso con emisora suspendida; no solicita anclaje sin membresía.
+Sin Web3, claves, QR con H/S ni promesa de borrar copias externas.
+[Contrato](BLOCKCHAIN_VERIFICATION.md), [aceptación](PHASE9D_ACCEPTANCE.md).
+
 ## Navegación y datos reales
 
 Después de autenticar, `/` contiene los destinos internos
