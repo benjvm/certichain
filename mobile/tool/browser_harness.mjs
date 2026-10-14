@@ -1,5 +1,5 @@
 import { spawn, spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { accessSync, constants, readFileSync } from "node:fs";
 import { join } from "node:path";
 import process from "node:process";
 import { setTimeout as delay } from "node:timers/promises";
@@ -101,16 +101,49 @@ export function cameraTestMode(env = process.env, report = console.log) {
   };
 }
 
+// An explicit override must fail as configured, never silently select a different
+// browser. Default candidates are executable paths, not merely existing files.
+export function chromeExecutable(
+  env = process.env,
+  platform = process.platform,
+  available = (path) => {
+    try {
+      accessSync(path, constants.X_OK);
+      return true;
+    } catch {
+      return false;
+    }
+  },
+) {
+  if (env.CHROME_EXECUTABLE !== undefined) return env.CHROME_EXECUTABLE;
+  const candidates = platform === "win32"
+    ? [
+      "C:/Program Files/Google/Chrome/Application/chrome.exe",
+      "C:/Program Files (x86)/Google/Chrome/Application/chrome.exe",
+    ]
+    : platform === "darwin"
+    ? ["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"]
+    : [
+      "/usr/bin/google-chrome",
+      "/usr/bin/google-chrome-stable",
+      "/usr/bin/chromium",
+      "/usr/bin/chromium-browser",
+    ];
+  const executable = candidates.find(available);
+  if (!executable) {
+    throw new Error("Chrome executable unavailable; set CHROME_EXECUTABLE");
+  }
+  return executable;
+}
+
 export async function launchChrome(
   profile,
   args = [],
-  timeout = 20000,
+  timeout = 60000,
   options = {},
 ) {
-  const executable = process.env.CHROME_EXECUTABLE ??
-    (process.platform === "win32"
-      ? "C:/Program Files/Google/Chrome/Application/chrome.exe"
-      : "/usr/bin/google-chrome");
+  const executable = chromeExecutable();
+  const started = Date.now();
   const child = spawn(executable, [
     // Edge's Windows compatibility launcher otherwise exits successfully and
     // re-parents the actual browser, escaping process-tree teardown.
@@ -120,6 +153,7 @@ export async function launchChrome(
     ...(options.visible ? [] : ["--headless=new"]),
     "--no-sandbox",
     "--disable-gpu",
+    "--disable-dev-shm-usage",
     "--no-first-run",
     "--no-default-browser-check",
     "--remote-debugging-port=0",
@@ -128,9 +162,13 @@ export async function launchChrome(
   ], {
     windowsHide: true,
     detached: process.platform !== "win32",
-    stdio: ["ignore", "ignore", "pipe"],
+    stdio: ["ignore", "pipe", "pipe"],
   });
   let launchError = false, launchCode = "none";
+  let stdoutBytes = 0,
+    stderrBytes = 0,
+    portState = "missing",
+    probeState = "not_started";
   const categories = new Set();
   child.on("error", (error) => {
     launchError = true;
@@ -138,7 +176,7 @@ export async function launchChrome(
       ? error.code
       : "other";
   });
-  child.stderr.on("data", (chunk) => {
+  const classify = (chunk) => {
     const sample = chunk.toString().slice(0, 4096);
     for (
       const [key, regex] of Object.entries({
@@ -148,18 +186,31 @@ export async function launchChrome(
         display: /DISPLAY|X server/,
         dbus: /dbus/,
         crash: /FATAL|crash|segmentation/i,
+        shared_memory: /\/dev\/shm|shared.memory/i,
+        resource:
+          /No space left|Cannot allocate memory|Resource temporarily unavailable/i,
       })
     ) {
       if (regex.test(sample)) categories.add(key);
     }
+  };
+  child.stdout.on("data", (chunk) => {
+    stdoutBytes += chunk.length;
+    classify(chunk);
+  });
+  child.stderr.on("data", (chunk) => {
+    stderrBytes += chunk.length;
+    classify(chunk);
   });
   const diagnostic = () =>
     `launch_error=${launchError}; launch_code=${launchCode}; exit=${
       child.exitCode ?? "none"
     }; signal=${child.signalCode ?? "none"}; categories=${
       [...categories].join(",") || "none"
-    }`;
-  const deadline = Date.now() + timeout;
+    }; elapsed_ms=${
+      Date.now() - started
+    }; timeout_ms=${timeout}; active_port=${portState}; probe=${probeState}; stdout_bytes=${stdoutBytes}; stderr_bytes=${stderrBytes}`;
+  const deadline = started + timeout;
   try {
     while (Date.now() < deadline) {
       if (launchError || child.exitCode !== null || child.signalCode !== null) {
@@ -171,11 +222,21 @@ export async function launchChrome(
             "\n",
           )[0],
         );
-        if (port > 0 && port <= 65535) {
+        portState = Number.isInteger(port) && port > 0 && port <= 65535
+          ? "valid"
+          : "invalid";
+        if (portState === "valid") {
+          probeState = "unavailable";
           const response = await fetch(
             `http://127.0.0.1:${port}/json/version`,
-            { signal: AbortSignal.timeout(1000) },
+            {
+              signal: AbortSignal.timeout(
+                Math.max(1, Math.min(1000, deadline - Date.now())),
+              ),
+            },
           );
+          probeState = response.ok ? "ready" : "http_error";
+          await response.body?.cancel();
           if (response.ok) return { child, port, diagnostic };
         }
       } catch {

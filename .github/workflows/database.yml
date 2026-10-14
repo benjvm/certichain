@@ -28,6 +28,27 @@ jobs:
         uses: supabase/setup-cli@1dedf2c611547ede7232d26866dd3c56ab903bbb # v1.7.3
         with:
           version: 2.117.0
+      - name: Verify runner Chrome before starting services
+        shell: bash
+        run: |
+          chrome_bin=''
+          for candidate in google-chrome google-chrome-stable chromium chromium-browser; do
+            if command -v "$candidate" >/dev/null 2>&1; then
+              chrome_bin=$(command -v "$candidate")
+              break
+            fi
+          done
+          if [ -z "$chrome_bin" ]; then
+            echo 'No Chrome/Chromium executable found on the Ubuntu runner' >&2
+            exit 1
+          fi
+          test -x "$chrome_bin"
+          timeout 10s "$chrome_bin" --version
+          echo "CHROME_EXECUTABLE=$chrome_bin" >> "$GITHUB_ENV"
+      - name: Chrome harness regressions and real DevTools smoke
+        run: |
+          node --test mobile/tool/browser_harness_test.mjs
+          node mobile/tool/browser_harness_smoke.mjs
       - name: Start local Supabase
         run: supabase start
       - name: Rebuild database
@@ -50,9 +71,7 @@ jobs:
           node --check mobile/tool/public_verification_browser.mjs
           node --check mobile/tool/public_verification_requests.mjs
           node --check mobile/tool/verify_qr.mjs
-          node --test mobile/tool/browser_harness_test.mjs
           node --test supabase/tests/edge_runtime_test.mjs
-          node mobile/tool/browser_harness_smoke.mjs
       - name: Issuance HTTP and recovery with real local Auth
         run: node supabase/tests/issuance_http.mjs
       - name: Native emulator console diagnostics

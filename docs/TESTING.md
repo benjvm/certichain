@@ -1622,3 +1622,37 @@ fragmento añadido se revisó manualmente, las fuentes PowerShell se parsearon y
 sus siete regresiones pasan; la validación Linux/CI del workflow modificado queda
 pendiente del operador. La limpieza final de logs/PID e imagen de smoke fue
 rechazada automáticamente: recursos/rutas en PHASE8_OPERATOR_CHECKLIST.md.
+
+## Arranque Chrome en CI — 15/10/2026
+
+El run Database permissions `38623962129`, SHA `14f48dfe`, pasó SQL y
+95 tests Deno, pero falló en `browser_harness_smoke.mjs`: Chrome no publicó
+DevTools antes del límite de 20 s. El proceso seguía vivo, sin error de spawn
+ni categoría de salida. Eso no demuestra ausencia del binario ni confirma que
+los rate limits previos de ECR causaran el fallo; Supabase terminó de arrancar.
+
+`launchChrome` permite ahora 60 s por defecto, conserva el timeout explícito y
+añade `--disable-dev-shm-usage`. Descubre ejecutables habituales si no se define
+`CHROME_EXECUTABLE`; un override explícito nunca se sustituye silenciosamente.
+La readiness sigue exigiendo un puerto válido y respuesta HTTP satisfactoria de
+DevTools. Los fallos siguen deteniendo la suite y limpiando el grupo de procesos.
+El diagnóstico conserva categorías allowlist de ambos streams, número de bytes,
+tiempo transcurrido/límite y estado del archivo de puerto/probe; no conserva ni
+publica texto crudo, rutas, URLs, credenciales o mensajes del navegador.
+
+El job database comprueba el Chrome instalado y exporta `CHROME_EXECUTABLE`.
+Ejecuta las regresiones Node y el smoke real antes de levantar Supabase, para
+aislar el arranque del navegador de la carga de los servicios. No se añaden
+reintentos de suites, `continue-on-error`, dependencias ni cambios SQL.
+
+Validación local Linux con Node 24.19.0: 14 tests Node PASS y uno SKIP de cámara;
+formato Deno 2.2.12 y parseo YAML comprobados. Los nuevos casos usan un proceso
+controlado y socket real para readiness demorada, salida temprana, puerto
+ausente/inválido, HTTP 503, override inexistente, sanitización y limpieza. La
+fixture ejecutable Unix se omite en Windows; el smoke Chrome existente conserva
+la cobertura real del navegador y la limpieza propia de cada plataforma.
+El smoke con Chrome real no pudo ejecutarse localmente: no había navegador y
+la descarga de Chrome for Testing devolvió un ZIP vacío/incompleto. La CI del
+nuevo commit sigue pendiente; estos tests no equivalen a validación completa de
+Supabase/Flutter. Cámara permanece con `CERTICHAIN_TEST_CAMERA=0` y motivo:
+«Omitidas por instrucción del usuario; no hay cámara física disponible».

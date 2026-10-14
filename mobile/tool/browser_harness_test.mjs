@@ -1,12 +1,18 @@
 import { test } from "node:test";
 import process from "node:process";
 import assert from "node:assert/strict";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
   cameraTestMode,
   cdpFailure,
+  chromeExecutable,
   evaluate,
+  launchChrome,
   navigateDocument,
   sourceRevision,
+  stopChrome,
 } from "./browser_harness.mjs";
 import {
   countPublicPost,
@@ -16,6 +22,142 @@ import {
 } from "./public_verification_requests.mjs";
 import { until } from "../../supabase/tests/local_issuance_fixture.mjs";
 import { setTimeout as delay } from "node:timers/promises";
+
+test("Chrome discovery tries executable candidates but preserves explicit overrides", () => {
+  assert.equal(
+    chromeExecutable({}, "linux", (p) => p.endsWith("/chromium")),
+    "/usr/bin/chromium",
+  );
+  assert.equal(
+    chromeExecutable({}, "win32", (p) => p.includes("(x86)")),
+    "C:/Program Files (x86)/Google/Chrome/Application/chrome.exe",
+  );
+  assert.equal(
+    chromeExecutable({}, "darwin", () => true),
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+  );
+  assert.throws(
+    () => chromeExecutable({}, "linux", () => false),
+    /Chrome executable unavailable/,
+  );
+  assert.equal(
+    chromeExecutable(
+      { CHROME_EXECUTABLE: "/missing/explicit" },
+      "linux",
+      () => {
+        throw new Error("Must not fallback");
+      },
+    ),
+    "/missing/explicit",
+  );
+});
+
+// Real controlled subprocess/socket, not a substitute for the Chrome smoke.
+// Unix executable fixtures do not emulate Windows process-tree semantics.
+test(
+  "Chrome launch waits for DevTools, sanitizes both streams and cleans failed processes",
+  {
+    skip: process.platform === "win32" ? "Unix executable fixture" : false,
+  },
+  async () => {
+    const root = mkdtempSync(join(tmpdir(), "certichain-launch-test-"));
+    const original = process.env.CHROME_EXECUTABLE;
+    let child;
+    try {
+      const executable = join(root, "fake-browser");
+      writeFileSync(
+        executable,
+        `#!${process.execPath}
+const fs = require('node:fs');
+const http = require('node:http');
+const path = require('node:path');
+const profile = process.argv.find(a => a.startsWith('--user-data-dir=')).split('=').slice(1).join('=');
+fs.writeFileSync(path.join(profile, 'pid'), String(process.pid));
+const mode = fs.readFileSync(path.join(profile, 'mode'), 'utf8');
+console.log('private-stdout-token /dev/shm');
+console.error('private-stderr-token dbus');
+if (mode === 'exit') process.exit(23);
+if (mode === 'ready' || mode === 'http_error') {
+  if (!process.argv.includes('--disable-dev-shm-usage')) process.exit(24);
+  const server = http.createServer((req, res) => { res.statusCode = mode === 'http_error' ? 503 : 200; res.end('{}'); });
+  server.listen(0, '127.0.0.1', () => {
+    setTimeout(() => fs.writeFileSync(path.join(profile, 'DevToolsActivePort'), String(server.address().port)), 150);
+  });
+} else {
+  if (mode === 'invalid') fs.writeFileSync(path.join(profile, 'DevToolsActivePort'), 'invalid');
+  setInterval(() => {}, 1000);
+}
+`,
+        { mode: 0o700 },
+      );
+      process.env.CHROME_EXECUTABLE = executable;
+      for (
+        const mode of ["ready", "exit", "missing", "invalid", "http_error"]
+      ) {
+        const profile = mkdtempSync(join(root, mode + "-"));
+        writeFileSync(join(profile, "mode"), mode);
+        if (mode === "ready") {
+          const launch = await launchChrome(profile);
+          child = launch.child;
+          assert.match(launch.diagnostic(), /active_port=valid; probe=ready/);
+          assert.match(launch.diagnostic(), /timeout_ms=60000/);
+          assert.match(
+            launch.diagnostic(),
+            /stdout_bytes=[1-9]\d*; stderr_bytes=[1-9]\d*/,
+          );
+          assert.doesNotMatch(
+            launch.diagnostic(),
+            /private-stdout-token|private-stderr-token/,
+          );
+          await stopChrome(child);
+          child = undefined;
+        } else {
+          await assert.rejects(launchChrome(profile, [], 1000), (error) => {
+            assert.match(
+              error.message,
+              mode === "exit"
+                ? /Chrome exited before ready:.*exit=23/
+                : /Chrome startup deadline:/,
+            );
+            assert.match(
+              error.message,
+              new RegExp(
+                "active_port=" +
+                  (mode === "http_error"
+                    ? "valid"
+                    : mode === "invalid"
+                    ? "invalid"
+                    : "missing"),
+              ),
+            );
+            assert.match(error.message, /shared_memory/);
+            assert.match(error.message, /dbus/);
+            if (mode === "http_error") {
+              assert.match(error.message, /probe=http_error/);
+            }
+            assert.doesNotMatch(
+              error.message,
+              /private-stdout-token|private-stderr-token/,
+            );
+            return true;
+          });
+        }
+        const pid = Number(readFileSync(join(profile, "pid"), "utf8"));
+        assert.throws(() => process.kill(pid, 0), { code: "ESRCH" });
+      }
+      process.env.CHROME_EXECUTABLE = join(root, "missing-executable");
+      await assert.rejects(
+        launchChrome(root, [], 1000),
+        /launch_error=true; launch_code=ENOENT/,
+      );
+    } finally {
+      if (original === undefined) delete process.env.CHROME_EXECUTABLE;
+      else process.env.CHROME_EXECUTABLE = original;
+      await stopChrome(child);
+      rmSync(root, { recursive: true, force: true });
+    }
+  },
+);
 
 test("public proxy/CDP headers reject credentials regardless of case or value", () => {
   assert.equal(
