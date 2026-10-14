@@ -16,6 +16,12 @@ import { pathToFileURL } from "node:url";
 import { setTimeout as delay } from "node:timers/promises";
 import { decodeQr } from "./verify_qr.mjs";
 import { qrTestVideo } from "./qr_test_video.mjs";
+import {
+  countPublicPost,
+  expectSingleV2Post,
+  publicEndpoint,
+  publicHeadersAreAnonymous,
+} from "./public_verification_requests.mjs";
 
 if (process.env.CERTICHAIN_TEST_DISPOSABLE !== "1") {
   throw new Error("Requires an explicitly disposable local stack");
@@ -115,15 +121,8 @@ try {
     try {
       const path = new URL(req.url, origin).pathname;
       res.setHeader("cache-control", "no-store");
-      if (
-        [
-          "/functions/v1/verify-certificate",
-          "/functions/v1/compare-certificate-hash",
-        ].includes(path)
-      ) {
-        if (
-          ["authorization", "apikey", "cookie"].some((k) => k in req.headers)
-        ) {
+      if (publicEndpoint(path)) {
+        if (!publicHeadersAreAnonymous(req.headers)) {
           failure = new Error("Same-origin public transport sent credentials");
         }
         const chunks = [];
@@ -198,12 +197,9 @@ try {
   const port = launched.port;
   async function connect(url) {
     const publicIds = new Set(), extra = new Map();
+    const publicPosts = { v1: 0, v2: 0, comparison: 0 };
     function assertHeaders(headers) {
-      if (
-        Object.keys(headers).some((k) =>
-          ["authorization", "apikey", "cookie"].includes(k.toLowerCase())
-        )
-      ) {
+      if (!publicHeadersAreAnonymous(headers)) {
         failure = new Error("Actual public browser request sent credentials");
       }
     }
@@ -217,30 +213,18 @@ try {
         if (url.pathname.endsWith("/decoder/zxing-0.23.0.min.js")) {
           localDecoderSeen = true;
         }
-      }
-      if (
-        m.method === "Network.requestWillBeSent" &&
-        (m.params.request.url.endsWith("/functions/v1/verify-certificate") ||
-          m.params.request.url.endsWith(
-            "/functions/v1/compare-certificate-hash",
-          )) &&
-        m.params.request.method === "POST"
-      ) {
-        const comparison = m.params.request.url.endsWith(
-          "/compare-certificate-hash",
-        );
+        if (publicEndpoint(url.pathname)) {
+          publicIds.add(m.params.requestId);
+          assertHeaders(m.params.request.headers);
+          if (extra.has(m.params.requestId)) {
+            assertHeaders(extra.get(m.params.requestId));
+          }
+        }
+        const endpoint = countPublicPost(publicPosts, m.params.request);
+        if (!endpoint) return;
+        const comparison = endpoint === "comparison";
         if (comparison) comparisonRequests++;
         else publicRequests++;
-        publicIds.add(m.params.requestId);
-        if (extra.has(m.params.requestId)) {
-          assertHeaders(extra.get(m.params.requestId));
-        }
-        const headers = Object.keys(m.params.request.headers).map((k) =>
-          k.toLowerCase()
-        );
-        if (
-          headers.some((k) => ["authorization", "apikey", "cookie"].includes(k))
-        ) failure = new Error("Public browser sent credentials");
         const body = JSON.parse(m.params.request.postData ?? "{}");
         if (
           Object.keys(body).sort().join(",") !==
@@ -262,6 +246,7 @@ try {
         if (publicIds.has(m.params.requestId)) assertHeaders(m.params.headers);
       }
     });
+    cdp.publicPosts = publicPosts;
     sockets.push(cdp);
     return cdp;
   }
@@ -807,7 +792,7 @@ try {
   }, "main target");
   const main = await connect(mainTarget.webSocketDebuggerUrl);
   await main("Network.enable");
-  let beforeMain = publicRequests;
+  let beforeMain = { ...main.publicPosts };
   await navigateDocument(main, "Page.navigate", {
     url: `${origin}/production/#/verify/${record.credential_code}`,
   });
@@ -837,23 +822,37 @@ try {
     );
   }
   await mainResult();
-  verify(
-    publicRequests - beforeMain === 1,
+  await expectSingleV2Post(
+    main.publicPosts,
+    beforeMain,
     "Actual main startup failure causes one public query",
+    until,
   );
   verify(
-    (await evaluate(main, "location.hash")).endsWith(record.credential_code),
+    main.publicPosts.v2 - beforeMain.v2 === 1,
+    "Actual main startup uses v2 exactly once",
+  );
+  verify(
+    await evaluate(main, "location.pathname + location.hash") ===
+      `/production/#/verify/${record.credential_code}`,
     "main retains public code during private startup failure",
   );
-  beforeMain = publicRequests;
+  beforeMain = { ...main.publicPosts };
   await navigateDocument(main, "Page.reload", { ignoreCache: true });
   await mainResult();
-  verify(
-    publicRequests - beforeMain === 1,
+  await expectSingleV2Post(
+    main.publicPosts,
+    beforeMain,
     "Actual main reload causes one public query",
+    until,
   );
   verify(
-    (await evaluate(main, "location.hash")).endsWith(record.credential_code),
+    main.publicPosts.v2 - beforeMain.v2 === 1,
+    "Actual main reload uses v2 exactly once",
+  );
+  verify(
+    await evaluate(main, "location.pathname + location.hash") ===
+      `/production/#/verify/${record.credential_code}`,
     "actual main reload keeps public route",
   );
   verify(

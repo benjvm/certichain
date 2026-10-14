@@ -8,6 +8,159 @@ import {
   navigateDocument,
   sourceRevision,
 } from "./browser_harness.mjs";
+import {
+  countPublicPost,
+  expectSingleV2Post,
+  publicEndpoint,
+  publicHeadersAreAnonymous,
+} from "./public_verification_requests.mjs";
+import { until } from "../../supabase/tests/local_issuance_fixture.mjs";
+import { setTimeout as delay } from "node:timers/promises";
+
+test("public proxy/CDP headers reject credentials regardless of case or value", () => {
+  assert.equal(
+    publicHeadersAreAnonymous({ "Content-Type": "application/json" }),
+    true,
+  );
+  for (
+    const name of [
+      "authorization",
+      "Authorization",
+      "apikey",
+      "ApiKey",
+      "cookie",
+      "Cookie",
+    ]
+  ) {
+    for (const value of ["", "synthetic-private-value"]) {
+      assert.equal(publicHeadersAreAnonymous({ [name]: value }), false);
+    }
+  }
+});
+
+test("public endpoints use exact pathname; v1/v2 count separately from comparison", () => {
+  const counts = { v1: 0, v2: 0, comparison: 0 };
+  for (
+    const [path, version] of [
+      ["verify-certificate", "v1"],
+      ["verify-certificate-v2", "v2"],
+      ["compare-certificate-hash", "comparison"],
+    ]
+  ) {
+    const pathname = `/functions/v1/${path}`;
+    assert.equal(publicEndpoint(pathname), version);
+    for (const suffix of ["", "?probe=1", "#fragment"]) {
+      const url = `http://127.0.0.1:7357${pathname}${suffix}`;
+      for (const method of ["OPTIONS", "GET", "HEAD"]) {
+        assert.equal(countPublicPost(counts, { url, method }), null);
+      }
+      assert.equal(countPublicPost(counts, { url, method: "POST" }), version);
+    }
+  }
+  for (
+    const path of [
+      "/main.dart.js",
+      "/assets/verify-certificate-v2",
+      "/other/functions/v1/verify-certificate",
+      "/functions/v1/verify-certificate-v2/",
+      "/functions/v1/verify-certificate-v20",
+      "/functions/v1/certificate-opening",
+    ]
+  ) {
+    assert.equal(publicEndpoint(path), null);
+    assert.equal(
+      countPublicPost(counts, {
+        url: `http://127.0.0.1:7357${path}`,
+        method: "POST",
+      }),
+      null,
+    );
+  }
+  assert.deepEqual(counts, { v1: 3, v2: 3, comparison: 3 });
+});
+
+test("startup/reload accept exactly one v2 POST per page, including delayed CDP", async () => {
+  const counts = { v1: 0, v2: 0, comparison: 0 };
+  const otherPage = { v1: 0, v2: 0, comparison: 0 };
+  for (const scenario of ["main startup", "main reload"]) {
+    const before = { ...counts };
+    const events = delay(100).then(() => {
+      const request = {
+        url: "http://127.0.0.1:55321/functions/v1/verify-certificate-v2",
+        method: "POST",
+      };
+      countPublicPost(counts, request);
+      countPublicPost(otherPage, request);
+      countPublicPost(otherPage, request);
+    });
+    await expectSingleV2Post(counts, before, scenario, until);
+    await events;
+    assert.equal(counts.v2 - before.v2, 1);
+  }
+  assert.equal(otherPage.v2, 4);
+});
+
+test("single-query check rejects two POSTs, including a delayed duplicate", async () => {
+  for (const duplicate of ["immediate", "delayed", "mixed-v1-v2"]) {
+    const before = { v1: 0, v2: 0, comparison: 0 };
+    const counts = { ...before };
+    const request = {
+      url: "http://127.0.0.1:55321/functions/v1/verify-certificate-v2",
+      method: "POST",
+    };
+    countPublicPost(counts, request);
+    if (duplicate === "immediate") countPublicPost(counts, request);
+    const events = delay(150).then(() => {
+      if (duplicate === "delayed") countPublicPost(counts, request);
+      if (duplicate === "mixed-v1-v2") {
+        countPublicPost(counts, {
+          ...request,
+          url: request.url.replace(
+            "verify-certificate-v2",
+            "verify-certificate",
+          ),
+        });
+      }
+    });
+    await assert.rejects(
+      expectSingleV2Post(counts, before, `main ${duplicate}`, until),
+      (error) => {
+        assert.match(error.message, /main .*expected=1 observed=2/);
+        assert.match(
+          error.message,
+          /endpoint=\/functions\/v1\/verify-certificate-v2 method=POST/,
+        );
+        assert.match(error.message, /v1=\d v2=\d comparison=0/);
+        return true;
+      },
+    );
+    await events;
+  }
+});
+
+test("v1 or comparison cannot stand in for the expected v2 query; zero is diagnosed", async () => {
+  const before = { v1: 0, v2: 0, comparison: 0 };
+  for (
+    const counts of [
+      { ...before, v1: 1 },
+      { ...before, comparison: 1 },
+      { ...before },
+    ]
+  ) {
+    let timeout;
+    // A zero-count timeout uses the same sanitized diagnostic. The real until
+    // is exercised above; avoid a five-second unit test for an absent event.
+    const absent = async (predicate, _label, milliseconds) => {
+      timeout = milliseconds;
+      if (!await predicate()) throw new Error("Timed out");
+    };
+    await assert.rejects(
+      expectSingleV2Post(counts, before, "main absent-v2", absent),
+      /main absent-v2: expected=1 observed=[01].*method=POST v1=[01] v2=0 comparison=[01]/,
+    );
+    assert.equal(timeout, 5000);
+  }
+});
 
 test("camera capture defaults to SKIP and never runs media callbacks or flags", async () => {
   for (const env of [{}, { CERTICHAIN_TEST_CAMERA: "0" }]) {

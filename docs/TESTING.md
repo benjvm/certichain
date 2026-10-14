@@ -1,5 +1,110 @@
 # Estrategia de pruebas
 
+## Corrección del harness público tras 9D — 14/10/2026
+
+En `17c80df21ccdabd034c916252e4992ff3106800e`, main.dart usa v2, pero
+public_verification_browser.mjs solo reconocía verify-certificate v1 y
+compare-certificate-hash. Un POST real a verify-certificate-v2 no incrementaba
+publicRequests: el fallo «Actual main startup failure causes one public query»
+no se explica por una simple carrera CDP; esperar más no corrige ese contador.
+Según el run aportado por el usuario, las 860 SQL pasaron y falló la integración
+de navegador dentro de database; release era el siguiente paso sin ejecutar.
+
+El allowlist explícito usa pathname para los tres endpoints. Solo POST cuenta;
+v1/v2 son verificaciones y comparación conserva su contador independiente.
+V2 recibe los mismos controles de Authorization/apikey/cookies en proxy y CDP,
+incluido requestWillBeSentExtraInfo antes o después del evento principal. Se
+conservan el límite del proxy de 2048 bytes, el cuerpo cerrado y el rechazo de
+recursos externos. No cambian main.dart, contratos, backend ni dependencias.
+
+Se conservan las aserciones de resultado revocado en arranque real y recarga,
+y se comprueban exactamente el pathname público, el fragmento de ruta y el código.
+Cada uno exige exactamente un POST v2, usando contadores de su propia conexión
+CDP para evitar contaminación entre pestañas. Una espera until de hasta 5 s
+cubre observación tardía; después se comprueba durante 500 ms que no aparece
+una segunda verificación. Dos POST, incluso mezclando v1/v2, fallan. No hay
+reintento de consultas. El diagnóstico contiene escenario, delta esperado y
+observado, endpoint, método y recuentos v1/v2/comparación; no contiene URL completa,
+código, cuerpos, cabeceras, tokens, cookies, documentos ni datos personales.
+
+Validación local sobre HEAD 17c80df… con cambios sin commit, Windows:
+
+| Comprobación ejecutada | Resultado |
+|---|---|
+| Node 24.14.0: --check en public_verification_browser, public_verification_requests y browser_harness_test | PASS |
+| Deno 2.2.12 fmt --check en esos tres .mjs (formato exigido por CI) | PASS |
+| browser_harness_test + edge_runtime_test, CERTICHAIN_TEST_CAMERA=0 | **15 PASS, 1 SKIP**; cinco regresiones nuevas |
+| Regresión focalizada | v1/v2 por pathname, comparación separada, OPTIONS/GET/HEAD/estáticos excluidos, una v2 aceptada, dos rechazadas, duplicado tardío, pestañas aisladas, v1/cero rechazados; cabeceras privadas rechazadas independientemente de mayúsculas/valor |
+| browser_harness_smoke, Node 24.14.0 y Chrome real Windows | **45 PASS**; no acredita Flutter/SQL/backend |
+| git diff --check | PASS |
+
+**NOT_RUN**: Supabase desechable/SQL, builds Flutter actualizados y recorridos
+public_verification_browser/release_verification_browser. Docker no está
+disponible (sin ejecutable ni instalación; registro local de desinstalación).
+El SDK instalado es Flutter 3.47.5/Dart 3.13.4, distinto del fijado en CI.
+No se reseteó ninguna BD, ni se consultaron servicios remotos. No se ejecutó
+GitHub Actions sobre un SHA nuevo. Los PASS históricos inferiores no acreditan
+esta corrección ni sustituyen los recorridos pendientes.
+
+Checks independientes, desde raíz con Node 24.14.0 en PATH:
+
+```powershell
+$env:CERTICHAIN_TEST_CAMERA='0'
+node --check mobile/tool/public_verification_browser.mjs
+node --check mobile/tool/public_verification_requests.mjs
+node --check mobile/tool/browser_harness_test.mjs
+npx --yes deno@2.2.12 fmt --check mobile/tool/public_verification_browser.mjs mobile/tool/public_verification_requests.mjs mobile/tool/browser_harness_test.mjs
+node --test mobile/tool/browser_harness_test.mjs supabase/tests/edge_runtime_test.mjs
+node mobile/tool/browser_harness_smoke.mjs
+git diff --check
+```
+
+Reproducción pendiente, desde raíz, con Docker operativo, Node 24.14.0,
+Supabase CLI 2.117.0 y Flutter 3.47.4/Dart 3.13.3 (commit Flutter
+9584c6713b324636289d067944a46fd6b49df14b) en PATH. El preparador comprueba la
+versión CLI y crea volúmenes nuevos fuera del repositorio; no ejecutar db reset
+sobre un stack de trabajo. Ambos harnesses van secuencialmente:
+
+```powershell
+$env:CERTICHAIN_TEST_CAMERA='0'
+$env:CERTICHAIN_TEST_DISPOSABLE='1'
+$taskStack = & ./supabase/tests/prepare_disposable_local.ps1 -Start
+$env:CERTICHAIN_TEST_BACKEND_ROOT=$taskStack
+try {
+  & $env:SUPABASE_CLI test db --local --workdir $taskStack
+  if ($LASTEXITCODE -ne 0) { throw 'SQL failed' }
+  Push-Location mobile
+  try {
+    flutter pub get --enforce-lockfile
+    if ($LASTEXITCODE -ne 0) { throw 'Flutter dependencies failed' }
+    Push-Location tool
+    try {
+      npm ci --ignore-scripts
+      if ($LASTEXITCODE -ne 0) { throw 'Decoder dependencies failed' }
+      node prepare_decoder.mjs --check
+      if ($LASTEXITCODE -ne 0) { throw 'Decoder drift' }
+    } finally { Pop-Location }
+    flutter build web --no-web-resources-cdn --target=tool/public_verification_browser.dart --output=build/public-verification-e2e
+    if ($LASTEXITCODE -ne 0) { throw 'Public build failed' }
+    flutter build web --debug --no-web-resources-cdn --base-href=/production/ --dart-define=SUPABASE_URL=http://127.0.0.1:55321 --dart-define=PUBLIC_VERIFICATION_BASE_URL=http://127.0.0.1:7357/production/ --output=build/public-verification-main
+    if ($LASTEXITCODE -ne 0) { throw 'Main startup-error build failed' }
+    node tool/public_verification_browser.mjs
+    if ($LASTEXITCODE -ne 0) { throw 'Public journey failed' }
+    Remove-Item Env:CERTICHAIN_RELEASE_SKIP_BUILD -ErrorAction SilentlyContinue
+    node tool/release_verification_browser.mjs
+    if ($LASTEXITCODE -ne 0) { throw 'Release journey failed' }
+  } finally { Pop-Location }
+} finally {
+  & ./supabase/tests/stop_disposable_local.ps1 -Root $taskStack
+  Remove-Item Env:CERTICHAIN_TEST_BACKEND_ROOT -ErrorAction SilentlyContinue
+}
+```
+
+release reconstruye main.dart release HTTPS con la configuración del stack
+propio. Se conservan códigos manuales/enlaces, QR generado/decodificación PNG,
+PDF, Auth y SQL. Cámara **SKIP/NOT_RUN** en estas ejecuciones, nunca PASS:
+«Omitidas por instrucción del usuario; no hay cámara física disponible».
+
 ## Cliente/verificación 9D
 
 CERTICHAIN_TEST_CAMERA=0 siempre. Unit/widget de captura/permisos/ciclo de vida

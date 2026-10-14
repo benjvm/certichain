@@ -46,7 +46,9 @@ jobs:
           node --check supabase/tests/issuance_hardening.mjs
           node --check supabase/tests/public_verification_http.mjs
           node --check mobile/tool/secure_issuance_browser.mjs
+          npx --yes deno@2.2.12 fmt --check mobile/tool/public_verification_requests.mjs
           node --check mobile/tool/public_verification_browser.mjs
+          node --check mobile/tool/public_verification_requests.mjs
           node --check mobile/tool/verify_qr.mjs
           node --test mobile/tool/browser_harness_test.mjs
           node --test supabase/tests/edge_runtime_test.mjs
