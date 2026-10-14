@@ -36,11 +36,13 @@ jobs:
           test "$(git -C "$RUNNER_TEMP/flutter" rev-parse HEAD)" = 9584c6713b324636289d067944a46fd6b49df14b
           echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
           "$RUNNER_TEMP/flutter/bin/flutter" pub get --enforce-lockfile
+          npm ci --ignore-scripts --prefix tool
+          node tool/prepare_decoder.mjs --check
       - name: Format, lint, strict types and backend regression tests
         run: |
-          npx --yes deno@2.2.12 fmt --check supabase/functions supabase/tests/phase9d_environment.ts supabase/tests/blockchain_verification_integration.ts supabase/tests/local_issuance_fixture.mjs mobile/tool/blockchain_verification_browser.mjs mobile/tool/browser_harness.mjs mobile/tool/browser_harness_test.mjs mobile/tool/release_verification_browser.mjs
-          npx --yes deno@2.2.12 lint supabase/functions supabase/tests/phase9d_environment.ts supabase/tests/blockchain_verification_integration.ts
-          npx --yes deno@2.2.12 check --frozen --config supabase/functions/deno.json supabase/tests/blockchain_verification_integration.ts supabase/functions/verify-certificate-v2/index.ts supabase/functions/certificate-opening/index.ts
+          npx --yes deno@2.2.12 fmt --check supabase/functions supabase/tests/phase9d_environment.ts supabase/tests/blockchain_verification_integration.ts supabase/tests/phase9e_acceptance.ts supabase/tests/phase9e_checks.ts supabase/tests/phase9e_preflight.mjs supabase/tests/local_issuance_fixture.mjs mobile/tool/blockchain_verification_browser.mjs mobile/tool/browser_harness.mjs mobile/tool/browser_harness_test.mjs mobile/tool/release_verification_browser.mjs mobile/tool/public_verification_requests.mjs
+          npx --yes deno@2.2.12 lint supabase/functions supabase/tests/phase9d_environment.ts supabase/tests/blockchain_verification_integration.ts supabase/tests/phase9e_acceptance.ts supabase/tests/phase9e_checks.ts supabase/tests/phase9e_preflight.mjs
+          npx --yes deno@2.2.12 check --frozen --config supabase/functions/deno.json supabase/tests/phase9e_acceptance.ts supabase/functions/verify-certificate-v2/index.ts supabase/functions/certificate-opening/index.ts
           npx --yes deno@2.2.12 test --frozen --config supabase/functions/deno.json supabase/functions
       - name: Flutter domain, adapters and widgets without camera
         working-directory: mobile
@@ -51,24 +53,29 @@ jobs:
           node --test tool/browser_harness_test.mjs
       - name: Own runner database, schema and permissions before mutable fixtures
         run: |
+          node supabase/tests/phase9e_preflight.mjs
           if ! supabase start >/dev/null 2>&1; then
             echo 'Runner-local Supabase startup failed'
             exit 1
           fi
           supabase test db --local
           supabase db lint --local --schema public,certichain_private --level warning --fail-on warning
-      - name: Real Edge, signed live Anvil, main.dart release and protected opening
+      - name: Phase 9E real release journey and isolated private recovery
         run: |
           export CERTICHAIN_SOURCE_ROOT="$GITHUB_WORKSPACE"
           export CERTICHAIN_ANVIL_BIN="$GITHUB_WORKSPACE/blockchain/.tools/bin/anvil"
-          npx --yes deno@2.2.12 run --allow-all --frozen --config supabase/functions/deno.json supabase/tests/blockchain_verification_integration.ts
+          npx --yes deno@2.2.12 run --allow-all --frozen --config supabase/functions/deno.json supabase/tests/phase9e_acceptance.ts
       - name: Whitespace
         run: git diff --check
       - name: Sanitized summary only
+        if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: phase9d-summary
-          path: mobile/build/phase9d-evidence/result.json
+          name: phase9e-summary
+          path: |
+            mobile/build/phase9e-evidence/preflight.json
+            mobile/build/phase9e-evidence/result.json
+            mobile/build/phase9e-evidence/browser.json
           if-no-files-found: error
           retention-days: 7
       - name: Stop owned runner stack

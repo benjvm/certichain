@@ -101,7 +101,12 @@ export function cameraTestMode(env = process.env, report = console.log) {
   };
 }
 
-export async function launchChrome(profile, args = [], timeout = 20000) {
+export async function launchChrome(
+  profile,
+  args = [],
+  timeout = 20000,
+  options = {},
+) {
   const executable = process.env.CHROME_EXECUTABLE ??
     (process.platform === "win32"
       ? "C:/Program Files/Google/Chrome/Application/chrome.exe"
@@ -112,7 +117,7 @@ export async function launchChrome(profile, args = [], timeout = 20000) {
     ...(process.platform === "win32" && /msedge\.exe$/i.test(executable)
       ? ["--edge-skip-compat-layer-relaunch"]
       : []),
-    "--headless=new",
+    ...(options.visible ? [] : ["--headless=new"]),
     "--no-sandbox",
     "--disable-gpu",
     "--no-first-run",

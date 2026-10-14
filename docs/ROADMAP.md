@@ -255,10 +255,18 @@ Otros pendientes humanos/plataformas conservan su alcance en
   institucional 9C real, v2 separado, registro/evidencia/copia/apertura y fechas/
   fuentes independientes. Apertura Auth y cálculo SHA-256 local, sin ampliar v1,
   grants o contrato 9B. Resultados y dictamen: [PHASE9D_ACCEPTANCE](PHASE9D_ACCEPTANCE.md).
-  Sin commit/publicación; CI del árbol nuevo NOT_OBSERVED.
-- **9E — aceptación del recorrido local: pendiente.** Publicación→Anvil→evidencia,
-  integridad con apertura, permisos y recuperación; demo Sepolia con evidencia
-  propia cuando exista despliegue autorizado. Sin pruebas de cámara.
+  Base integrada 7737d303…: Actions 38542815011/38542814969/38542814699/38542814693,
+  intento 1, success observadas el 14/10/2026; historial previo conservado.
+- **9E — cerrada para demo Web local, con limitaciones enumeradas (14/10/2026).** Entrada reproducible
+  [run_phase9e.ps1](../supabase/tests/run_phase9e.ps1), lógica 9D compartida,
+  recuperación privada PG/Storage aislada, fallos/permisos y recorrido real Web.
+  Recorrido completo ejecutado con PASS; resultados y limitaciones en
+  [PHASE9E_ACCEPTANCE](PHASE9E_ACCEPTANCE.md), guion en
+  [DEMO_BLOCKCHAIN_LOCAL](DEMO_BLOCKCHAIN_LOCAL.md). CI del árbol nuevo NOT_OBSERVED.
+  Sepolia NOT_RUN sin despliegue autorizado; sin cámara ni revocación de producto.
+  Android archivos: una pasada real completa, pero aceptación estable FAIL en la
+  última pasada; no bloquea el cierre específico Web ni acredita app nativa completa.
+  Apto para iniciar Fase 10 Web/local; plataformas/lanzamiento público pendientes.
 
 ### Fase 10 — Revocación completa (pendiente)
 

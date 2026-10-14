@@ -25,17 +25,24 @@ import {
   sourceRevision,
   stopChrome,
 } from "./browser_harness.mjs";
+import {
+  countPublicPost,
+  expectSingleV2Post,
+  publicEndpoint,
+  publicHeadersAreAnonymous,
+} from "./public_verification_requests.mjs";
 
 export async function runBrowserJourney(env) {
   const root = resolve(process.env.CERTICHAIN_SOURCE_ROOT ?? ".."),
     mobile = join(root, "mobile");
   const f = env.f, origin = "https://127.0.0.1:7360";
+  const phase = env.phase ?? "9d";
   const directory = mkdtempSync(join(tmpdir(), "certichain-browser-9d-"));
   if (!resolve(directory).startsWith(resolve(tmpdir()) + sep)) {
     throw new Error("Unsafe own directory");
   }
-  const build = join(mobile, "build/phase9d-release"),
-    evidence = join(mobile, "build/phase9d-evidence");
+  const build = join(mobile, `build/phase${phase}-release`),
+    evidence = join(mobile, `build/phase${phase}-evidence`);
   mkdirSync(evidence, { recursive: true });
   let server, chrome, wireFailure, heldOpening, holdOpening = false;
   let assertions = 0,
@@ -45,7 +52,10 @@ export async function runBrowserJourney(env) {
     openingPosts = 0;
   const sockets = [], stages = [], httpStatuses = [];
   const check = (v, label) => {
-    if (!v) throw new Error(label);
+    if (!v) {
+      console.log(JSON.stringify({ case: label, result: "FAIL" }));
+      throw new Error(label);
+    }
     assertions++;
   };
   const until = async (predicate, label, ms = 25000) => {
@@ -55,6 +65,9 @@ export async function runBrowserJourney(env) {
       if (await predicate()) return;
       await delay(60);
     }
+    console.log(
+      JSON.stringify({ stage: label, result: "FAIL", reason: "deadline" }),
+    );
     throw new Error(`Deadline: ${label}`);
   };
   const stage = (name) => {
@@ -109,10 +122,11 @@ export async function runBrowserJourney(env) {
       "build",
       "web",
       "--release",
+      "--no-pub",
       "--no-web-resources-cdn",
       "--target=lib/main.dart",
       `--dart-define-from-file=${config}`,
-      "--output=build/phase9d-release",
+      `--output=build/phase${phase}-release`,
     ];
     const built = process.platform === "win32"
       ? spawnSync("cmd.exe", [
@@ -228,6 +242,19 @@ export async function runBrowserJourney(env) {
               });
             }
             const response = Buffer.from(await upstream.arrayBuffer());
+            if (path.startsWith("/rest/v1/") && !upstream.ok) {
+              const error = JSON.parse(response.toString());
+              console.log(
+                JSON.stringify({
+                  stage: "rest-failure",
+                  resource: path.split("/").at(-1),
+                  status: upstream.status,
+                  code: /^[A-Z0-9_]+$/.test(error.code ?? "")
+                    ? error.code
+                    : "OTHER",
+                }),
+              );
+            }
             if (
               path.endsWith("/certificate-opening") && holdOpening &&
               req.method === "POST"
@@ -276,10 +303,15 @@ export async function runBrowserJourney(env) {
       server.once("error", j);
       server.listen(7360, "127.0.0.1", r);
     });
-    const launch = await launchChrome(join(directory, "chrome"), [
-      `--ignore-certificate-errors-spki-list=${spki}`,
-      "about:blank",
-    ]);
+    const launch = await launchChrome(
+      join(directory, "chrome"),
+      [
+        `--ignore-certificate-errors-spki-list=${spki}`,
+        "about:blank",
+      ],
+      20000,
+      { visible: process.env.CERTICHAIN_9E_VISIBLE_BROWSER === "1" },
+    );
     chrome = launch.child;
     const browserInfo =
       await (await fetch(`http://127.0.0.1:${launch.port}/json/version`))
@@ -287,6 +319,13 @@ export async function runBrowserJourney(env) {
     const browser = await connectCdp(browserInfo.webSocketDebuggerUrl);
     sockets.push(browser);
     async function page() {
+      const publicPosts = { v1: 0, v2: 0, comparison: 0 };
+      const publicIds = new Set(), extra = new Map();
+      const assertHeaders = (headers) => {
+        if (!publicHeadersAreAnonymous(headers)) {
+          wireFailure = new Error("Public browser request sent credentials");
+        }
+      };
       const context = await browser("Target.createBrowserContext");
       await browser("Browser.setDownloadBehavior", {
         behavior: "allow",
@@ -307,10 +346,24 @@ export async function runBrowserJourney(env) {
           }
           if (event.method === "Network.requestWillBeSent") {
             const url = new URL(event.params.request.url);
+            if (publicEndpoint(url.pathname)) {
+              publicIds.add(event.params.requestId);
+              assertHeaders(event.params.request.headers);
+              if (extra.has(event.params.requestId)) {
+                assertHeaders(extra.get(event.params.requestId));
+              }
+            }
+            countPublicPost(publicPosts, event.params.request);
             if (
               ["http:", "https:"].includes(url.protocol) &&
               !["127.0.0.1", "localhost"].includes(url.hostname)
             ) wireFailure = new Error("External client request");
+          }
+          if (event.method === "Network.requestWillBeSentExtraInfo") {
+            extra.set(event.params.requestId, event.params.headers);
+            if (publicIds.has(event.params.requestId)) {
+              assertHeaders(event.params.headers);
+            }
           }
         },
       );
@@ -321,6 +374,7 @@ export async function runBrowserJourney(env) {
       await cdp("DOM.enable");
       await cdp("Page.setInterceptFileChooserDialog", { enabled: true });
       cdp.browserContextId = context.browserContextId;
+      cdp.publicPosts = publicPosts;
       await cdp("Emulation.setDeviceMetricsOverride", {
         width: 390,
         height: 844,
@@ -457,7 +511,19 @@ export async function runBrowserJourney(env) {
     async function select(cdp, label, file) {
       cdp.chooser = null;
       await click(cdp, label);
-      await until(() => !!cdp.chooser, "Production file chooser");
+      await until(() => !!cdp.chooser, `Production file chooser: ${label}`);
+      if (!file) {
+        await click(cdp, "Cancelar comprobación");
+        await until(
+          async () =>
+            await evaluate(
+              cdp,
+              "!document.querySelector('#certichain-opening-input') && !document.querySelector('#certichain-comparison-pdf-input')",
+            ),
+          "Production cancellation removes owned picker input",
+        );
+        return;
+      }
       await cdp("DOM.setFileInputFiles", {
         files: [file],
         backendNodeId: cdp.chooser.backendNodeId,
@@ -565,6 +631,25 @@ export async function runBrowserJourney(env) {
     await outcome(holder, "Copiar enlace");
     const code = env.lookupCode(certificate);
     const link = origin + "/#/verify/" + code;
+    await element(holder, "QR del enlace de verificación");
+    const decoded = spawnSync("node", [
+      "--input-type=module",
+      "-e",
+      "import {readFileSync} from 'node:fs'; import {decodeQr} from './tool/verify_qr.mjs'; const input=JSON.parse(readFileSync(0,'utf8')); decodeQr(Buffer.from(input.png,'base64'),input.link);",
+    ], {
+      cwd: mobile,
+      input: JSON.stringify({
+        png: (await holder("Page.captureScreenshot", { format: "png" })).data,
+        link,
+      }),
+      windowsHide: true,
+      timeout: 10000,
+    });
+    check(
+      decoded.status === 0,
+      "Static production QR decodes independently to exact public link",
+    );
+    stage("production-qr-decoded-from-static-image");
     await browser("Browser.grantPermissions", {
       origin,
       browserContextId: holder.browserContextId,
@@ -601,9 +686,16 @@ export async function runBrowserJourney(env) {
       "Exported production opening belongs to certificate",
     );
     const anonymous = await page();
+    let beforePage = { ...anonymous.publicPosts };
     await navigateDocument(anonymous, "Page.navigate", { url: link });
     await ready(anonymous, "Registro encontrado y vigente");
     await outcome(anonymous, "Anclaje confirmado.");
+    await expectSingleV2Post(
+      anonymous.publicPosts,
+      beforePage,
+      "Anonymous startup uses one v2 POST",
+      until,
+    );
     await click(anonymous, "Comprobar con apertura");
     await select(anonymous, "Importar apertura JSON", openingFile);
     const beforeLocal = publicPosts;
@@ -623,10 +715,74 @@ export async function runBrowserJourney(env) {
     );
     await select(anonymous, "Seleccionar PDF y comprobar apertura", modified);
     await outcome(anonymous, "Mi copia: PDF no coincidente con la apertura.");
+    check(
+      publicPosts === beforeLocal,
+      "Altered document comparison stays local",
+    );
+    check(
+      readFileSync(original).equals(pdf),
+      "Comparison preserves original bytes",
+    );
+    if (phase === "9e") {
+      await select(anonymous, "Importar apertura JSON", null);
+      await delay(300);
+      check(
+        publicPosts === beforeLocal,
+        "JSON chooser cancellation does not query public verifier",
+      );
+      const malformed = join(directory, "invalid.json"),
+        oversized = join(directory, "oversized.json");
+      writeFileSync(malformed, '{"schema_version":"1","salt":null}');
+      writeFileSync(oversized, " ".repeat(2049));
+      for (const file of [malformed, oversized]) {
+        await select(anonymous, "Importar apertura JSON", file);
+        await outcome(
+          anonymous,
+          "Apertura inválida o de otro certificado/contrato.",
+        );
+      }
+      await select(anonymous, "Importar apertura JSON", openingFile);
+      await select(anonymous, "Seleccionar PDF y comprobar apertura", null);
+      await delay(300);
+      check(
+        publicPosts === beforeLocal,
+        "PDF chooser cancellation leaves explicit recovery without upload",
+      );
+      for (
+        const [name, bytes, label] of [
+          ["empty.pdf", Buffer.alloc(0), "El PDF está vacío."],
+          ["too-large.pdf", Buffer.alloc(8388609), "El PDF supera 8 MiB."],
+        ]
+      ) {
+        const file = join(directory, name);
+        writeFileSync(file, bytes);
+        await select(anonymous, "Importar apertura JSON", openingFile);
+        await select(anonymous, "Seleccionar PDF y comprobar apertura", file);
+        await outcome(anonymous, label);
+      }
+      await select(anonymous, "Importar apertura JSON", openingFile);
+      await select(anonymous, "Seleccionar PDF y comprobar apertura", original);
+      await outcome(
+        anonymous,
+        "Apertura válida: el PDF corresponde al compromiso comprobado.",
+      );
+      check(
+        publicPosts === beforeLocal,
+        "Explicit file recovery still makes no public request",
+      );
+      stage("real-file-cancellation-invalid-json-bounds-and-recovery");
+    }
     stage("anonymous-v2-and-local-original-altered-opening");
     await click(anonymous, "Cerrar comprobación con apertura");
+    beforePage = { ...anonymous.publicPosts };
     await navigateDocument(anonymous, "Page.reload");
     await ready(anonymous, "Registro encontrado y vigente");
+    await expectSingleV2Post(
+      anonymous.publicPosts,
+      beforePage,
+      "Reload uses one v2 POST including late duplicates",
+      until,
+    );
     check(
       await evaluate(anonymous, `location.hash==='#/verify/${code}'`),
       "Reload retains old share route",
@@ -642,6 +798,27 @@ export async function runBrowserJourney(env) {
     await click(anonymous, "Actualizar comprobación");
     await outcome(anonymous, "Anclaje confirmado.");
     stage("actual-rpc-outage-previous-evidence-and-manual-recovery");
+    if (phase === "9e") {
+      env.exhaustBudget();
+      beforePage = { ...anonymous.publicPosts };
+      await click(anonymous, "Actualizar comprobación");
+      await outcome(anonymous, "Temporalmente no se admiten más consultas.");
+      await outcome(anonymous, "Espera");
+      await delay(4500);
+      check(
+        anonymous.publicPosts.v2 === beforePage.v2 + 1 &&
+          anonymous.publicPosts.v1 === beforePage.v1 &&
+          anonymous.publicPosts.comparison === beforePage.comparison,
+        "Real shared 429 and Retry-After expiry produce no polling or automatic request",
+      );
+      await click(anonymous, "Actualizar comprobación");
+      await outcome(anonymous, "Anclaje confirmado.");
+      check(
+        anonymous.publicPosts.v2 === beforePage.v2 + 2,
+        "Recovery after shared budget expiry requires manual action",
+      );
+      stage("real-shared-429-no-request-on-expiry");
+    }
     // Retain a real authorized response across logout, then deliver it late.
     await click(holder, "Descartar apertura");
     holdOpening = true;
@@ -651,6 +828,11 @@ export async function runBrowserJourney(env) {
     await ready(holder, "Cerrar sesión");
     await click(holder, "Cerrar sesión");
     await outcome(holder, "Comenzar");
+    check(
+      !(await semantics(holder)).includes("Copiar apertura"),
+      "Logout clears private opening before delayed response",
+    );
+    if (phase === "9e") await login(holder, f.outsider);
     heldOpening();
     heldOpening = null;
     await delay(300);
@@ -659,35 +841,87 @@ export async function runBrowserJourney(env) {
       "Late private opening never appears after logout",
     );
     stage("logout-invalidates-real-private-response");
+    if (phase === "9e") {
+      check(
+        !(await semantics(holder)).includes("9D Browser Certificate"),
+        "Account B has no holder A certificate",
+      );
+      check(
+        await evaluate(
+          holder,
+          `!Object.values(localStorage).some(value => value.includes(${
+            JSON.stringify(openingData.salt)
+          }) || value.includes(${
+            JSON.stringify(openingData.document_sha256)
+          }))`,
+        ),
+        "No opening salt or registered hash in persistent browser preferences",
+      );
+      stage("account-a-to-b-discards-real-late-opening");
+    }
     check(!wireFailure, "Wire has only local configured traffic");
     check(openingPosts >= 2, "Production opening endpoint called explicitly");
+    const result = {
+      result: "PASS",
+      ...sourceRevision(root),
+      evaluated_at: new Date().toISOString(),
+      assertions,
+      stages,
+      issue_posts: issuePosts,
+      anchor_posts: anchorPosts,
+      opening_posts: openingPosts,
+      public_posts: publicPosts,
+      anonymous_posts: { ...anonymous.publicPosts },
+      browser_version: browserInfo.Browser,
+      camera: "NOT_RUN",
+      camera_reason:
+        "Omitidas por instrucción del usuario; no hay cámara física disponible",
+    };
     writeFileSync(
-      join(evidence, "result.json"),
+      join(evidence, "browser.json"),
       JSON.stringify(
-        {
-          ...sourceRevision(root),
-          evaluated_at: new Date().toISOString(),
-          assertions,
-          stages,
-          issue_posts: issuePosts,
-          anchor_posts: anchorPosts,
-          opening_posts: openingPosts,
-          public_posts: publicPosts,
-          camera: "NOT_RUN",
-          camera_reason:
-            "Omitidas por instrucción del usuario; no hay cámara física disponible",
-        },
+        result,
         null,
         2,
       ),
     );
     console.log(
       JSON.stringify({
-        suite: "phase9d-production-browser",
+        suite: `phase${phase}-production-browser`,
         assertions,
         result: "PASS",
       }),
     );
+    if (phase === "9d") {
+      writeFileSync(
+        join(evidence, "result.json"),
+        JSON.stringify(result, null, 2),
+      );
+    }
+    return result;
+  } catch (error) {
+    const failure = {
+      ...sourceRevision(root),
+      evaluated_at: new Date().toISOString(),
+      result: "FAIL",
+      assertions,
+      stages,
+      last_stage: stages.at(-1)?.stage ?? "prepare",
+      wire_failure: !!wireFailure,
+    };
+    writeFileSync(
+      join(evidence, "browser.json"),
+      JSON.stringify(failure, null, 2),
+    );
+    if (
+      error instanceof Error &&
+      error.message.includes(
+        "endpoint=/functions/v1/verify-certificate-v2 method=POST",
+      )
+    ) {
+      console.log(error.message);
+    }
+    throw error;
   } finally {
     heldOpening?.();
     for (const socket of sockets) socket.close();

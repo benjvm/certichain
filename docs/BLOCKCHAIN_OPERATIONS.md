@@ -1,5 +1,25 @@
 # Operación privada de anclajes — 9C
 
+## Aceptación y recuperación local 9E
+
+[run_phase9e.ps1](../supabase/tests/run_phase9e.ps1) comparte infraestructura 9D y
+ejecuta publicación/solicitud/worker/progreso/v2/apertura/archivos de producción.
+`-BackendOnly` comprueba infraestructura sin acreditar Flutter.
+Guion: [DEMO_BLOCKCHAIN_LOCAL](DEMO_BLOCKCHAIN_LOCAL.md); evidencia:
+[PHASE9E_ACCEPTANCE](PHASE9E_ACCEPTANCE.md). No cron ni servicios remotos.
+
+La recuperación nueva usa destinos aislados PG y Storage con datos sintéticos:
+ledger privado completo y bytes recuperados deben conservar H/K/I/C/S y coincidir
+con el registro canónico original. El backup de bytes es independiente del dump
+SQL. No basta restaurar storage.objects: es necesario recuperar bytes por API y
+comprobarlos. El ejercicio no prueba el proveedor remoto ni copias/volúmenes reales.
+
+Restaurar el entorno original exacto no equivale a crear otro deployment/cadena.
+Reset invalida identidad previa y debe conservar evidencia histórica, sin fallback
+silencioso a off_chain_only ni firmar contra un contrato distinto. Un ledger
+incompleto no autoriza reconstruir firmas o saltar nonces; se conserva el bloqueo
+demostrado en 9C. Estado ejecutado de restore y limpieza en la aceptación 9E.
+
 ## Lectura Edge y cliente 9D
 
 Edge verify-certificate-v2 añade EVM_RPC_URL **solo para lectura**, junto con
@@ -180,4 +200,5 @@ o de finalized Sepolia. Mantiene hashes, metadata y evidencia. Límites de 64
 receipts/auditorías requieren operador. No hay limpieza automática de documentos.
 
 Cámara NOT_RUN: «Omitidas por instrucción del usuario; no hay cámara física disponible».
-9D/9E/10 siguen pendientes; sin Flutter, v2, cron remoto, backfill o Sepolia.
+El texto técnico 9C anterior es histórico. 9D/v2 están integrados; 9E amplía su
+aceptación local. Fase 10, cron remoto, backfill y Sepolia no se implementan aquí.

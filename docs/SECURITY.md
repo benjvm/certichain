@@ -1,5 +1,23 @@
 # Seguridad y privacidad
 
+## Evidencia privada y recuperación local 9E
+
+La aceptación [9E](PHASE9E_ACCEPTANCE.md) conserva v1/v2 y apertura Auth, sin
+nuevos grants, migraciones, modelo de confianza ni claves EVM en Flutter.
+La demo usa solo proyectos, perfiles y destinos sintéticos propios. Restore
+PostgreSQL/Storage compara H/K/I/C/S y bytes exactos en memoria; no publica dump,
+PDF, apertura, salt, hash registrado, tokens, raw transactions, secretos ni PII.
+Las consultas públicas siguen enviando solo código (o hash candidato en compare
+v1); JSON/PDF de apertura se procesan localmente. Cambio/logout/token invalidan
+contexto privado; copias exportadas externamente quedan bajo control del usuario.
+
+Recuperación del entorno original requiere identidad/cadena y ledger exactos.
+Una cadena nueva no sustituye silenciosamente el deployment previo. Pérdida del
+historial privado del firmante bloquea firmas nuevas; no se reconstruyen nonces
+desde receipts aislados. Validación local no acredita restore remoto, finalidad
+PoS ni custodia de producción. Presupuesto global 60/60 es control de demo;
+protección contra abuso para lanzamiento público sigue pendiente.
+
 ## Controles añadidos en 9D
 
 v2 público es lector sin signer, con métodos RPC permitidos, deadline total,

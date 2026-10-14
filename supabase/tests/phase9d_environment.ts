@@ -19,6 +19,7 @@ import {
 } from "../functions/_shared/blockchain/application/commitment.ts";
 import {
   coordinate,
+  type CoordinatorOptions,
   deployment,
 } from "../functions/_shared/blockchain/application/coordinator.ts";
 import type {
@@ -219,7 +220,11 @@ export async function phase9dEnvironment() {
         p_key: crypto.randomUUID(),
       },
     );
-    const run = async (id: string, adminMode = false) => {
+    const run = async (
+      id: string,
+      adminMode = false,
+      options: CoordinatorOptions = {},
+    ) => {
       if (!/^[0-9a-f-]{36}$/.test(id)) {
         throw new Error("Invalid owned operation");
       }
@@ -235,7 +240,7 @@ export async function phase9dEnvironment() {
             deployment(j),
             adminMode ? admin.privateKey : signer.privateKey,
           ),
-        { admin: adminMode },
+        { ...options, admin: adminMode },
       );
     };
     await run(administrative, true);
@@ -253,6 +258,47 @@ export async function phase9dEnvironment() {
       registry: new EvmRegistry(rpcUrl, d, signer.privateKey),
       deployment: d,
       run,
+      restartWorker: (id: string) => {
+        if (!/^[0-9a-f-]{36}$/.test(id)) {
+          throw new Error("Invalid owned operation");
+        }
+        sql(
+          `UPDATE certichain_private.blockchain_operations SET next_attempt_at=clock_timestamp()-interval '1 second' WHERE id='${id}';`,
+        );
+        const worker = spawnSync(Deno.execPath(), [
+          "run",
+          "--allow-env",
+          "--allow-net",
+          "--frozen",
+          "--config",
+          "supabase/functions/deno.json",
+          "supabase/admin/blockchain.ts",
+          "worker",
+          id,
+        ], {
+          encoding: "utf8",
+          windowsHide: true,
+          timeout: 40000,
+          maxBuffer: 65536,
+          env: {
+            ...Deno.env.toObject(),
+            SUPABASE_URL: backend.url,
+            SUPABASE_SERVICE_ROLE_KEY: f!.local.SERVICE_ROLE_KEY,
+            EVM_RPC_URL: rpcUrl,
+            EVM_SIGNER_PRIVATE_KEY: signer.privateKey,
+            EVM_ADMIN_PRIVATE_KEY: "",
+            EVM_MAX_COST_WEI: "10000000000000000",
+          },
+        });
+        if (worker.status !== 0) {
+          throw new Error("Owned restarted CLI worker failed");
+        }
+        const result = JSON.parse(worker.stdout.trim());
+        if (result.operation_id !== id || typeof result.result !== "string") {
+          throw new Error("Invalid restarted worker result");
+        }
+        return result.result as string;
+      },
       close,
       pause: () => docker(["pause", name]),
       unpause: () => docker(["unpause", name]),

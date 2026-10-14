@@ -1,5 +1,20 @@
 # Aceptación local — Fase 9D
 
+## Actualización CI observada — 14/10/2026
+
+Base integrada publicada `7737d303d6e3aa956481cbb7ca7cc2884426d7d8`:
+[verification 38542815011](https://github.com/benjvm/certichain/actions/runs/38542815011),
+[anchoring 38542814969](https://github.com/benjvm/certichain/actions/runs/38542814969),
+[database 38542814699](https://github.com/benjvm/certichain/actions/runs/38542814699) y
+[blockchain 38542814693](https://github.com/benjvm/certichain/actions/runs/38542814693).
+API run/jobs consultada el 14/10: SHA coincidente, intento 1, completed/success,
+pasos de integración reales y limpieza success. Incluye fix del contador público
+v2/aislamiento por página/duplicados tardíos. **CI 9D observada success para ese
+SHA**; no acredita cambios posteriores de 9E.
+Se conserva íntegramente el registro del 13/10 y sus intentos/NOT_OBSERVED
+anteriores a publicación, que son históricos. Aceptación nueva:
+[PHASE9E_ACCEPTANCE](PHASE9E_ACCEPTANCE.md).
+
 Fecha: 13/10/2026. **Implementada y validada localmente; apta para iniciar 9E.**
 Sin commit, push, merge ni publicación remota. Base local/remota revalidada:
 `e39dd40118139d1bf05d944b2b2926abcae53622`; árbol limpio al comenzar, sin cambios
@@ -131,7 +146,7 @@ repetido limpiamente. Ningún intento fallido se cuenta como PASS final.
 
 ## CI, configuración y pendientes
 
-Base reconsultada por GitHub: runs **38316317965**, **38316317900**, **38316317855**,
+Registro histórico del 13/10/2026: base reconsultada por GitHub: runs **38316317965**, **38316317900**, **38316317855**,
 intento 1, success y pasos/jobs ejecutados para e39dd401…; actualización en
 [aceptación 9C](PHASE9C_ACCEPTANCE.md) preservando historia. **CI de 9D NOT_OBSERVED**:
 no hay commit/publicación nueva, por instrucción del usuario. verification.yml

@@ -1,5 +1,12 @@
 # Verificación blockchain y apertura — Fase 9D
 
+Aceptación ampliada 9E: [PHASE9E_ACCEPTANCE](PHASE9E_ACCEPTANCE.md),
+[DEMO_BLOCKCHAIN_LOCAL](DEMO_BLOCKCHAIN_LOCAL.md),
+`./supabase/tests/run_phase9e.ps1` (completa) o `-BackendOnly` (sin Flutter).
+Misma app main.dart/contratos v1/v2/apertura Auth. Añade evidencia de recuperación
+ledger/Storage, archivos, cambio de cuenta, presupuesto y reset sin nuevo producto.
+CI 9D integrada success observada para 7737d303…; CI del árbol 9E NOT_OBSERVED.
+
 9A sección 3 define exactamente SHA-256/U/K/I/H/S/C; contrato, ABI y vector 9B
 no cambian. [ADR-0017](adr/0017-public-blockchain-evidence-and-private-opening.md)
 separa evidencia pública, documento y apertura. Ninguna comprobación acredita
@@ -184,6 +191,7 @@ Inputs/exportaciones sintéticos temporales no se copian a artefactos; result.js
 solo guarda revisión/dirty/fecha/contadores/etapas/cámara. Comandos de formato,
 análisis/regresiones/resultados y CI exacto en [PHASE9D_ACCEPTANCE](PHASE9D_ACCEPTANCE.md).
 
-9E/10 pendientes; sin backfill, cron remoto, Sepolia, wallet/NFT/token o revocación
+9E amplía aceptación local (estado en su documento); 10 pendiente. Sin backfill,
+cron remoto, Sepolia, wallet/NFT/token o revocación
 de producto. Cámara SKIP/NOT_RUN:
 «Omitidas por instrucción del usuario; no hay cámara física disponible».
