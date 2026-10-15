@@ -1,5 +1,29 @@
 # Estrategia de pruebas
 
+## Incremento local de revocación — 15/10/2026
+
+[REVOCATION](REVOCATION.md) define los endpoints Auth, motivo/auditoría privados,
+SQL irreversible, worker durable y evidencia pública v3 con issue/revoke separados.
+V1/v2 y compare conservan contrato; la app usa v3. Resultados ejecutados y
+dictamen vigente: [PHASE10_ACCEPTANCE](PHASE10_ACCEPTANCE.md). Los apartados
+que describen revocación futura conservan el contexto histórico de sus fases.
+La demo se reproduce con `./supabase/tests/run_phase10.ps1`; sin despliegue remoto,
+Sepolia ni corrección Android atribuida. Cámara=0 con la exclusión persistente.
+
+## Base de fase 9 reconsultada — 15/10/2026
+
+main/HEAD revisados: `bb2a93c61950f258136bc88d4b9ad44b46848fc5`.
+API GitHub: cuatro workflows completed/success, intento 1, para ese SHA:
+[Database permissions 38645390011](https://github.com/benjvm/certichain/actions/runs/38645390011),
+[Blockchain verification client 38645389979](https://github.com/benjvm/certichain/actions/runs/38645389979),
+[Private durable anchoring 38645389971](https://github.com/benjvm/certichain/actions/runs/38645389971),
+[Blockchain registry 38645389759](https://github.com/benjvm/certichain/actions/runs/38645389759).
+Actualiza el NOT_OBSERVED histórico del árbol 9E/base; se conserva el registro
+anterior más abajo. No acredita los cambios locales de fase 10: su CI sigue
+**NOT_OBSERVED**. Android archivos conserva la incidencia 9E; plataformas,
+Sepolia y accesibilidad humana no se elevan a PASS por estos runs.
+
+
 ## Aceptación local 9E — 14/10/2026
 
 [Matriz, resultados y límites](PHASE9E_ACCEPTANCE.md),

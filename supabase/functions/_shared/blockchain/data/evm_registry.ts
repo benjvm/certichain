@@ -21,6 +21,9 @@ interface RpcBlock {
   timestamp: Hex;
 }
 interface RpcLog {
+  blockHash: Hex;
+  blockNumber: Hex;
+  removed: boolean;
   address: string;
   topics: string[];
   data: string;
@@ -420,7 +423,10 @@ export class EvmRegistry implements BlockchainRegistry {
       receipt.hash,
     ]);
     const matching = raw.logs.filter((log) =>
-      lower(log.address) === this.deployment.contractAddress
+      lower(log.address) === this.deployment.contractAddress &&
+      lower(log.transactionHash) === receipt.hash &&
+      lower(log.blockHash) === receipt.block.hash &&
+      BigInt(log.blockNumber) === receipt.block.number && !log.removed
     ).filter((log) => {
       try {
         const event = abi.parseLog(log);
@@ -453,8 +459,18 @@ export class EvmRegistry implements BlockchainRegistry {
       const record = await this.read(command.K, receipt.block);
       if (
         !record || record.C !== command.C || record.I !== command.I ||
-        record.registeredAt !== receipt.timestamp || record.revokedAt !== 0n
+        record.registeredAt !== receipt.timestamp
       ) throw new RegistryError("divergence");
+    } else if (command.kind === "revoke") {
+      const record = await this.read(command.K, receipt.block);
+      if (
+        !record || record.revokedAt !== receipt.timestamp ||
+        record.registeredAt <= 0n || record.registeredAt > record.revokedAt
+      ) throw new RegistryError("incompatible_evidence");
+      const event = abi.parseLog(matching[0]);
+      if (!event || lower(event.args.issuerId) !== record.I) {
+        throw new RegistryError("incompatible_evidence");
+      }
     } else if (command.kind === "set_issuer") {
       const issuer = await this.issuer(command.I, receipt.block);
       if (
@@ -467,12 +483,23 @@ export class EvmRegistry implements BlockchainRegistry {
     return { ...receipt, logIndex: BigInt(matching[0].logIndex) };
   }
   async findIssue(K: Hex, from: bigint, head: bigint) {
+    return await this.findEvent("CertificateIssued", K, from, head);
+  }
+  async findRevoke(K: Hex, from: bigint, head: bigint) {
+    return await this.findEvent("CertificateRevoked", K, from, head);
+  }
+  private async findEvent(
+    event: "CertificateIssued" | "CertificateRevoked",
+    K: Hex,
+    from: bigint,
+    head: bigint,
+  ) {
     const to = from + 1999n < head ? from + 1999n : head;
     const logs = await this.rpc<RpcLog[]>("eth_getLogs", [{
       address: this.deployment.contractAddress,
       fromBlock: quantity(from),
       toBlock: quantity(to),
-      topics: [abi.getEvent("CertificateIssued")!.topicHash, K],
+      topics: [abi.getEvent(event)!.topicHash, K],
     }]);
     if (logs.length > 1) throw new RegistryError("divergence");
     return { hash: logs[0]?.transactionHash ?? null, cursor: to + 1n };

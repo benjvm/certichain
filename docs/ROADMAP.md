@@ -262,18 +262,22 @@ Otros pendientes humanos/plataformas conservan su alcance en
   recuperación privada PG/Storage aislada, fallos/permisos y recorrido real Web.
   Recorrido completo ejecutado con PASS; resultados y limitaciones en
   [PHASE9E_ACCEPTANCE](PHASE9E_ACCEPTANCE.md), guion en
-  [DEMO_BLOCKCHAIN_LOCAL](DEMO_BLOCKCHAIN_LOCAL.md). CI del árbol nuevo NOT_OBSERVED.
+  [DEMO_BLOCKCHAIN_LOCAL](DEMO_BLOCKCHAIN_LOCAL.md). CI de esa base observada posteriormente: bb2a93c6…, runs 38645390011/38645389979/38645389971/38645389759 completed/success (15/10/2026). Se conserva la historia en su aceptación.
   Sepolia NOT_RUN sin despliegue autorizado; sin cámara ni revocación de producto.
   Android archivos: una pasada real completa, pero aceptación estable FAIL en la
   última pasada; no bloquea el cierre específico Web ni acredita app nativa completa.
   Apto para iniciar Fase 10 Web/local; plataformas/lanzamiento público pendientes.
 
-### Fase 10 — Revocación completa (pendiente)
+### Fase 10 — Revocación completa (aceptada para demo Web local, 15/10/2026)
 
 Solicitud owner/admin de emisora verified o suspended, motivo privado, transición
 SQL irreversible inmediata y revoke EVM durable cuando proceda. Tratar tx issue
 tardía, reorg y divergencia, conservar completed/PDF y escrituras directas cerradas.
-No se habilita ese recorrido por tener revoke probado en contrato 9B.
+Entrega 10A–10E: decisión SQL privada inmediata e irreversible, Auth/idempotencia,
+ledger/worker revoke, cliente institucional y evidencia pública v3 explícita.
+[Contrato y operación](REVOCATION.md), [aceptación y dictamen](PHASE10_ACCEPTANCE.md),
+[ADR-0018](adr/0018-irreversible-revocation-and-public-v3.md). Aceptación real Web y backend completada; CI fase 10 NOT_OBSERVED;
+ningún run anterior acredita estos cambios.
 
 ## Etapas conceptuales del MVP
 

@@ -8,6 +8,7 @@ import '../domain/hash_comparison.dart';
 import 'public_http_client.dart';
 import '../../../core/files/strict_json.dart';
 import 'blockchain_models.dart';
+import 'public_revocation_models.dart';
 
 class HttpVerificationRepository
     implements
@@ -19,10 +20,12 @@ class HttpVerificationRepository
     http.Client? client,
     this.timeout = const Duration(seconds: 15),
     this.useV2 = false,
+    this.useV3 = false,
   }) : _endpoint = Uri.parse('$apiUrl/functions/v1/verify-certificate'),
        _client = client ?? createPublicHttpClient();
   final Uri _endpoint;
   final bool useV2;
+  final bool useV3;
   final http.Client _client;
   final _pendingAborts = <Completer<void>>{};
   @override
@@ -43,8 +46,11 @@ class HttpVerificationRepository
   @override
   Future<VerificationResult> verify(String input) => _run(
     input,
-    decode: (value, code) =>
-        useV2 ? decodeV2(value, code) : decodeResult(value, code),
+    decode: (value, code) => useV3
+        ? decodeV3(value, code)
+        : useV2
+        ? decodeV2(value, code)
+        : decodeResult(value, code),
   );
 
   @override
@@ -128,11 +134,13 @@ class HttpVerificationRepository
         http.AbortableRequest(
             'POST',
             hash == null
-                ? (useV2
+                ? (useV2 || useV3
                       ? _endpoint.replace(
                           path: _endpoint.path.replaceFirst(
                             'verify-certificate',
-                            'verify-certificate-v2',
+                            useV3
+                                ? 'verify-certificate-v3'
+                                : 'verify-certificate-v2',
                           ),
                         )
                       : _endpoint)

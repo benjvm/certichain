@@ -125,5 +125,10 @@ export interface OperationalRegistry extends BlockchainRegistry {
     from: bigint,
     head: bigint,
   ): Promise<{ hash: Hex | null; cursor: bigint }>;
+  findRevoke(
+    K: Hex,
+    from: bigint,
+    head: bigint,
+  ): Promise<{ hash: Hex | null; cursor: bigint }>;
   recoverPrepared(hash: Hex): Promise<PreparedTx>;
 }

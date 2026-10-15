@@ -1,3 +1,6 @@
+import '../../revocation/domain/revocation_repository.dart';
+import '../../revocation/presentation/revocation_panel.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -31,12 +34,16 @@ class InstitutionWorkspace extends StatefulWidget {
     this.documents,
     this.sessionChanges,
     this.anchoring,
+    this.revocations,
+    this.revocationKeys,
     this.anchorStore,
     this.openings,
     this.openingTransfer,
     super.key,
   });
   final String userId;
+  final RevocationRepository? revocations;
+  final RevocationKeyStore? revocationKeys;
   final AnchoringRepository? anchoring;
   final AnchorReceiptStore? anchorStore;
   final OpeningRepository? openings;
@@ -59,8 +66,13 @@ class _InstitutionWorkspaceState extends State<InstitutionWorkspace>
   String? _active;
   String? _documentId;
   String? _anchorId;
+  String? _revocationId;
   String? _openingId;
   bool _opening = false;
+  final _revoked = <String>{};
+  CertificateValidity _validity(Certificate c) => _revoked.contains(c.id)
+      ? CertificateValidity.revoked
+      : c.validityAt(DateTime.now());
   int _generation = 0;
   Timer? _timer;
   @override
@@ -75,8 +87,10 @@ class _InstitutionWorkspaceState extends State<InstitutionWorkspace>
   void _read() {
     final generation = ++_generation;
     _issued = null;
+    _revoked.clear();
     _documentId = null;
     _anchorId = null;
+    _revocationId = null;
     _openingId = null;
     _members = widget.repository.readMemberships(widget.userId);
     unawaited(
@@ -206,6 +220,7 @@ class _InstitutionWorkspaceState extends State<InstitutionWorkspace>
                             _active = id;
                             _documentId = null;
                             _anchorId = null;
+                            _revocationId = null;
                             _openingId = null;
                             _readIssued();
                           });
@@ -279,11 +294,48 @@ class _InstitutionWorkspaceState extends State<InstitutionWorkspace>
                                         Align(
                                           alignment: Alignment.centerLeft,
                                           child: StatusBadge(
-                                            validity: c.validityAt(
-                                              DateTime.now(),
-                                            ),
+                                            validity: _validity(c),
                                           ),
                                         ),
+                                        if (widget.revocations != null &&
+                                            widget.revocationKeys != null &&
+                                            selected.canRevoke)
+                                          if (_revocationId != c.id)
+                                            TextButton(
+                                              onPressed: () => setState(
+                                                () => _revocationId = c.id,
+                                              ),
+                                              child: const Text(
+                                                'Revocación / consultar estado',
+                                              ),
+                                            )
+                                          else
+                                            RevocationPanel(
+                                              key: ValueKey((
+                                                'revocation',
+                                                widget.userId,
+                                                _active,
+                                                c.id,
+                                              )),
+                                              scope: RevocationScope(
+                                                widget.userId,
+                                                _active!,
+                                                c.id,
+                                              ),
+                                              repository: widget.revocations!,
+                                              onRevoked: () {
+                                                if (!_revoked.contains(c.id)) {
+                                                  setState(
+                                                    () => _revoked.add(c.id),
+                                                  );
+                                                }
+                                              },
+                                              keys: widget.revocationKeys!,
+                                              onSessionExpired:
+                                                  widget.onSessionExpired,
+                                              sessionChanges:
+                                                  widget.sessionChanges,
+                                            ),
                                         if (widget.anchoring != null &&
                                             widget.anchorStore != null &&
                                             selected.canIssue)
@@ -293,7 +345,7 @@ class _InstitutionWorkspaceState extends State<InstitutionWorkspace>
                                                 () => _anchorId = c.id,
                                               ),
                                               child: Text(
-                                                c.validityAt(DateTime.now()) ==
+                                                _validity(c) ==
                                                         CertificateValidity
                                                             .valid
                                                     ? 'Solicitar anclaje / consultar operación'
@@ -313,9 +365,7 @@ class _InstitutionWorkspaceState extends State<InstitutionWorkspace>
                                                 c.id,
                                               ),
                                               canRequest:
-                                                  c.validityAt(
-                                                    DateTime.now(),
-                                                  ) ==
+                                                  _validity(c) ==
                                                   CertificateValidity.valid,
                                               repository: widget.anchoring!,
                                               store: widget.anchorStore!,

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../verification/domain/verification_repository.dart';
 import '../../verification/presentation/blockchain_evidence_panel.dart';
 import '../../verification/presentation/public_query_cooldown.dart';
+import '../../verification/presentation/public_revocation_panel.dart';
 
 /// Holder reads the allowed public projection. Never anchor-progress.
 class HolderBlockchain extends StatefulWidget {
@@ -134,6 +135,10 @@ class _HolderBlockchainState extends State<HolderBlockchain> {
       ],
       if (_result?.blockchain case final evidence?)
         BlockchainEvidencePanel(evidence: evidence, previous: _previous),
+      if (_result?.revocation case final revocation?) ...[
+        if (_previous) const Text('Revocación: consulta anterior.'),
+        PublicRevocationPanel(revocation: revocation),
+      ],
       if (_result?.status == VerificationStatus.notFound)
         const Text('No hay registro público elegible.'),
     ],

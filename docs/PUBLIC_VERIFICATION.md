@@ -1,5 +1,15 @@
 # Verificación pública — Backend 8A e interfaz Web 8B
 
+## Incremento local de revocación — 15/10/2026
+
+[REVOCATION](REVOCATION.md) define los endpoints Auth, motivo/auditoría privados,
+SQL irreversible, worker durable y evidencia pública v3 con issue/revoke separados.
+V1/v2 y compare conservan contrato; la app usa v3. Resultados ejecutados y
+dictamen vigente: [PHASE10_ACCEPTANCE](PHASE10_ACCEPTANCE.md). Los apartados
+que describen revocación futura conservan el contexto histórico de sus fases.
+La demo se reproduce con `./supabase/tests/run_phase10.ps1`; sin despliegue remoto,
+Sepolia ni corrección Android atribuida. Cámara=0 con la exclusión persistente.
+
 ## Alcance local
 
 **Completada y comprobada localmente el 04/10/2026.** 557 SQL, 44 Deno y 296

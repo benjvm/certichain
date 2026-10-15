@@ -1,5 +1,15 @@
 # Operación privada de anclajes — 9C
 
+## Incremento local de revocación — 15/10/2026
+
+[REVOCATION](REVOCATION.md) define los endpoints Auth, motivo/auditoría privados,
+SQL irreversible, worker durable y evidencia pública v3 con issue/revoke separados.
+V1/v2 y compare conservan contrato; la app usa v3. Resultados ejecutados y
+dictamen vigente: [PHASE10_ACCEPTANCE](PHASE10_ACCEPTANCE.md). Los apartados
+que describen revocación futura conservan el contexto histórico de sus fases.
+La demo se reproduce con `./supabase/tests/run_phase10.ps1`; sin despliegue remoto,
+Sepolia ni corrección Android atribuida. Cámara=0 con la exclusión persistente.
+
 ## Aceptación y recuperación local 9E
 
 [run_phase9e.ps1](../supabase/tests/run_phase9e.ps1) comparte infraestructura 9D y

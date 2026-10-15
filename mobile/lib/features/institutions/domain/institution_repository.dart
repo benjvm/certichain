@@ -16,6 +16,10 @@ class InstitutionMembership {
   final InstitutionalRole role;
   final InstitutionStatus status;
   bool get canIssue => status == InstitutionStatus.verified;
+  bool get canRevoke =>
+      (role == InstitutionalRole.owner || role == InstitutionalRole.admin) &&
+      (status == InstitutionStatus.verified ||
+          status == InstitutionStatus.suspended);
   String get statusLabel => switch (status) {
     InstitutionStatus.pending => 'Pendiente de aprobación',
     InstitutionStatus.verified => 'Verificada',

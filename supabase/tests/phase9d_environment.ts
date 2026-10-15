@@ -258,6 +258,24 @@ export async function phase9dEnvironment() {
       registry: new EvmRegistry(rpcUrl, d, signer.privateKey),
       deployment: d,
       run,
+      runWithSigner: async (
+        id: string,
+        key: string,
+        options: CoordinatorOptions = {},
+      ) => {
+        if (!/^[0-9a-f-]{36}$/.test(id)) {
+          throw new Error("Invalid owned operation");
+        }
+        sql(
+          `UPDATE certichain_private.blockchain_operations SET next_attempt_at=clock_timestamp()-interval '1 second' WHERE id='${id}'`,
+        );
+        return await coordinate(
+          backend,
+          id,
+          (j) => new EvmRegistry(rpcUrl, deployment(j), key),
+          options,
+        );
+      },
       restartWorker: (id: string) => {
         if (!/^[0-9a-f-]{36}$/.test(id)) {
           throw new Error("Invalid owned operation");

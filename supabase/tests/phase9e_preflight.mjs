@@ -60,7 +60,11 @@ const versions = {
   dart: flutter?.dartSdkVersion ?? "NOT_RUN",
   flutter_revision: flutter?.frameworkRevision ?? null,
 };
-const evidence = resolve("mobile/build/phase9e-evidence");
+const evidence = resolve(
+  process.argv.includes("--phase10")
+    ? "mobile/build/phase10-evidence"
+    : "mobile/build/phase9e-evidence",
+);
 mkdirSync(evidence, { recursive: true });
 if (!backendOnly) rmSync(resolve(evidence, "browser.json"), { force: true });
 writeFileSync(
@@ -92,5 +96,9 @@ writeFileSync(
   ),
 );
 console.log(
-  JSON.stringify({ stage: "9E preflight", result: "PASS", versions }),
+  JSON.stringify({
+    stage: process.argv.includes("--phase10") ? "10 preflight" : "9E preflight",
+    result: "PASS",
+    versions,
+  }),
 );

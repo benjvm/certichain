@@ -16,10 +16,40 @@ import {
 } from "./browser_harness.mjs";
 import {
   countPublicPost,
+  expectSinglePublicPost,
   expectSingleV2Post,
   publicEndpoint,
   publicHeadersAreAnonymous,
 } from "./public_verification_requests.mjs";
+
+test("v3 startup counts once and mixed v2/v3 delayed duplicate fails", async () => {
+  const before = { v1: 0, v2: 0, v3: 0, comparison: 0 }, counts = { ...before };
+  countPublicPost(counts, {
+    method: "POST",
+    url: "https://example.invalid/functions/v1/verify-certificate-v3",
+  });
+  assert.equal(counts.v3, 1);
+  const until = async (predicate) => {
+    if (!predicate()) throw new Error("Missing query");
+  };
+  await expectSinglePublicPost(counts, before, "v3 startup", until);
+  const timer = setTimeout(
+    () =>
+      countPublicPost(counts, {
+        method: "POST",
+        url: "https://example.invalid/functions/v1/verify-certificate-v2",
+      }),
+    60,
+  );
+  try {
+    await assert.rejects(
+      expectSinglePublicPost(counts, before, "mixed delayed", until),
+      /expected=1 observed=2.*v3=1/,
+    );
+  } finally {
+    clearTimeout(timer);
+  }
+});
 import { until } from "../../supabase/tests/local_issuance_fixture.mjs";
 import { setTimeout as delay } from "node:timers/promises";
 

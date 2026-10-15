@@ -27,7 +27,7 @@ import {
 } from "./browser_harness.mjs";
 import {
   countPublicPost,
-  expectSingleV2Post,
+  expectSinglePublicPost,
   publicEndpoint,
   publicHeadersAreAnonymous,
 } from "./public_verification_requests.mjs";
@@ -45,6 +45,7 @@ export async function runBrowserJourney(env) {
     evidence = join(mobile, `build/phase${phase}-evidence`);
   mkdirSync(evidence, { recursive: true });
   let server, chrome, wireFailure, heldOpening, holdOpening = false;
+  let heldRevocation, holdRevocation = false, revokePosts = 0;
   let assertions = 0,
     publicPosts = 0,
     issuePosts = 0,
@@ -77,6 +78,7 @@ export async function runBrowserJourney(env) {
   const pub = [
     "/functions/v1/verify-certificate",
     "/functions/v1/verify-certificate-v2",
+    "/functions/v1/verify-certificate-v3",
     "/functions/v1/compare-certificate-hash",
   ];
   try {
@@ -219,6 +221,9 @@ export async function runBrowserJourney(env) {
             if (
               path.endsWith("/anchor-certificate") && req.method === "POST"
             ) anchorPosts++;
+            if (path.endsWith("/revoke-certificate") && req.method === "POST") {
+              revokePosts++;
+            }
             if (
               path.endsWith("/certificate-opening") && req.method === "POST"
             ) openingPosts++;
@@ -261,6 +266,13 @@ export async function runBrowserJourney(env) {
             ) {
               holdOpening = false;
               await new Promise((r) => heldOpening = r);
+            }
+            if (
+              path.endsWith("/revocation-progress") && holdRevocation &&
+              req.method === "POST"
+            ) {
+              holdRevocation = false;
+              await new Promise((r) => heldRevocation = r);
             }
             res.writeHead(
               upstream.status,
@@ -319,7 +331,7 @@ export async function runBrowserJourney(env) {
     const browser = await connectCdp(browserInfo.webSocketDebuggerUrl);
     sockets.push(browser);
     async function page() {
-      const publicPosts = { v1: 0, v2: 0, comparison: 0 };
+      const publicPosts = { v1: 0, v2: 0, v3: 0, comparison: 0 };
       const publicIds = new Set(), extra = new Map();
       const assertHeaders = (headers) => {
         if (!publicHeadersAreAnonymous(headers)) {
@@ -690,11 +702,12 @@ export async function runBrowserJourney(env) {
     await navigateDocument(anonymous, "Page.navigate", { url: link });
     await ready(anonymous, "Registro encontrado y vigente");
     await outcome(anonymous, "Anclaje confirmado.");
-    await expectSingleV2Post(
+    await expectSinglePublicPost(
       anonymous.publicPosts,
       beforePage,
-      "Anonymous startup uses one v2 POST",
+      "Anonymous startup uses one v3 POST",
       until,
+      "v3",
     );
     await click(anonymous, "Comprobar con apertura");
     await select(anonymous, "Importar apertura JSON", openingFile);
@@ -777,11 +790,12 @@ export async function runBrowserJourney(env) {
     beforePage = { ...anonymous.publicPosts };
     await navigateDocument(anonymous, "Page.reload");
     await ready(anonymous, "Registro encontrado y vigente");
-    await expectSingleV2Post(
+    await expectSinglePublicPost(
       anonymous.publicPosts,
       beforePage,
-      "Reload uses one v2 POST including late duplicates",
+      "Reload uses one v3 POST including late duplicates",
       until,
+      "v3",
     );
     check(
       await evaluate(anonymous, `location.hash==='#/verify/${code}'`),
@@ -798,6 +812,72 @@ export async function runBrowserJourney(env) {
     await click(anonymous, "Actualizar comprobación");
     await outcome(anonymous, "Anclaje confirmado.");
     stage("actual-rpc-outage-previous-evidence-and-manual-recovery");
+    if (phase === "10") {
+      await click(issuer, "Revocación / consultar estado");
+      await outcome(issuer, "Motivo privado obligatorio");
+      await enter(
+        issuer,
+        "Motivo privado obligatorio",
+        "Synthetic private browser revocation",
+      );
+      await click(issuer, "Revocar certificado");
+      await outcome(issuer, "Revocación irreversible");
+      await click(issuer, "Confirmar revocación");
+      await outcome(issuer, "Revocado en CertiChain");
+      check(
+        revokePosts === 1,
+        "Explicit confirmation submits one real revocation request",
+      );
+      await click(anonymous, "Actualizar comprobación");
+      await outcome(
+        anonymous,
+        "Revocación blockchain pendiente de sincronización",
+      );
+      check(
+        !(await semantics(anonymous)).includes(
+          "Synthetic private browser revocation",
+        ),
+        "Anonymous page never receives private reason",
+      );
+      const revocation = env.lookupRevocation(certificate);
+      await env.run(revocation);
+      await env.run(revocation);
+      await click(anonymous, "Actualizar comprobación");
+      await outcome(anonymous, "Revocación EVM confirmada.");
+      await outcome(anonymous, "Transacción de revocación");
+      await click(issuer, "Consultar revocación / recuperar respuesta");
+      await outcome(issuer, "Sincronización blockchain: confirmada");
+      check(
+        !readFileSync(join(build, "main.dart.js"), "utf8").includes(
+          "Synthetic private browser revocation",
+        ),
+        "Private reason never enters release artifact",
+      );
+      stage(
+        "production-revocation-sql-immediate-private-reason-durable-evm-public-evidence",
+      );
+      holdRevocation = true;
+      await click(issuer, "Consultar revocación / recuperar respuesta");
+      await until(
+        () => !!heldRevocation,
+        "Held real private revocation response",
+      );
+      await navigateDocument(issuer, "Page.navigate", { url: origin + "/" });
+      await ready(issuer, "Cerrar sesión");
+      await click(issuer, "Cerrar sesión");
+      await outcome(issuer, "Comenzar");
+      await login(issuer, f.outsider);
+      heldRevocation();
+      heldRevocation = null;
+      await delay(300);
+      check(
+        !(await semantics(issuer)).includes(
+          "Synthetic private browser revocation",
+        ),
+        "Real late private reason is discarded across owner logout and account B login",
+      );
+      stage("revocation-private-response-account-a-to-b-discarded");
+    }
     if (phase === "9e") {
       env.exhaustBudget();
       beforePage = { ...anonymous.publicPosts };
@@ -806,7 +886,7 @@ export async function runBrowserJourney(env) {
       await outcome(anonymous, "Espera");
       await delay(4500);
       check(
-        anonymous.publicPosts.v2 === beforePage.v2 + 1 &&
+        anonymous.publicPosts.v3 === beforePage.v3 + 1 &&
           anonymous.publicPosts.v1 === beforePage.v1 &&
           anonymous.publicPosts.comparison === beforePage.comparison,
         "Real shared 429 and Retry-After expiry produce no polling or automatic request",
@@ -814,7 +894,7 @@ export async function runBrowserJourney(env) {
       await click(anonymous, "Actualizar comprobación");
       await outcome(anonymous, "Anclaje confirmado.");
       check(
-        anonymous.publicPosts.v2 === beforePage.v2 + 2,
+        anonymous.publicPosts.v3 === beforePage.v3 + 2,
         "Recovery after shared budget expiry requires manual action",
       );
       stage("real-shared-429-no-request-on-expiry");
@@ -870,6 +950,7 @@ export async function runBrowserJourney(env) {
       issue_posts: issuePosts,
       anchor_posts: anchorPosts,
       opening_posts: openingPosts,
+      revoke_posts: revokePosts,
       public_posts: publicPosts,
       anonymous_posts: { ...anonymous.publicPosts },
       browser_version: browserInfo.Browser,
@@ -924,6 +1005,7 @@ export async function runBrowserJourney(env) {
     throw error;
   } finally {
     heldOpening?.();
+    heldRevocation?.();
     for (const socket of sockets) socket.close();
     await stopChrome(chrome);
     if (server) {

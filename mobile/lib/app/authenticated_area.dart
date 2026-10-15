@@ -1,3 +1,5 @@
+import '../features/revocation/domain/revocation_repository.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -42,6 +44,8 @@ class AuthenticatedArea extends StatefulWidget {
     this.verificationLink,
     this.onVerify,
     this.anchoring,
+    this.revocations,
+    this.revocationKeys,
     this.anchorStore,
     this.openings,
     this.openingTransfer,
@@ -50,6 +54,8 @@ class AuthenticatedArea extends StatefulWidget {
     super.key,
   });
   final AuthController controller;
+  final RevocationRepository? revocations;
+  final RevocationKeyStore? revocationKeys;
   final AnchoringRepository? anchoring;
   final AnchorReceiptStore? anchorStore;
   final OpeningRepository? openings;
@@ -193,6 +199,8 @@ class _AuthenticatedAreaState extends State<AuthenticatedArea>
           store: widget.pendingStore!,
           documents: widget.documents,
           anchoring: widget.anchoring,
+          revocations: widget.revocations,
+          revocationKeys: widget.revocationKeys,
           anchorStore: widget.anchorStore,
           openings: widget.openings,
           openingTransfer: widget.openingTransfer,

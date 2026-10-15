@@ -7,6 +7,8 @@ export function publicEndpoint(pathname) {
       return "v1";
     case "/functions/v1/verify-certificate-v2":
       return "v2";
+    case "/functions/v1/verify-certificate-v3":
+      return "v3";
     case "/functions/v1/compare-certificate-hash":
       return "comparison";
     default:
@@ -17,7 +19,7 @@ export function publicEndpoint(pathname) {
 export function countPublicPost(counts, request) {
   const endpoint = publicEndpoint(new URL(request.url).pathname);
   if (!endpoint || request.method !== "POST") return null;
-  counts[endpoint]++;
+  counts[endpoint] = (counts[endpoint] ?? 0) + 1;
   return endpoint;
 }
 
@@ -28,21 +30,31 @@ export function publicHeadersAreAnonymous(headers) {
 }
 
 // Counts belong to one CDP page. Never include another tab's activity.
-export async function expectSingleV2Post(counts, before, scenario, until) {
+export function expectSingleV2Post(counts, before, scenario, until) {
+  return expectSinglePublicPost(counts, before, scenario, until, "v2");
+}
+export async function expectSinglePublicPost(
+  counts,
+  before,
+  scenario,
+  until,
+  version = "v3",
+) {
   function delta() {
     const v1 = counts.v1 - before.v1, v2 = counts.v2 - before.v2;
     const comparison = counts.comparison - before.comparison;
-    return { v1, v2, comparison, verification: v1 + v2 };
+    const v3 = (counts.v3 ?? 0) - (before.v3 ?? 0);
+    return { v1, v2, v3, comparison, verification: v1 + v2 + v3 };
   }
   function diagnostic() {
     const d = delta();
     return `${scenario}: expected=1 observed=${d.verification} ` +
-      `endpoint=/functions/v1/verify-certificate-v2 method=POST ` +
-      `v1=${d.v1} v2=${d.v2} comparison=${d.comparison}`;
+      `endpoint=/functions/v1/verify-certificate-${version} method=POST ` +
+      `v1=${d.v1} v2=${d.v2} comparison=${d.comparison} v3=${d.v3}`;
   }
   function assertSingle() {
     const d = delta();
-    if (d.verification !== 1 || d.v2 !== 1) {
+    if (d.verification !== 1 || d[version] !== 1) {
       throw new Error(diagnostic());
     }
   }

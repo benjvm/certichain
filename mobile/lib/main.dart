@@ -1,3 +1,6 @@
+import 'features/revocation/data/supabase_revocation_repository.dart';
+import 'features/revocation/data/revocation_key_preferences.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -48,6 +51,8 @@ class _CertiChainBootstrapState extends State<CertiChainBootstrap> {
   SupabaseCertificateDocumentRepository? _documents;
   SupabaseCredentialRepository? _credentials;
   SupabaseAnchoringRepository? _anchoring;
+  SupabaseRevocationRepository? _revocations;
+  final _revocationKeys = RevocationKeyPreferences();
   final _anchorStore = AnchorReceiptPreferences();
   final _openingTools = ProtocolOpeningTools();
   final _picker = PlatformPdfPicker();
@@ -61,10 +66,10 @@ class _CertiChainBootstrapState extends State<CertiChainBootstrap> {
     const api = String.fromEnvironment('SUPABASE_URL');
     try {
       AppConfig.validateBackendUrl(api, allowLocalHttp: kDebugMode);
-      _verification = HttpVerificationRepository(apiUrl: api, useV2: true);
+      _verification = HttpVerificationRepository(apiUrl: api, useV3: true);
       _holderVerification = HttpVerificationRepository(
         apiUrl: api,
-        useV2: true,
+        useV3: true,
       );
     } on FormatException {
       _message = 'Configuración del servicio no válida.';
@@ -103,6 +108,11 @@ class _CertiChainBootstrapState extends State<CertiChainBootstrap> {
           publicKey: config.supabasePublishableKey,
         );
         _credentials = SupabaseCredentialRepository(client);
+        _revocations = SupabaseRevocationRepository(
+          client,
+          apiUrl: config.supabaseUrl,
+          publicKey: config.supabasePublishableKey,
+        );
         _anchoring = SupabaseAnchoringRepository(
           client,
           apiUrl: config.supabaseUrl,
@@ -123,6 +133,7 @@ class _CertiChainBootstrapState extends State<CertiChainBootstrap> {
     _verification?.close();
     _holderVerification?.close();
     _anchoring?.close();
+    _revocations?.close();
     super.dispose();
   }
 
@@ -137,6 +148,8 @@ class _CertiChainBootstrapState extends State<CertiChainBootstrap> {
     pendingStore: _store,
     documents: _documents,
     anchoring: _anchoring,
+    revocations: _revocations,
+    revocationKeys: _revocationKeys,
     anchorStore: _anchorStore,
     openings: _anchoring,
     openingTransfer: _openingTools,

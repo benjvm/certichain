@@ -1,3 +1,5 @@
+import '../features/revocation/domain/revocation_repository.dart';
+
 import 'package:flutter/material.dart';
 
 import '../core/constants/app_constants.dart';
@@ -39,6 +41,8 @@ class CertiChainApp extends StatefulWidget {
     this.scannerFactory,
     this.startupMessage,
     this.anchoring,
+    this.revocations,
+    this.revocationKeys,
     this.anchorStore,
     this.openings,
     this.openingTransfer,
@@ -46,6 +50,8 @@ class CertiChainApp extends StatefulWidget {
     super.key,
   });
   final AuthRepository? authRepository;
+  final RevocationRepository? revocations;
+  final RevocationKeyStore? revocationKeys;
   final AnchoringRepository? anchoring;
   final AnchorReceiptStore? anchorStore;
   final OpeningRepository? openings;
@@ -163,6 +169,8 @@ class _CertiChainAppState extends State<CertiChainApp> {
                   pendingStore: widget.pendingStore,
                   documents: widget.documents,
                   anchoring: widget.anchoring,
+                  revocations: widget.revocations,
+                  revocationKeys: widget.revocationKeys,
                   anchorStore: widget.anchorStore,
                   openings: widget.openings,
                   openingTransfer: widget.openingTransfer,

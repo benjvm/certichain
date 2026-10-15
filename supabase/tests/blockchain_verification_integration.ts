@@ -9,7 +9,7 @@ import {
 import type { Hex } from "../functions/_shared/blockchain/domain/registry.ts";
 
 export async function runVerificationAcceptance(options: {
-  phase?: "9d" | "9e";
+  phase?: "9d" | "9e" | "10";
   backendOnly?: boolean;
   onScenario?: (scenario: { case: string; result: string }) => void;
   extend?: (
@@ -305,6 +305,12 @@ export async function runVerificationAcceptance(options: {
               safeId(id)
             }' AND o.kind='issue'`,
           ),
+        lookupRevocation: (id: string) =>
+          sql(
+            `SELECT o.id FROM certichain_private.blockchain_operations o JOIN certichain_private.certificate_anchors a ON a.id=o.anchor_id WHERE a.certificate_id='${
+              safeId(id)
+            }' AND o.kind='revoke'`,
+          ),
         lookupCode: (id: string) =>
           sql(
             `SELECT credential_code FROM public.certificates WHERE id='${
@@ -339,7 +345,7 @@ export async function runVerificationAcceptance(options: {
           "Omitidas por instrucción del usuario; no hay cámara física disponible",
       }),
     );
-    if (phase === "9e") {
+    if (phase === "9e" || phase === "10") {
       const prior = divergence.data.blockchain.last_evidence.checked_at;
       await environment.rpc.rpc("anvil_reset");
       const reset = await publicQuery(code);
@@ -359,6 +365,20 @@ export async function runVerificationAcceptance(options: {
         ) === attempts,
         "wrong deployment after reset produces no fresh signature",
       );
+      if (phase === "10") {
+        const revokedCode = sql(
+          "SELECT c.credential_code FROM public.certificates c WHERE c.status='revoked' AND EXISTS(SELECT 1 FROM certichain_private.certificate_anchors a WHERE a.certificate_id=c.id) ORDER BY c.created_at DESC LIMIT 1",
+        );
+        const response = await publicQuery(
+          revokedCode,
+          "verify-certificate-v3",
+        );
+        check(
+          response.data.registry.result === "revoked" &&
+            response.data.revocation.state === "divergence",
+          "chain reset preserves accepted SQL revocation and reports incompatible deployment",
+        );
+      }
     }
     return { checks, scenarios, browser: browserResult };
   } finally {

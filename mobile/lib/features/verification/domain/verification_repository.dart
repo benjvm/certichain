@@ -1,4 +1,5 @@
 import 'blockchain_verification.dart';
+import 'public_revocation.dart';
 
 String? normalizeCredentialCode(String input) {
   final code = input.trim().toLowerCase();
@@ -14,10 +15,16 @@ enum VerificationStatus { valid, revoked, expired, issuerUnavailable, notFound }
 
 /// Server classification. Never inferred from the device clock.
 class VerificationResult {
-  const VerificationResult(this.status, {this.record, this.blockchain});
+  const VerificationResult(
+    this.status, {
+    this.record,
+    this.blockchain,
+    this.revocation,
+  });
   final VerificationStatus status;
   final VerifiedRecord? record;
   final BlockchainEvidence? blockchain;
+  final PublicRevocation? revocation;
 }
 
 class VerifiedRecord {

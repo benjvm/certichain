@@ -1,0 +1,86 @@
+name: Complete certificate revocation
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  verification:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      CERTICHAIN_TEST_CAMERA: '0'
+      CERTICHAIN_TEST_DISPOSABLE: '1'
+      CERTICHAIN_9D_BROWSER: '1'
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 24.14.0
+      - uses: supabase/setup-cli@1dedf2c611547ede7232d26866dd3c56ab903bbb
+        with:
+          version: 2.117.0
+      - name: Frozen normal contract and ABI
+        run: |
+          node blockchain/scripts/bootstrap.mjs
+          node blockchain/scripts/forge.mjs build --force
+          node blockchain/scripts/artifacts.mjs --check
+          node blockchain/scripts/backend-abi.mjs --check
+      - name: Existing Flutter toolchain and locks
+        working-directory: mobile
+        run: |
+          git clone --depth 1 --branch 3.47.4 https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter"
+          test "$(git -C "$RUNNER_TEMP/flutter" rev-parse HEAD)" = 9584c6713b324636289d067944a46fd6b49df14b
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/flutter/bin/flutter" pub get --enforce-lockfile
+          npm ci --ignore-scripts --prefix tool
+          node tool/prepare_decoder.mjs --check
+      - name: Format, lint, strict types and backend regression tests
+        run: |
+          npx --yes deno@2.2.12 fmt --check supabase/tests/phase10_deployments.ts supabase/tests/phase10_concurrency.ts supabase/tests/phase10_checks.ts supabase/tests/phase10_faults.ts supabase/tests/phase10_acceptance.ts supabase/functions supabase/tests/phase9d_environment.ts supabase/tests/blockchain_verification_integration.ts supabase/tests/phase10_acceptance.ts supabase/tests/phase9e_checks.ts supabase/tests/phase9e_preflight.mjs supabase/tests/local_issuance_fixture.mjs mobile/tool/blockchain_verification_browser.mjs mobile/tool/browser_harness.mjs mobile/tool/browser_harness_test.mjs mobile/tool/release_verification_browser.mjs mobile/tool/public_verification_requests.mjs
+          npx --yes deno@2.2.12 lint supabase/tests/phase10_deployments.ts supabase/tests/phase10_concurrency.ts supabase/tests/phase10_checks.ts supabase/tests/phase10_faults.ts supabase/tests/phase10_acceptance.ts supabase/functions supabase/tests/phase9d_environment.ts supabase/tests/blockchain_verification_integration.ts supabase/tests/phase10_acceptance.ts supabase/tests/phase9e_checks.ts supabase/tests/phase9e_preflight.mjs
+          npx --yes deno@2.2.12 check --frozen --config supabase/functions/deno.json supabase/tests/phase10_acceptance.ts supabase/functions/verify-certificate-v2/index.ts supabase/functions/certificate-opening/index.ts supabase/functions/revoke-certificate/index.ts supabase/functions/revocation-progress/index.ts supabase/functions/reauthorize-revocation/index.ts supabase/functions/verify-certificate-v3/index.ts
+          npx --yes deno@2.2.12 test --frozen --config supabase/functions/deno.json supabase/functions
+      - name: Flutter domain, adapters and widgets without camera
+        working-directory: mobile
+        run: |
+          dart format --output=none --set-exit-if-changed lib test tool
+          flutter analyze
+          flutter test
+          node --test tool/browser_harness_test.mjs
+      - name: Own runner database, schema and permissions before mutable fixtures
+        run: |
+          node supabase/tests/phase9e_preflight.mjs --phase10
+          if ! supabase start >/dev/null 2>&1; then
+            echo 'Runner-local Supabase startup failed'
+            exit 1
+          fi
+          supabase test db --local
+          supabase db lint --local --schema public,certichain_private --level warning --fail-on warning
+      - name: Preserve historical data under new migrations
+        shell: pwsh
+        run: ./supabase/tests/verify_revocation_migration.ps1 -DatabaseContainer supabase_db_certichain
+      - name: Phase 10 real revocation, races, recovery and release journey
+        run: |
+          export CERTICHAIN_SOURCE_ROOT="$GITHUB_WORKSPACE"
+          export CERTICHAIN_ANVIL_BIN="$GITHUB_WORKSPACE/blockchain/.tools/bin/anvil"
+          npx --yes deno@2.2.12 run --allow-all --frozen --config supabase/functions/deno.json supabase/tests/phase10_acceptance.ts
+      - name: Whitespace
+        run: git diff --check
+      - name: Sanitized summary only
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: phase10-summary
+          path: |
+            mobile/build/phase10-evidence/preflight.json
+            mobile/build/phase10-evidence/result.json
+            mobile/build/phase10-evidence/browser.json
+          if-no-files-found: error
+          retention-days: 7
+      - name: Stop owned runner stack
+        if: always()
+        run: supabase stop --no-backup

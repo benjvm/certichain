@@ -1,3 +1,5 @@
+import 'public_revocation_panel.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -250,6 +252,8 @@ class _VerificationScreenState extends State<VerificationScreen> {
                       result: result,
                       previous: _controller.resultIsPrevious,
                     ),
+                    if (result.revocation case final revocation?)
+                      PublicRevocationPanel(revocation: revocation),
                     if (result.blockchain ?? _controller.previousBlockchain
                         case final evidence?)
                       BlockchainEvidencePanel(

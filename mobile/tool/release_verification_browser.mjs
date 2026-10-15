@@ -250,6 +250,7 @@ try {
           const publicCall = [
             "/functions/v1/verify-certificate",
             "/functions/v1/verify-certificate-v2",
+            "/functions/v1/verify-certificate-v3",
             "/functions/v1/compare-certificate-hash",
           ].includes(path);
           const chunks = [];

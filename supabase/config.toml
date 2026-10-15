@@ -450,3 +450,14 @@ verify_jwt = false
 
 [functions.certificate-opening]
 verify_jwt = true
+[functions.revoke-certificate]
+verify_jwt = true
+
+[functions.verify-certificate-v3]
+verify_jwt = false
+
+[functions.revocation-progress]
+verify_jwt = true
+
+[functions.reauthorize-revocation]
+verify_jwt = true

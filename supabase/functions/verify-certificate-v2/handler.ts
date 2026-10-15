@@ -5,13 +5,17 @@ import { VerificationBackend } from "../_shared/verification_backend.ts";
 import { credentialCode } from "../verify-certificate/contract.ts";
 import { snapshot } from "./contract.ts";
 import { observe } from "./observation.ts";
+import {
+  observeRevocation,
+  revocationSnapshot,
+} from "../verify-certificate-v3/observation.ts";
 export interface Config {
   url: string;
   serviceKey: string;
   environment: string;
   rpcUrl?: string;
 }
-export function handler(config: Config) {
+export function handler(config: Config, version: "2" | "3" = "2") {
   return async (request: Request): Promise<Response> => {
     const started = performance.now();
     const deadline = Date.now() + 12000;
@@ -75,19 +79,41 @@ export function handler(config: Config) {
         return reply({ error: "invalid_input" }, 400);
       }
       if (!code) return reply({ error: "invalid_input" }, 400);
-      const s = await snapshot(
-        await backend.rpc("lookup_public_certificate_v2", {
+      const raw = await backend.rpc(
+        version === "3"
+          ? "lookup_public_certificate_v3"
+          : "lookup_public_certificate_v2",
+        {
           p_credential_code: code,
           p_environment: config.environment,
-        }),
+        },
+      );
+      const v = version === "3"
+        ? object(raw, ["registry", "anchor", "revocation"])
+        : null;
+      const s = await snapshot(
+        v ? { registry: v.registry, anchor: v.anchor } : raw,
         code,
         config.environment,
       );
       const blockchain = s.registry.result === "not_found"
         ? null
         : await observe(s, config.rpcUrl, deadline);
+      const revocation = v
+        ? await observeRevocation(
+          s,
+          revocationSnapshot(v.revocation, s),
+          config.rpcUrl,
+          deadline,
+        )
+        : null;
       return reply(
-        { schema_version: "2", registry: s.registry, blockchain },
+        {
+          schema_version: version,
+          registry: s.registry,
+          blockchain,
+          ...(v ? { revocation } : {}),
+        },
         200,
       );
     } catch (e) {

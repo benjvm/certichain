@@ -30,6 +30,8 @@ export interface Attempt {
   created_at: string;
 }
 export interface Job {
+  sql_revoked?: boolean;
+  revocation_expected?: boolean;
   operation: {
     id: string;
     kind: string;
@@ -103,8 +105,11 @@ export function command(job: Job): RegistryCommand {
       canRevoke: job.operation.target_can_revoke,
     };
   }
-  if (!job.anchor || job.operation.kind !== "issue") {
+  if (!job.anchor || !["issue", "revoke"].includes(job.operation.kind)) {
     throw new RegistryError("authorization_denied");
+  }
+  if (job.operation.kind === "revoke") {
+    return { kind: "revoke", K: dbHex(job.anchor.certificate_key) };
   }
   return {
     kind: "issue",
@@ -300,57 +305,79 @@ export async function coordinate(
           const latest = await registry.read(cmd.K, observation.chain.head);
           if (
             !latest || latest.C !== cmd.C || latest.I !== cmd.I ||
-            latest.revokedAt !== 0n
+            (latest.revokedAt !== 0n &&
+              !(job.sql_revoked && job.revocation_expected))
           ) throw new RegistryError("divergence");
+        }
+        if (cmd.kind === "revoke" && receipt.status === 1) {
+          const record = await registry.read(cmd.K, receipt.block);
+          if (
+            !record || record.C !== dbHex(job.anchor!.commitment) ||
+            record.I !== dbHex(job.binding.issuer_id) ||
+            record.revokedAt !== receipt.timestamp
+          ) throw new RegistryError("incompatible_evidence");
         }
         await update("release");
         return job.operation.state;
       }
       await update(observation.kind, { hash: dbHex(attempt.transaction_hash) });
     }
-    if (cmd.kind === "issue") {
+    if (cmd.kind === "issue" || cmd.kind === "revoke") {
       const record = await registry.read(cmd.K, chain.head);
-      if (record) {
-        if (
-          record.C !== cmd.C || record.I !== cmd.I || record.revokedAt !== 0n
-        ) throw new RegistryError("divergence");
-        let cursor = BigInt(
-          job.operation.event_cursor ?? job.deployment.deployment_block,
-        );
-        // Four pages per pass, each <=2,000 blocks; durable cursor.
-        for (let page = 0; page < 4 && cursor <= chain.head.number; page++) {
-          await renew();
-          const found = await registry.findIssue(
-            cmd.K,
-            cursor,
-            chain.head.number,
-          );
-          if (found.hash) {
-            const observed = await registry.observe(found.hash);
-            if (observed.kind !== "included") {
-              throw new RegistryError("incompatible_evidence");
-            }
-            const recovered = await registry.recoverPrepared(found.hash);
-            await registry.validateEvidence(
-              cmd,
-              observed.receipt,
-              recovered.signer,
-            );
-            job = await backend.rpc<Job>("blockchain_recover_attempt", {
-              ...fence,
-              p_tx: txJson(recovered),
-            });
-            await update("release");
-            return "recovered";
-          }
-          cursor = found.cursor;
-          await update("cursor", { cursor: cursor.toString() });
-        }
-        if (cursor > chain.head.number) {
-          throw new RegistryError("incompatible_evidence");
-        }
+      if (cmd.kind === "revoke" && !record) {
+        // A signed issue may still land. Null never cancels its obligation or nonce.
         await update("release");
-        return "searching";
+        return "waiting_issue";
+      }
+      if (record) {
+        const C = dbHex(job.anchor!.commitment),
+          I = dbHex(job.binding.issuer_id);
+        if (
+          record.C !== C || record.I !== I ||
+          (cmd.kind === "issue" && record.revokedAt !== 0n &&
+            !(job.sql_revoked && job.revocation_expected))
+        ) throw new RegistryError("divergence");
+        if (cmd.kind === "issue" || record.revokedAt > 0n) {
+          let cursor = BigInt(
+            job.operation.event_cursor ?? job.deployment.deployment_block,
+          );
+          // Four pages per pass, each <=2,000 blocks; durable cursor.
+          for (let page = 0; page < 4 && cursor <= chain.head.number; page++) {
+            await renew();
+            const found = await (cmd.kind === "revoke"
+              ? registry.findRevoke.bind(registry)
+              : registry.findIssue.bind(registry))(
+                cmd.K,
+                cursor,
+                chain.head.number,
+              );
+            if (found.hash) {
+              const observed = await registry.observe(found.hash);
+              if (observed.kind !== "included") {
+                throw new RegistryError("incompatible_evidence");
+              }
+              const recovered = await registry.recoverPrepared(found.hash);
+              await registry.validateEvidence(
+                cmd,
+                observed.receipt,
+                recovered.signer,
+              );
+              job = await backend.rpc<Job>("blockchain_recover_attempt", {
+                ...fence,
+                p_tx: txJson(recovered),
+              });
+              await update("release");
+              return "recovered";
+            }
+            cursor = found.cursor;
+            await update("cursor", { cursor: cursor.toString() });
+          }
+          if (cursor > chain.head.number) {
+            throw new RegistryError("incompatible_evidence");
+          }
+          await update("release");
+          return "searching";
+        }
       }
     }
     if (job.operation.state === "divergence") {
@@ -407,6 +434,16 @@ export async function coordinate(
       }
       const issuer = await registry.issuer(cmd.I, chain.head);
       if (!issuer.canIssue || issuer.signer !== registry.signer) {
+        throw new RegistryError("authorization_denied");
+      }
+    } else if (cmd.kind === "revoke") {
+      const record = await registry.read(cmd.K, chain.head);
+      if (
+        !record || record.C !== dbHex(job.anchor!.commitment) ||
+        record.I !== dbHex(job.binding.issuer_id) || record.revokedAt !== 0n
+      ) throw new RegistryError("incompatible_evidence");
+      const issuer = await registry.issuer(record.I, chain.head);
+      if (!issuer.canRevoke || issuer.signer !== registry.signer) {
         throw new RegistryError("authorization_denied");
       }
     } else {

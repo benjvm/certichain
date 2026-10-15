@@ -18,7 +18,7 @@ import { decodeQr } from "./verify_qr.mjs";
 import { qrTestVideo } from "./qr_test_video.mjs";
 import {
   countPublicPost,
-  expectSingleV2Post,
+  expectSinglePublicPost,
   publicEndpoint,
   publicHeadersAreAnonymous,
 } from "./public_verification_requests.mjs";
@@ -197,7 +197,7 @@ try {
   const port = launched.port;
   async function connect(url) {
     const publicIds = new Set(), extra = new Map();
-    const publicPosts = { v1: 0, v2: 0, comparison: 0 };
+    const publicPosts = { v1: 0, v2: 0, v3: 0, comparison: 0 };
     function assertHeaders(headers) {
       if (!publicHeadersAreAnonymous(headers)) {
         failure = new Error("Actual public browser request sent credentials");
@@ -822,15 +822,16 @@ try {
     );
   }
   await mainResult();
-  await expectSingleV2Post(
+  await expectSinglePublicPost(
     main.publicPosts,
     beforeMain,
     "Actual main startup failure causes one public query",
     until,
+    "v3",
   );
   verify(
-    main.publicPosts.v2 - beforeMain.v2 === 1,
-    "Actual main startup uses v2 exactly once",
+    main.publicPosts.v3 - beforeMain.v3 === 1,
+    "Actual main startup uses v3 exactly once",
   );
   verify(
     await evaluate(main, "location.pathname + location.hash") ===
@@ -840,15 +841,16 @@ try {
   beforeMain = { ...main.publicPosts };
   await navigateDocument(main, "Page.reload", { ignoreCache: true });
   await mainResult();
-  await expectSingleV2Post(
+  await expectSinglePublicPost(
     main.publicPosts,
     beforeMain,
     "Actual main reload causes one public query",
     until,
+    "v3",
   );
   verify(
-    main.publicPosts.v2 - beforeMain.v2 === 1,
-    "Actual main reload uses v2 exactly once",
+    main.publicPosts.v3 - beforeMain.v3 === 1,
+    "Actual main reload uses v3 exactly once",
   );
   verify(
     await evaluate(main, "location.pathname + location.hash") ===
