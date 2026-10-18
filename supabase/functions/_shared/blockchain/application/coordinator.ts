@@ -238,6 +238,28 @@ export async function coordinate(
             observation.receipt,
             dbHex(attempt.signer),
           );
+          if (receipt.nonce !== BigInt(attempt.nonce)) {
+            throw new RegistryError("incompatible_evidence");
+          }
+          // Complete state validation before persisting evidence or releasing its nonce.
+          if (cmd.kind === "issue" && receipt.status === 1) {
+            const latest = await registry.read(cmd.K, observation.chain.head);
+            if (
+              !latest || latest.C !== cmd.C || latest.I !== cmd.I ||
+              (latest.revokedAt !== 0n &&
+                !(job.sql_revoked && job.revocation_expected))
+            ) throw new RegistryError("divergence");
+          }
+          if (cmd.kind === "revoke" && receipt.status === 1) {
+            for (const block of [receipt.block, observation.chain.head]) {
+              const record = await registry.read(cmd.K, block);
+              if (
+                !record || record.C !== dbHex(job.anchor!.commitment) ||
+                record.I !== dbHex(job.binding.issuer_id) ||
+                record.revokedAt !== receipt.timestamp
+              ) throw new RegistryError("incompatible_evidence");
+            }
+          }
         } catch (e) {
           if (
             e instanceof RegistryError && e.code === "incompatible_evidence"
@@ -262,7 +284,10 @@ export async function coordinate(
               t.signer !== attempt.signer ||
               BigInt(t.nonce) > BigInt(attempt.nonce)
             ))
-        ) continue;
+        ) {
+          await update("reconciled", { hash: receipt.hash });
+          continue;
+        }
         const confirmations = observation.chain.head.number -
           receipt.block.number + 1n;
         let finality = "unknown";
@@ -300,22 +325,6 @@ export async function coordinate(
             block_number: observation.chain.head.number.toString(),
             block_hash: observation.chain.head.hash,
           });
-        }
-        if (cmd.kind === "issue" && receipt.status === 1) {
-          const latest = await registry.read(cmd.K, observation.chain.head);
-          if (
-            !latest || latest.C !== cmd.C || latest.I !== cmd.I ||
-            (latest.revokedAt !== 0n &&
-              !(job.sql_revoked && job.revocation_expected))
-          ) throw new RegistryError("divergence");
-        }
-        if (cmd.kind === "revoke" && receipt.status === 1) {
-          const record = await registry.read(cmd.K, receipt.block);
-          if (
-            !record || record.C !== dbHex(job.anchor!.commitment) ||
-            record.I !== dbHex(job.binding.issuer_id) ||
-            record.revokedAt !== receipt.timestamp
-          ) throw new RegistryError("incompatible_evidence");
         }
         await update("release");
         return job.operation.state;
@@ -399,6 +408,13 @@ export async function coordinate(
         (options.now ?? Date.now)() - Date.parse(last.created_at) < 300000 ||
         ["blocked", "failed"].includes(job.operation.state)
       ) {
+        // A live mempool observation already proves acceptance. Resending known
+        // bytes can return "already known" and must not invalidate the fresh
+        // reconciliation required for explicit reauthorization of a blocked job.
+        if (last.state === "pending") {
+          await update("release");
+          return "pending";
+        }
         try {
           await registry.broadcast(prepared(job, last));
         } catch (e) {

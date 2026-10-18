@@ -1,5 +1,18 @@
 # Revocación — Fase 10
 
+## Revisión del worker 10C — 18/10/2026
+
+[Validación específica y límites](PHASE10C_ACCEPTANCE.md). Revoke contrasta
+nonce del intento, evento y C/I/estado en inclusión y head antes de persistir
+evidencia o liberar reserva. La migración nueva
+`20261018120000_revocation_evidence_reconciliation.sql` conserva el ledger y el
+fencing existentes; refresca observaciones de reverts consumidos sin repetir
+su transición fallida y retira atribución canónica al clasificar divergencia.
+La observación pending conserva reserva/recuperación sin retransmisión redundante
+que pueda invalidar continuamente la observación exigida para reautorizar.
+No cambia la decisión SQL, el motivo, actor, request_id o fecha original.
+Las migraciones compartidas del 15/16 de octubre permanecen intactas.
+
 ## Requisito vigente de cabeceras — 18/10/2026
 
 No-store sigue siendo obligatorio en **todas las respuestas del handler privado**.
@@ -108,7 +121,9 @@ y divergencia incompatible. El receipt original de issue nunca se reemplaza.
    `20261015100000_irreversible_revocation.sql` y
    `20261015110000_revocation_public_v3.sql` y
    `20261016110000_revocation_reauthorization_unavailable.sql` (corrección 10B del
-   404 de operación ausente, sin cambios de datos). Desde la raíz:
+   404 de operación ausente, sin cambios de datos), seguida de
+   `20261018120000_revocation_evidence_reconciliation.sql` (corrección 10C del
+   worker, sin backfill). Desde la raíz:
 
    ```powershell
    supabase migration list --linked

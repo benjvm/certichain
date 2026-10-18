@@ -84,7 +84,7 @@ try {
   if (error instanceof Error) {
     // Source location only, never an upstream message, body, token or URL.
     summary.failure_location = error.stack?.match(
-      /(?:phase10_backend\.ts|issuance_hardening\.mjs|local_issuance_fixture\.mjs):\d+:\d+/,
+      /(?:phase10_\w+\.ts|phase9d_environment\.ts|issuance_hardening\.mjs|local_issuance_fixture\.mjs):\d+:\d+/,
     )?.[0];
     const fixtureAssertions = [
       "Local Auth signing configuration available",

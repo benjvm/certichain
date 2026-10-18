@@ -1,5 +1,33 @@
 # Operación privada de anclajes — 9C
 
+## Recuperación de revocaciones 10C — 18/10/2026
+
+[Aceptación específica](PHASE10C_ACCEPTANCE.md). Aplicar la migración nueva
+20261018120000 después de las existentes, antes de usar el coordinador actualizado.
+No requiere cambiar ABI, contrato, red, claves o configuración Edge/Flutter.
+La validación completa precede a la persistencia de confirmación y liberación
+del nonce. Una divergencia retira la atribución vigente y conserva el historial.
+
+Reiniciar el mismo worker sobre la operación existente después del lease;
+reutiliza firma/hash/bytes y ledger. No crear otra operación por respuesta perdida.
+Para blocked/failed, ejecutar observación de todos los intentos, corregir causa y
+reautorizar explícitamente por owner/admin actual. Los reverts ya consumidos
+refrescan observed_at sin perder receipt ni volver a imponer su fallo antiguo;
+ello permite una segunda recuperación auditada si también falló el siguiente
+intento. El EOA rotado conserva I y utiliza su propio historial íntegro de nonce.
+Ninguna firma nueva usa reservas del EOA anterior sin resolverlas.
+Un intento observado pending ya está aceptado en mempool: conserva reserva y
+observación sin reenviar en esa pasada. Así un rechazo de bytes ya conocidos no
+invalida continuamente la reconciliación necesaria para reautorizar. Unknown
+permite retransmitir los bytes durables; no demuestra que el intento se abandonó.
+
+Los deployments anteriores deshabilitados conservan sus obligaciones. Solo
+retransmisión/observación de bytes existentes permitida por el protocolo; nuevas
+firmas requieren habilitación explícita del deployment original, configuración
+válida y canRevoke vigente. No redirigir al deployment habilitado actual.
+Reorg conserva observaciones fechadas y SQL revoked; reset exige recuperar la
+identidad exacta. Anvil nunca acredita finalidad PoS.
+
 ## Incremento local de revocación — 15/10/2026
 
 [REVOCATION](REVOCATION.md) define los endpoints Auth, motivo/auditoría privados,

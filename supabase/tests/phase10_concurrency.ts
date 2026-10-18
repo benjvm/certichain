@@ -163,4 +163,69 @@ export async function phase10Concurrency(
   } finally {
     await accepted.rollback();
   }
+  const certificate = await published();
+  const anchor = await f.json(
+    "/functions/v1/anchor-certificate",
+    f.owner.token,
+    {
+      certificate_id: certificate,
+      idempotency_key: crypto.randomUUID(),
+    },
+  );
+  await env.run(anchor.data.operation_id);
+  await env.run(anchor.data.operation_id);
+  const decision = await f.json(
+    "/functions/v1/revoke-certificate",
+    f.owner.token,
+    {
+      certificate_id: certificate,
+      idempotency_key: crypto.randomUUID(),
+      reason: "Private worker race",
+    },
+  );
+  const operation = decision.data.synchronization[0].operation_id as string;
+  let stored!: () => void, resume!: () => void;
+  const reached = new Promise<void>((resolve) => {
+    stored = resolve;
+  });
+  const gate = new Promise<void>((resolve) => {
+    resume = resolve;
+  });
+  const firstWorker = env.run(operation, false, {
+    barrier: async (point) => {
+      if (point === "stored") {
+        stored();
+        await gate;
+      }
+    },
+  });
+  try {
+    await Promise.race([
+      reached,
+      firstWorker.then(() => {
+        throw new Error("Worker exited before durable barrier");
+      }),
+    ]);
+    check(
+      await env.run(operation) === "busy",
+      "10C concurrent revoke worker cannot acquire live lease",
+    );
+    sql(
+      `UPDATE certichain_private.blockchain_operations SET lease_until=clock_timestamp()-interval '1 second' WHERE id='${operation}'`,
+    );
+    await env.run(operation);
+    await env.run(operation);
+  } finally {
+    resume();
+  }
+  await firstWorker;
+  check(
+    sql(
+          `SELECT state='confirmed' FROM certichain_private.blockchain_operations WHERE id='${operation}'`,
+        ) === "t" &&
+      sql(
+          `SELECT count(*) FROM certichain_private.blockchain_transaction_attempts WHERE operation_id='${operation}'`,
+        ) === "1",
+    "10C expired worker resumes behind new generation without duplicating revoke or overwriting confirmation",
+  );
 }

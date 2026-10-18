@@ -1,5 +1,18 @@
 # Aceptación de revocación — Fase 10
 
+## Revisión específica 10C — 18/10/2026
+
+La revisión backend sobre `d63014e` reutiliza el coordinador/ledger existentes.
+Corrige validación previa a promoción de receipts, observación de reverts
+consumidos y retirada de atribución canónica en divergencia. Añade una migración
+avanzada, sin tocar las compartidas, contratos públicos o Flutter.
+Resultados nuevos y dictamen independiente: [PHASE10C_ACCEPTANCE](PHASE10C_ACCEPTANCE.md).
+**10C cerrada localmente:** 289 checks reales de fase 10, 163 de emisión/ledger,
+978 pgTAP en cada runner, 272 Deno y 28 Foundry PASS; limpieza propia PASS.
+Migración nueva `20261018120000_revocation_evidence_reconciliation.sql`.
+Los resultados inferiores de 10B/10D/10E son históricos; no se vuelven a aceptar
+esas fases en esta revisión ni se reabre la excepción JWT limitada de 10B.
+
 ## Revisión y requisito vigentes — 18/10/2026
 
 Base main/HEAD `741b3a02f5f72e69e7cb790c1806a8e00057ce14`, árbol inicial limpio.

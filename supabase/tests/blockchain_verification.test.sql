@@ -72,6 +72,18 @@ SELECT ok(public.authorize_certificate_opening((SELECT valid FROM ids),'9d000000
 SELECT ok(public.authorize_certificate_opening((SELECT valid FROM ids),'9d000000-0000-4000-8000-000000000001','local') IS NULL,'Suspended member denied');
 SELECT ok(public.authorize_certificate_opening((SELECT incomplete FROM ids),'9d000000-0000-4000-8000-000000000002','local') IS NULL,'Incomplete publication denied');
 SELECT ok(public.authorize_certificate_opening((SELECT valid FROM ids),'9d000000-0000-4000-8000-000000000002','other') IS NULL,'Cross deployment/environment denied');
+-- 10C: observing an already consumed receipt must not replay its transition,
+-- while an incompatible current read must withdraw current attribution.
+CREATE TEMP TABLE phase10c_history AS SELECT receipt_observations,observed_at FROM certichain_private.blockchain_transaction_attempts;
+CREATE TEMP TABLE phase10c_claim AS SELECT public.blockchain_claim(id) AS job FROM certichain_private.blockchain_operations;
+SELECT lives_ok(format('SELECT public.blockchain_update_job(%L,%L,%L,%L,%L::jsonb)',job->'operation'->>'id',job->'operation'->>'lease_token',job->'operation'->>'generation','reconciled','{"hash":"0x'||repeat('aa',32)||'"}'),'Reconciled action accepts current fence') FROM phase10c_claim;
+SELECT is((SELECT state FROM certichain_private.blockchain_operations),'blocked','Observation preserves blocked state and requires explicit authorization');
+SELECT ok((SELECT t.observed_at>h.observed_at FROM certichain_private.blockchain_transaction_attempts t CROSS JOIN phase10c_history h),'Observation refreshed for later reauthorization');
+SELECT is((SELECT receipt_observations FROM certichain_private.blockchain_transaction_attempts),(SELECT receipt_observations FROM phase10c_history),'Observation preserves historical receipt and original date');
+SELECT throws_ok(format('SELECT public.blockchain_update_job(%L,%L,%L,%L,%L::jsonb)',job->'operation'->>'id',gen_random_uuid(),job->'operation'->>'generation','reconciled','{"hash":"0x'||repeat('aa',32)||'"}'),'PT409','busy','Observation rejects stale fence') FROM phase10c_claim;
+SELECT lives_ok(format('SELECT public.blockchain_update_job(%L,%L,%L,%L,%L::jsonb)',job->'operation'->>'id',job->'operation'->>'lease_token',job->'operation'->>'generation','error','{"error":"divergence"}'),'Current incompatible read records divergence') FROM phase10c_claim;
+SELECT ok((SELECT state='divergence' AND canonical_attempt_id IS NULL AND confirmations=0 AND finality='unknown' FROM certichain_private.blockchain_operations),'Divergence withdraws canonical attribution and confirmation');
+SELECT is((SELECT receipt_observations FROM certichain_private.blockchain_transaction_attempts),(SELECT receipt_observations FROM phase10c_history),'Divergence retains historical receipt evidence unchanged');
 SET LOCAL ROLE anon;
 SELECT throws_ok($$SELECT public.lookup_public_certificate_v2('9d000000-0000-4000-8000-000000000099','local')$$,'42501',NULL,'Anon technical RPC denied');
 RESET ROLE;

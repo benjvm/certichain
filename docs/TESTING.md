@@ -1,5 +1,22 @@
 # Estrategia de pruebas
 
+## Revisión específica 10C — 18/10/2026
+
+[Resultados nuevos y límites](PHASE10C_ACCEPTANCE.md). Se amplían las suites
+existentes de faults, concurrency y deployments y se añaden regresiones unitarias
+del coordinador/adaptador. La suite SQL comprueba observación fenced de recibos
+consumidos, fechas históricas y retirada de atribución en divergencia; el
+verificador rollback-only incluye la migración nueva 20261018120000.
+El comando reproducible es `./supabase/tests/run_phase10.ps1 -BackendOnly` con
+CERTICHAIN_TEST_CAMERA=0, Node 24.14.0 y toolchains ya fijadas. Ejecuta recursos
+propios desechables; no reset del stack habitual. Para la regresión independiente
+de emisión/ledger: `./supabase/tests/run_phase9c.ps1`.
+Esta revisión no atribuye nuevos PASS a Flutter/10D/10E o a GitHub Actions.
+Resultados finales locales: 289 checks de fase 10 y 163 de emisión/ledger PASS;
+978 pgTAP y lint por runner; 272 Deno, 28 Foundry y 10 Node PASS; harness 17 PASS
+y 2 SKIP (cámara/fixture Unix). Formato, tipos, ABI y limpieza propios PASS.
+Cámara SKIP/NOT_RUN: «Omitidas por instrucción del usuario; no hay cámara física disponible».
+
 ## Revisión vigente 10B y transporte de toolchain — 18/10/2026
 
 [Política y evidencia](PHASE10B_GATEWAY.md), [ejecuciones nuevas](PHASE10_ACCEPTANCE.md).

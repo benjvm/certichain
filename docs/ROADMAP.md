@@ -270,6 +270,17 @@ Otros pendientes humanos/plataformas conservan su alcance en
 
 ### Fase 10 — Revocación completa (aceptada para demo Web local, 15/10/2026)
 
+**10C cerrada localmente, 18/10/2026:** sobre `d63014e`, se reutiliza la
+implementación existente y se corrigen validación antes de promover receipts,
+observaciones de reverts consumidos y atribución canónica en divergencia.
+Migración avanzada 20261018120000; sin cambios de Solidity/ABI, ledger o cliente.
+[Resultados nuevos y dictamen 10C](PHASE10C_ACCEPTANCE.md), separados de la
+aceptación histórica 10A–10E. Backend real 289 checks y regresión de emisión/ledger
+163 PASS; 978 pgTAP por runner, ABI congelada y limpieza propia PASS. CI nueva
+NOT_RUN. La revisión siguiente 10D corresponde al cliente
+institucional/progreso/reautorización y presentación de evidencia independiente;
+10E requiere su propia ejecución y no se vuelve a cerrar desde esta revisión.
+
 **10B cerrada localmente bajo requisito revisado, 18/10/2026:** no-store obligatorio para toda respuesta del
 handler CertiChain; excepción externa explícita solo para 401 JWT genérico previo
 de Supabase reconocido de forma cerrada. [ADR-0018](adr/0018-irreversible-revocation-and-public-v3.md)

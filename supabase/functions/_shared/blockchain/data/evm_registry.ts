@@ -198,6 +198,15 @@ export class EvmRegistry implements BlockchainRegistry {
     ) throw new RegistryError("deployment_mismatch");
     if (
       expected.environmentId !== this.deployment.environmentId ||
+      expected.network !== this.deployment.network ||
+      expected.chainId !== this.deployment.chainId ||
+      expected.contractAddress !== this.deployment.contractAddress ||
+      expected.genesisHash !== this.deployment.genesisHash ||
+      expected.runtimeCodeHash !== this.deployment.runtimeCodeHash ||
+      expected.deploymentBlock.number !==
+        this.deployment.deploymentBlock.number ||
+      expected.deploymentBlock.hash !== this.deployment.deploymentBlock.hash ||
+      expected.protocolVersion !== this.deployment.protocolVersion ||
       expected.protocolVersion !== 1 ||
       (expected.network === "anvil"
         ? expected.chainId !== 31337n
@@ -419,9 +428,18 @@ export class EvmRegistry implements BlockchainRegistry {
       throw new RegistryError("incompatible_evidence");
     }
     if (receipt.status === 0) return receipt;
-    const raw = await this.rpc<RpcReceipt>("eth_getTransactionReceipt", [
+    const raw = await this.rpc<RpcReceipt | null>("eth_getTransactionReceipt", [
       receipt.hash,
     ]);
+    if (!raw) throw new RegistryError("rpc_unavailable");
+    if (
+      lower(raw.transactionHash) !== receipt.hash ||
+      BigInt(raw.status) !== BigInt(receipt.status) ||
+      lower(raw.from) !== receipt.from || lower(raw.to) !== receipt.to ||
+      lower(raw.blockHash) !== receipt.block.hash ||
+      BigInt(raw.blockNumber) !== receipt.block.number ||
+      BigInt(raw.transactionIndex) !== receipt.transactionIndex
+    ) throw new RegistryError("incompatible_evidence");
     const matching = raw.logs.filter((log) =>
       lower(log.address) === this.deployment.contractAddress &&
       lower(log.transactionHash) === receipt.hash &&

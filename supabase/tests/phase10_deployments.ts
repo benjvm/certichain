@@ -5,9 +5,14 @@ import { sql } from "../scripts/local_supabase.mjs";
 import { until } from "./local_issuance_fixture.mjs";
 import {
   abi,
+  calldata,
   quantity,
 } from "../functions/_shared/blockchain/data/evm_registry.ts";
 import type { Hex } from "../functions/_shared/blockchain/domain/registry.ts";
+import {
+  bytes,
+  digest,
+} from "../functions/_shared/blockchain/application/commitment.ts";
 import type { phase9dEnvironment } from "./phase9d_environment.ts";
 
 export async function phase10Deployments(
@@ -46,10 +51,13 @@ export async function phase10Deployments(
   );
   // A second real deployment uses its own fresh deployer; never the operational EOA.
   const deployer = Wallet.createRandom();
-  await rpc.rpc("anvil_setBalance", [
-    deployer.address,
-    quantity(100000000000000000000n),
-  ]);
+  const admin = Wallet.createRandom(), signer = Wallet.createRandom();
+  for (const wallet of [deployer, admin, signer]) {
+    await rpc.rpc("anvil_setBalance", [
+      wallet.address,
+      quantity(100000000000000000000n),
+    ]);
+  }
   const build = JSON.parse(
     readFileSync(
       resolve(
@@ -63,7 +71,7 @@ export async function phase10Deployments(
     type: 2,
     chainId: 31337n,
     nonce: 0,
-    data: build.bytecode.object + abi.encodeDeploy([deployer.address]).slice(2),
+    data: build.bytecode.object + abi.encodeDeploy([admin.address]).slice(2),
     gasLimit: 2000000n,
     maxFeePerGas: 3000000000n,
     maxPriorityFeePerGas: 1000000000n,
@@ -102,6 +110,43 @@ export async function phase10Deployments(
     },
   });
   try {
+    const I = sql(
+      `SELECT '0x'||encode(issuer_id,'hex') FROM certichain_private.blockchain_issuers WHERE deployment_id='${prior}' AND institution_id='${f.verified}'`,
+    ) as Hex;
+    const config = {
+      kind: "set_issuer" as const,
+      I,
+      signer: signer.address.toLowerCase() as Hex,
+      canIssue: true,
+      canRevoke: true,
+    };
+    const cfg = await backend.rpc<string>("blockchain_configure_issuer", {
+      p_actor: f.platform.id,
+      p_deployment: current,
+      p_institution: f.verified,
+      p_i: I,
+      p_signer: config.signer,
+      p_issue: true,
+      p_revoke: true,
+      p_key: crypto.randomUUID(),
+      p_payload: await digest(bytes(calldata(config))),
+    });
+    await env.runWithSigner(cfg, admin.privateKey, { admin: true });
+    await env.runWithSigner(cfg, admin.privateKey, { admin: true });
+    const second = await f.json(
+      "/functions/v1/anchor-certificate",
+      f.owner.token,
+      { certificate_id: certificate, idempotency_key: crypto.randomUUID() },
+    );
+    check(
+      second.response.status === 202,
+      "10C explicit second deployment anchor uses its own authorized configuration",
+    );
+    await env.runWithSigner(second.data.operation_id, signer.privateKey);
+    await env.runWithSigner(second.data.operation_id, signer.privateKey);
+    const anchorsBefore = sql(
+      `SELECT jsonb_agg(to_jsonb(a) ORDER BY id) FROM certichain_private.certificate_anchors a WHERE certificate_id='${certificate}'`,
+    );
     const revoked = await f.json(
       "/functions/v1/revoke-certificate",
       f.owner.token,
@@ -111,9 +156,15 @@ export async function phase10Deployments(
         reason: "Private original-deployment audit",
       },
     );
-    const operation = revoked.data.synchronization[0]?.operation_id as string;
+    const operation = sql(
+      `SELECT id FROM certichain_private.blockchain_operations WHERE anchor_id=(SELECT id FROM certichain_private.certificate_anchors WHERE certificate_id='${certificate}' AND deployment_id='${prior}') AND kind='revoke'`,
+    );
+    const currentRevoke = sql(
+      `SELECT id FROM certichain_private.blockchain_operations WHERE anchor_id=(SELECT id FROM certichain_private.certificate_anchors WHERE certificate_id='${certificate}' AND deployment_id='${current}') AND kind='revoke'`,
+    );
     check(
-      revoked.response.status === 202 && operation &&
+      revoked.response.status === 202 && operation && currentRevoke &&
+        revoked.data.synchronization.length === 2 &&
         sql(
             `SELECT deployment_id FROM certichain_private.blockchain_operations WHERE id='${operation}'`,
           ) === prior,
@@ -121,9 +172,13 @@ export async function phase10Deployments(
     );
     check(
       sql(
-        `SELECT count(*) FROM certichain_private.certificate_anchors WHERE certificate_id='${certificate}'`,
-      ) === "1",
-      "10 deployment switch creates no new anchor or salt",
+            `SELECT count(*) FROM certichain_private.certificate_anchors WHERE certificate_id='${certificate}'`,
+          ) === "2" &&
+        anchorsBefore ===
+          sql(
+            `SELECT jsonb_agg(to_jsonb(a) ORDER BY id) FROM certichain_private.certificate_anchors a WHERE certificate_id='${certificate}'`,
+          ),
+      "10C revocation preserves both existing anchors and salts across deployments",
     );
     sql(
       `UPDATE certichain_private.blockchain_operations SET lease_until=clock_timestamp()-interval '1 second' WHERE id='${issue}'`,
@@ -139,6 +194,17 @@ export async function phase10Deployments(
         `SELECT count(*) FROM certichain_private.blockchain_transaction_attempts WHERE operation_id='${operation}'`,
       ) === "0",
       "10 no write redirected to the new contract",
+    );
+    await env.runWithSigner(currentRevoke, signer.privateKey);
+    await env.runWithSigner(currentRevoke, signer.privateKey);
+    check(
+      sql(
+            `SELECT state FROM certichain_private.blockchain_operations WHERE id='${currentRevoke}'`,
+          ) === "confirmed" &&
+        sql(
+            `SELECT state FROM certichain_private.blockchain_operations WHERE id='${operation}'`,
+          ) === "blocked",
+      "10C one deployment confirms while previous disabled obligation remains independently blocked",
     );
     sql(
       `UPDATE certichain_private.blockchain_deployments SET enabled=false WHERE id='${current}'; UPDATE certichain_private.blockchain_deployments SET enabled=true WHERE id='${prior}'`,

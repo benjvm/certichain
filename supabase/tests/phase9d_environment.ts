@@ -309,6 +309,14 @@ export async function phase9dEnvironment() {
           },
         });
         if (worker.status !== 0) {
+          console.log(
+            JSON.stringify({
+              case: "restarted worker process",
+              result: "FAIL",
+              exit_code: worker.status,
+              timed_out: worker.error?.message.includes("ETIMEDOUT") ?? false,
+            }),
+          );
           throw new Error("Owned restarted CLI worker failed");
         }
         const result = JSON.parse(worker.stdout.trim());
