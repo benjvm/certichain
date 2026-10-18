@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mobile/features/revocation/domain/revocation_repository.dart';
+import 'package:mobile/features/revocation/domain/revocation_reason.dart';
 import 'package:mobile/features/revocation/data/revocation_key_preferences.dart';
 import 'package:mobile/features/revocation/presentation/revocation_controller.dart';
 import 'package:mobile/features/revocation/presentation/revocation_panel.dart';
@@ -34,6 +35,9 @@ class Keys implements RevocationKeyStore {
 class Repo implements RevocationRepository {
   final calls = <(String, String, Completer<RevocationDecision>)>[];
   int reads = 0, auths = 0, cancels = 0;
+  RevocationDecision result = decision;
+  String? readError, authError;
+  Completer<RevocationDecision>? delayedRead;
   @override
   Future<RevocationDecision> request(
     RevocationScope s,
@@ -48,12 +52,15 @@ class Repo implements RevocationRepository {
   @override
   Future<RevocationDecision> progress(RevocationScope s) async {
     reads++;
-    return decision;
+    if (delayedRead != null) return delayedRead!.future;
+    if (readError != null) throw RevocationException(readError!);
+    return result;
   }
 
   @override
   Future<RevocationDecision> reauthorize(RevocationScope s, String id) async {
     auths++;
+    if (authError != null) throw RevocationException(authError!);
     return decision;
   }
 
@@ -69,6 +76,74 @@ Future<void> flush() async {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  test(
+    'reason matches backend NFC, ASCII trim, newline and Unicode point rules',
+    () {
+      expect(
+        normalizeRevocationReason(' \tCafe\u0301\r\ntexto\r\t '),
+        'Café\ntexto',
+      );
+      expect(
+        normalizeRevocationReason('\u00a0texto\u00a0'),
+        '\u00a0texto\u00a0',
+      );
+      expect(revocationReasonError('😀' * 500), isNull);
+      expect(revocationReasonError('😀' * 501), isNotNull);
+      expect(revocationReasonError('e\u0301' * 500), isNull);
+      expect(revocationReasonError(' \t\r\n '), isNotNull);
+      for (final r in [0, 8, 11, 31, 127, 0xd800, 0xdfff]) {
+        expect(revocationReasonError('x${String.fromCharCode(r)}'), isNotNull);
+      }
+      expect(revocationReasonError('x\t\ny\u0085'), isNull);
+      expect(revocationReasonError('<b>Texto privado</b>'), isNull);
+    },
+  );
+  test(
+    'invalid reason never obtains key or sends; canonical reason freezes',
+    () async {
+      final r = Repo(), c = RevocationController(scope, Repo(), Keys());
+      await c.request('  ');
+      expect(c.error, 'invalid_input');
+      expect(c.frozen, isFalse);
+      c.dispose();
+      final ctrl = RevocationController(scope, r, Keys());
+      final pending = ctrl.request(' Cafe\u0301\r\n ');
+      await flush();
+      expect(r.calls.single.$2, 'Café');
+      r.calls.single.$3.completeError(const RevocationException('timeout'));
+      await pending;
+      expect(ctrl.uncertain, isTrue);
+      await ctrl.refresh();
+      expect(ctrl.uncertain, isFalse);
+      expect(ctrl.decision, same(decision));
+      expect(r.auths, 0);
+      ctrl.dispose();
+    },
+  );
+  test(
+    'loss of access removes private decision and disables further requests',
+    () async {
+      for (final error in [
+        'revocation_unavailable',
+        'authorization_denied',
+        'unauthenticated',
+        'stale_session',
+      ]) {
+        final r = Repo();
+        final ctrl = RevocationController(scope, r, Keys());
+        await ctrl.refresh();
+        r.readError = error;
+        await ctrl.refresh();
+        expect(ctrl.decision, isNull);
+        expect(ctrl.accessDenied, isTrue);
+        await ctrl.request('private');
+        await ctrl.reauthorize(code);
+        expect(r.calls, isEmpty);
+        expect(r.auths, 0);
+        ctrl.dispose();
+      }
+    },
+  );
   test(
     'owner/admin verified or suspended only; no global platform shortcut',
     () {
@@ -91,6 +166,36 @@ void main() {
       }
     },
   );
+  test('busy reauthorization preserves original SQL decision and needs explicit retry', () async {
+    final r = Repo(), c = RevocationController(scope, Repo(), Keys());
+    c.dispose();
+    final ctrl = RevocationController(scope, r, Keys());
+    await ctrl.refresh();
+    r.authError = 'busy';
+    await ctrl.reauthorize(code);
+    expect(ctrl.error, 'busy');
+    expect(ctrl.decision, same(decision));
+    expect(r.auths, 1);
+    await ctrl.refresh();
+    expect(r.auths, 1);
+    ctrl.dispose();
+  });
+  test('corrupt receipt cannot silently generate a replacement key', () async {
+    final name =
+        'revocation-key:${scope.userId}:${scope.institutionId}:${scope.certificateId}';
+    SharedPreferences.setMockInitialValues({name: 'corrupt'});
+    await expectLater(
+      RevocationKeyPreferences().obtain(scope),
+      throwsA(
+        isA<RevocationException>().having(
+          (e) => e.code,
+          'code',
+          'receipt_failure',
+        ),
+      ),
+    );
+    expect((await SharedPreferences.getInstance()).getString(name), 'corrupt');
+  });
   test('double send, lost response retry retains exact reason/key, refresh never reauthorizes', () async {
     final r = Repo(), c = RevocationController(scope, Repo(), Keys());
     c.dispose();
@@ -142,7 +247,17 @@ void main() {
   test('recovery keys are persisted and isolated, without reason', () async {
     SharedPreferences.setMockInitialValues({});
     final keys = RevocationKeyPreferences();
-    final key = await keys.obtain(scope);
+    final concurrent = await Future.wait(
+      List.generate(8, (_) => RevocationKeyPreferences().obtain(scope)),
+    );
+    final key = concurrent.first;
+    expect(concurrent, everyElement(key));
+    expect(
+      await Future.wait(
+        List.generate(8, (_) => RevocationKeyPreferences().obtain(scope)),
+      ),
+      everyElement(key),
+    );
     expect(await keys.obtain(scope), key);
     for (final other in [
       const RevocationScope('other', 'institution', code),

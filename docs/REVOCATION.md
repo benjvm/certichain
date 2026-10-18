@@ -1,5 +1,14 @@
 # Revocación — Fase 10
 
+## Revisión del cliente 10D — 18/10/2026
+
+[Aceptación nueva y límites](PHASE10D_ACCEPTANCE.md). Motivo NFC/puntos Unicode,
+identificación/confirmación, recuperación de la misma clave, reautorización
+explícita y retirada de datos ante denegación. Clave por ámbito sin motivo ni
+regeneración por timeout/reconstrucción. Progreso manual; workspace sin desmontar
+el flujo cada 30 s. Fecha SQL nullable en detalle y evidencia previa issue/revoke
+al comparar PDF v1. Sin cambios backend/EVM/migraciones.
+
 ## Revisión del worker 10C — 18/10/2026
 
 [Validación específica y límites](PHASE10C_ACCEPTANCE.md). Revoke contrasta

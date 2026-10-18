@@ -1,5 +1,16 @@
 # Aceptación de revocación — Fase 10
 
+## Revisión específica 10D — 18/10/2026
+
+[Cambios, evidencia nueva y límites del cliente](PHASE10D_ACCEPTANCE.md).
+Base bb17d346: normalización Unicode, recuperación, permisos/sesión, fecha SQL
+del titular y evidencia issue/revoke anterior sin consultas duplicadas. No cambia
+backend/contratos 10A–10C. Los resultados inferiores son históricos y no acreditan
+esta revisión ni la aceptación pendiente de 10E.
+**10D cerrada localmente para Web/Chrome:** 266 Flutter PASS (12 SKIP), análisis/
+formato limpios, 289 checks reales, 978 pgTAP y 183 aserciones release Web PASS;
+cleanup propio PASS. Primer intento integral FAIL conservado. CI nueva pendiente.
+
 ## Revisión específica 10C — 18/10/2026
 
 La revisión backend sobre `d63014e` reutiliza el coordinador/ledger existentes.

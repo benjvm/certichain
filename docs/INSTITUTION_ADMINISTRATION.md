@@ -1,5 +1,15 @@
 # Administración institucional — Fase 6
 
+## Revocación del cliente 10D — 18/10/2026
+
+Owner/admin actuales verified/suspended acceden desde el certificado emitido.
+Confirmación con título/ID y motivo privado canónico. Suspended sigue sin emitir
+ni acceder a PDF/apertura institucional. Denegación del backend retira datos y
+acciones; servidor conserva autoridad. Reautorización explícita continúa solo
+sincronización. Refresco manual/al volver a primer plano, sin desmontaje cada 30 s.
+[Contrato](REVOCATION.md), [aceptación](PHASE10D_ACCEPTANCE.md). Los apartados de
+fase 6 inferiores conservan su contexto histórico.
+
 ## Decisión del MVP
 
 El alta institucional es administrada: un `platform_admin` crea una institución

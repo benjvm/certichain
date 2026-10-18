@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../domain/verification_repository.dart';
 import '../domain/hash_comparison.dart';
 import '../domain/blockchain_verification.dart';
+import '../domain/public_revocation.dart';
 import 'public_query_cooldown.dart';
 
 class VerificationController extends ChangeNotifier {
@@ -46,6 +47,7 @@ class VerificationController extends ChangeNotifier {
   VerificationResult? result;
   bool resultIsPrevious = false;
   BlockchainEvidence? previousBlockchain;
+  PublicRevocation? previousRevocation;
   VerificationFailure? failure;
   int get waitSeconds => _cooldown.waitSeconds;
 
@@ -58,6 +60,7 @@ class VerificationController extends ChangeNotifier {
     loading = false;
     result = null;
     previousBlockchain = null;
+    previousRevocation = null;
     resultIsPrevious = false;
     if (failure != VerificationFailure.rateLimited) failure = null;
     notifyListeners();
@@ -86,6 +89,7 @@ class VerificationController extends ChangeNotifier {
       result = response;
       resultIsPrevious = false;
       previousBlockchain = null;
+      previousRevocation = null;
     } catch (error) {
       // A rate limit belongs to the public budget, even if its form was replaced.
       if (error is VerificationException &&
@@ -210,6 +214,7 @@ class VerificationController extends ChangeNotifier {
         return;
       }
       previousBlockchain = result?.blockchain ?? previousBlockchain;
+      previousRevocation = result?.revocation ?? previousRevocation;
       result = response.verification;
       resultIsPrevious = false;
       integrity = response.integrity;

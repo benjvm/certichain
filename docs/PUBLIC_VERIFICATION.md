@@ -1,5 +1,14 @@
 # Verificación pública — Backend 8A e interfaz Web 8B
 
+## Cliente de revocación 10D — 18/10/2026
+
+V1/v2/v3 cerrados, un endpoint por consulta. V3 separa SQL revocado, emisión y
+revoke; demora/indisponibilidad/reorg/divergencia no acreditan vigencia. Versiones
+sin bloque de revocación declaran su límite. Compare PDF v1 conserva ambos
+snapshots previos fechados como no comprobados actualmente, sin consultar v3.
+Anvil indica finalidad no aplicable. No motivo/actor/auditoría privada.
+[Resultados nuevos y límites](PHASE10D_ACCEPTANCE.md).
+
 ## Incremento local de revocación — 15/10/2026
 
 [REVOCATION](REVOCATION.md) define los endpoints Auth, motivo/auditoría privados,

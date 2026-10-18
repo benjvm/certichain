@@ -116,6 +116,35 @@ void main() {
     response = [row(state: 'unknown')];
     await expectLater(repository.readWallet('holder-a'), throwsFormatException);
   });
+  test('holder reads SQL revocation timestamp only; historical absence stays unknown', () async {
+    final repository = SupabaseCertificateRepository(client);
+    response = [
+      {...row(state: 'revoked'), 'revoked_at': '2026-10-18T11:22:33.123456Z'},
+    ];
+    final revoked = await repository.readCertificate(
+      'holder-a',
+      'certificate-a',
+    );
+    expect(revoked!.revokedAt, DateTime.parse('2026-10-18T11:22:33.123456Z'));
+    expect(revoked.validityAt(DateTime.now()), CertificateValidity.revoked);
+    for (final forbidden in [
+      'reason',
+      'requested_by',
+      'request_id',
+      'revocations',
+      'salt',
+    ]) {
+      expect(uri.queryParameters['select'], isNot(contains(forbidden)));
+    }
+    response = [row(state: 'revoked')];
+    expect(
+      (await repository.readCertificate(
+        'holder-a',
+        'certificate-a',
+      ))!.revokedAt,
+      isNull,
+    );
+  });
 
   test(
     'detail scopes id and holder, preserves hidden issuer and missing rows',
@@ -132,7 +161,7 @@ void main() {
       expect(uri.queryParameters['id'], 'eq.certificate-a');
       expect(
         uri.queryParameters['select'],
-        'id,holder_id,institution_id,title,issued_at,expires_at,status,institutions(name)',
+        'id,holder_id,institution_id,title,issued_at,expires_at,status,revoked_at,institutions(name)',
       );
       response = <Object>[];
       expect(

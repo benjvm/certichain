@@ -21,6 +21,7 @@ Certificate certificate({
   String title = 'Formación de prueba',
   CertificateStatus status = CertificateStatus.active,
   DateTime? expiresAt,
+  DateTime? revokedAt,
 }) => Certificate(
   id: '11111111-2222-3333-4444-555555555555',
   holderId: 'synthetic-user',
@@ -29,6 +30,7 @@ Certificate certificate({
   issuedAt: DateTime(2026, 1, 2),
   status: status,
   expiresAt: expiresAt,
+  revokedAt: revokedAt,
 );
 
 void main() {
@@ -77,6 +79,38 @@ void main() {
 
   Future<void> open(WidgetTester tester) async =>
       tap(tester, find.text(certificates.wallet.certificates.first.title));
+
+  testWidgets(
+    'revoked detail distinguishes SQL date and unknown historical date without private audit',
+    (tester) async {
+      certificates.wallet = CertificateWallet(
+        certificates: [
+          certificate(
+            status: CertificateStatus.revoked,
+            revokedAt: DateTime.utc(2026, 10, 18, 11, 22),
+          ),
+        ],
+        total: 1,
+      );
+      await start(tester);
+      await open(tester);
+      expect(
+        find.text(
+          'Revocado en CertiChain (SQL, UTC): 2026-10-18T11:22:00.000Z',
+        ),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Motivo'), findsNothing);
+      certificates.detailHandler = (_, _) async =>
+          certificate(status: CertificateStatus.revoked);
+      await tester.tap(find.byTooltip('Actualizar datos'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Fecha de revocación SQL no registrada.'),
+        findsOneWidget,
+      );
+    },
+  );
 
   for (final origin in ['Inicio', 'Certificados']) {
     testWidgets(

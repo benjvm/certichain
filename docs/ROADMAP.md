@@ -270,6 +270,16 @@ Otros pendientes humanos/plataformas conservan su alcance en
 
 ### Fase 10 — Revocación completa (aceptada para demo Web local, 15/10/2026)
 
+**10D cerrada localmente para Web/Chrome, 18/10/2026:** se completa el cliente existente sobre
+bb17d346: motivo canónico, misma clave, progreso/reautorización explícitos,
+permisos/sesión, fecha SQL del titular y evidencia anterior issue/revoke sin
+consultas duplicadas. Sin cambios backend/EVM/migraciones/dependencias.
+[Evidencia nueva y dictamen](PHASE10D_ACCEPTANCE.md). Historia inferior conservada;
+10E requiere aceptación propia del commit final y CI de ese SHA pendiente.
+Validación nueva: 266 Flutter PASS, 12 SKIP, análisis/formato limpios; 289 checks
+reales, 978 pgTAP y 183 aserciones Web PASS; limpieza propia PASS. Primer runner
+Web FAIL conservado, sin ampliar evidencia a móvil/otros navegadores/Sepolia.
+
 **10C cerrada localmente, 18/10/2026:** sobre `d63014e`, se reutiliza la
 implementación existente y se corrigen validación antes de promover receipts,
 observaciones de reverts consumidos y atribución canónica en divergencia.

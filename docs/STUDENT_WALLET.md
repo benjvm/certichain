@@ -1,5 +1,13 @@
 # Wallet personal y detalle — Fases 4D y 7C
 
+## Revocación 10D — 18/10/2026
+
+Badge Revocado con texto/icono/color conservado. SELECT añade solo revoked_at
+ya autorizado, sin motivo/actor/auditoría. El detalle distingue fecha SQL UTC de
+emisión/EVM y ausencia histórica. PDF/apertura/código/enlace/QR conservan permisos;
+revocar no elimina documentos o copias externas. Una coincidencia PDF no acredita
+vigencia. [Evidencia nueva](PHASE10D_ACCEPTANCE.md).
+
 ## Ampliación 9D del detalle
 
 Wallet, emisión, PDF privado y QR/enlace existentes conservados. La pestaña

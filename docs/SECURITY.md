@@ -1,5 +1,14 @@
 # Seguridad y privacidad
 
+## Cliente de revocación 10D — 18/10/2026
+
+[Aceptación específica](PHASE10D_ACCEPTANCE.md). Motivo solo en memoria/POST Auth
+y texto institucional autorizado, sin logs/preferencias/PDF/QR/titular/público.
+Recibo local solo ámbito/UUID, reutilizado tras reconstrucción; clave corrupta
+no se reemplaza automáticamente. Denegación retira datos/acciones y generaciones
+descartan respuestas/callbacks tardíos. SELECT titular añade solo revoked_at ya
+autorizado, sin grants. 202 acredita decisión SQL, nunca vigencia/finalidad EVM.
+
 ## Política vigente de no-store 10B — 18/10/2026
 
 El usuario autoriza una excepción externa limitada: ausencia de Cache-Control

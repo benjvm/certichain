@@ -92,6 +92,95 @@ void main() {
     expect(d.synchronization.single.status, RevocationSyncStatus.requested);
     expect(d.revokedAt!.microsecond, 456);
   });
+  test(
+    'reason is canonical on wire and reauthorization uses only operation ID',
+    () async {
+      action = (r) async {
+        expect(jsonDecode(r.body), {
+          'certificate_id': cert,
+          'idempotency_key': cert,
+          'reason': 'Café\ntexto',
+        });
+        return http.Response(jsonEncode(dto()), 202);
+      };
+      await repo.request(scope, cert, ' Cafe\u0301\r\ntexto\t ');
+      action = (r) async {
+        expect(r.url.path, '/functions/v1/reauthorize-revocation');
+        expect(jsonDecode(r.body), {'operation_id': cert});
+        return http.Response(jsonEncode(dto()), 200);
+      };
+      await repo.reauthorize(scope, cert);
+    },
+  );
+  test(
+    'historical nulls preserved; active cannot carry private decision',
+    () async {
+      action = (r) async => http.Response(
+        jsonEncode({
+          ...dto(),
+          'request_id': null,
+          'reason': null,
+          'synchronization': <Object>[],
+        }),
+        200,
+      );
+      final old = await repo.progress(scope);
+      expect(old.requestId, isNull);
+      expect(old.reason, isNull);
+      expect(old.revoked, isTrue);
+      for (final changed in [
+        {'reason': ''},
+        {'reason': ' Noncanonical '},
+        {
+          'synchronization': [
+            {'operation_id': cert, 'status': 'unknown'},
+          ],
+        },
+        {
+          'synchronization': [
+            {'operation_id': cert, 'status': 'blocked'},
+            {'operation_id': cert, 'status': 'failed'},
+          ],
+        },
+        {'status': 'active', 'revoked_at': null},
+      ]) {
+        action = (r) async =>
+            http.Response(jsonEncode({...dto(), ...changed}), 200);
+        await expectLater(
+          repo.progress(scope),
+          throwsA(
+            isA<RevocationException>().having(
+              (e) => e.code,
+              'sanitized',
+              'temporary_failure',
+            ),
+          ),
+        );
+      }
+    },
+  );
+  test(
+    'progress 202 and upstream body fail closed without leaking detail',
+    () async {
+      for (final response in [
+        http.Response(jsonEncode(dto()), 202),
+        http.Response('{"error":"private upstream reason"}', 503),
+        http.Response('{"raw":"secret"}', 502),
+      ]) {
+        action = (r) async => response;
+        await expectLater(
+          repo.progress(scope),
+          throwsA(
+            isA<RevocationException>().having(
+              (e) => e.code,
+              'sanitized',
+              'temporary_failure',
+            ),
+          ),
+        );
+      }
+    },
+  );
   for (final changed in [
     {'certificate_id': user},
     {'raw': 'private'},

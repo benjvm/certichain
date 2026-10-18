@@ -117,6 +117,7 @@ class _CertificateDetailScreenState extends State<CertificateDetailScreen>
 
   @override
   void dispose() {
+    _request++;
     WidgetsBinding.instance.removeObserver(this);
     _expiry?.cancel();
     super.dispose();
@@ -209,6 +210,15 @@ class _CertificateDetailScreenState extends State<CertificateDetailScreen>
         child: StatusBadge(validity: certificate.validityAt(DateTime.now())),
       ),
       const SizedBox(height: AppSpacing.md),
+      if (certificate.status == CertificateStatus.revoked) ...[
+        _date(
+          AppIcons.revoked,
+          certificate.revokedAt == null
+              ? 'Fecha de revocación SQL no registrada.'
+              : 'Revocado en CertiChain (SQL, UTC): ${certificate.revokedAt!.toUtc().toIso8601String()}',
+        ),
+        const SizedBox(height: AppSpacing.sm),
+      ],
       _date(
         AppIcons.calendar,
         'Emitido: ${certificateDate(certificate.issuedAt)}',

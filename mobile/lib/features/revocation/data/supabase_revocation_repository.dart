@@ -8,6 +8,7 @@ import '../../../core/files/strict_json.dart';
 import '../../issuance/domain/issuance_repository.dart';
 import '../../verification/data/http_verification_repository.dart';
 import '../domain/revocation_repository.dart';
+import '../domain/revocation_reason.dart';
 
 class SupabaseRevocationRepository implements RevocationRepository {
   SupabaseRevocationRepository(
@@ -130,57 +131,71 @@ class SupabaseRevocationRepository implements RevocationRepository {
     String endpoint,
     Map<String, String> body,
   ) async {
-    final v = closedObject(await _post(scope, scope.userId, endpoint, body), {
-      'certificate_id',
-      'request_id',
-      'status',
-      'revoked_at',
-      'reason',
-      'synchronization',
-    });
-    if (v['certificate_id'] != scope.certificateId ||
-        !['active', 'revoked'].contains(v['status']) ||
-        (v['request_id'] != null &&
-            (v['request_id'] is! String ||
-                !isUuid(v['request_id']! as String))) ||
-        (v['reason'] != null &&
-            (v['reason'] is! String ||
-                (v['reason']! as String).runes.length > 500)) ||
-        (v['revoked_at'] != null &&
-            (v['revoked_at'] is! String ||
-                DateTime.tryParse(v['revoked_at']! as String) == null)) ||
-        ((v['status'] == 'revoked') != (v['revoked_at'] != null)) ||
-        (v['reason'] != null && v['request_id'] == null) ||
-        v['synchronization'] is! List<Object?>) {
-      throw const RevocationException('temporary_failure');
-    }
-    final entries = v['synchronization']! as List<Object?>;
-    if (entries.length > 32) {
-      throw const RevocationException('temporary_failure');
-    }
-    final sync = <RevocationSync>[];
-    for (final raw in entries) {
-      final item = closedObject(raw, {'operation_id', 'status'});
-      if (item['operation_id'] is! String ||
-          !isUuid(item['operation_id']! as String)) {
+    try {
+      final v = closedObject(await _post(scope, scope.userId, endpoint, body), {
+        'certificate_id',
+        'request_id',
+        'status',
+        'revoked_at',
+        'reason',
+        'synchronization',
+      });
+      if (v['certificate_id'] != scope.certificateId ||
+          !['active', 'revoked'].contains(v['status']) ||
+          (v['request_id'] != null &&
+              (v['request_id'] is! String ||
+                  !isUuid(v['request_id']! as String))) ||
+          (v['reason'] != null &&
+              (v['reason'] is! String ||
+                  revocationReasonError(v['reason']! as String) != null ||
+                  normalizeRevocationReason(v['reason']! as String) !=
+                      v['reason'])) ||
+          (v['revoked_at'] != null &&
+              (v['revoked_at'] is! String ||
+                  DateTime.tryParse(v['revoked_at']! as String) == null)) ||
+          ((v['status'] == 'revoked') != (v['revoked_at'] != null)) ||
+          (v['reason'] != null && v['request_id'] == null) ||
+          (v['status'] == 'active' &&
+              (v['request_id'] != null || v['reason'] != null)) ||
+          (v['request_id'] != null && v['reason'] == null) ||
+          v['synchronization'] is! List<Object?>) {
         throw const RevocationException('temporary_failure');
       }
-      sync.add(
-        RevocationSync(
-          item['operation_id']! as String,
-          RevocationSyncStatus.values.byName(item['status']! as String),
-        ),
+      final entries = v['synchronization']! as List<Object?>;
+      if (entries.length > 32 ||
+          (v['status'] == 'active' && entries.isNotEmpty)) {
+        throw const RevocationException('temporary_failure');
+      }
+      final sync = <RevocationSync>[];
+      final seen = <String>{};
+      for (final raw in entries) {
+        final item = closedObject(raw, {'operation_id', 'status'});
+        if (item['operation_id'] is! String ||
+            !isUuid(item['operation_id']! as String) ||
+            !seen.add(item['operation_id']! as String)) {
+          throw const RevocationException('temporary_failure');
+        }
+        sync.add(
+          RevocationSync(
+            item['operation_id']! as String,
+            RevocationSyncStatus.values.byName(item['status']! as String),
+          ),
+        );
+      }
+      return RevocationDecision(
+        certificateId: scope.certificateId,
+        requestId: v['request_id'] as String?,
+        revokedAt: v['revoked_at'] == null
+            ? null
+            : HttpVerificationRepository.decodeDate(v['revoked_at']),
+        reason: v['reason'] as String?,
+        synchronization: List.unmodifiable(sync),
       );
+    } on RevocationException {
+      rethrow;
+    } catch (_) {
+      throw const RevocationException('temporary_failure');
     }
-    return RevocationDecision(
-      certificateId: scope.certificateId,
-      requestId: v['request_id'] as String?,
-      revokedAt: v['revoked_at'] == null
-          ? null
-          : HttpVerificationRepository.decodeDate(v['revoked_at']),
-      reason: v['reason'] as String?,
-      synchronization: List.unmodifiable(sync),
-    );
   }
 
   @override
@@ -188,11 +203,17 @@ class SupabaseRevocationRepository implements RevocationRepository {
     RevocationScope scope,
     String key,
     String reason,
-  ) => _decision(scope, 'revoke-certificate', {
-    'certificate_id': scope.certificateId,
-    'idempotency_key': key,
-    'reason': reason,
-  });
+  ) {
+    if (revocationReasonError(reason) != null) {
+      throw const RevocationException('invalid_input');
+    }
+    return _decision(scope, 'revoke-certificate', {
+      'certificate_id': scope.certificateId,
+      'idempotency_key': key,
+      'reason': normalizeRevocationReason(reason),
+    });
+  }
+
   @override
   Future<RevocationDecision> progress(RevocationScope scope) => _decision(
     scope,

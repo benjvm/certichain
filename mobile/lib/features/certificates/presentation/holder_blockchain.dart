@@ -137,7 +137,7 @@ class _HolderBlockchainState extends State<HolderBlockchain> {
         BlockchainEvidencePanel(evidence: evidence, previous: _previous),
       if (_result?.revocation case final revocation?) ...[
         if (_previous) const Text('Revocación: consulta anterior.'),
-        PublicRevocationPanel(revocation: revocation),
+        PublicRevocationPanel(revocation: revocation, previous: _previous),
       ],
       if (_result?.status == VerificationStatus.notFound)
         const Text('No hay registro público elegible.'),

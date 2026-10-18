@@ -74,14 +74,12 @@ class _InstitutionWorkspaceState extends State<InstitutionWorkspace>
       ? CertificateValidity.revoked
       : c.validityAt(DateTime.now());
   int _generation = 0;
-  Timer? _timer;
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     widget.sessionChanges?.addListener(_refresh);
     _read();
-    _timer = Timer.periodic(const Duration(seconds: 30), (_) => _refresh());
   }
 
   void _read() {
@@ -112,6 +110,21 @@ class _InstitutionWorkspaceState extends State<InstitutionWorkspace>
   }
 
   void _refresh() => setState(_read);
+
+  @override
+  void didUpdateWidget(InstitutionWorkspace oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.sessionChanges != widget.sessionChanges) {
+      oldWidget.sessionChanges?.removeListener(_refresh);
+      widget.sessionChanges?.addListener(_refresh);
+    }
+    if (oldWidget.userId != widget.userId ||
+        oldWidget.repository != widget.repository) {
+      _active = null;
+      _read();
+    }
+  }
+
   Future<void> _issue(InstitutionMembership member) async {
     if (_opening) return;
     _opening = true;
@@ -146,7 +159,6 @@ class _InstitutionWorkspaceState extends State<InstitutionWorkspace>
   @override
   void dispose() {
     _generation++;
-    _timer?.cancel();
     widget.sessionChanges?.removeListener(_refresh);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
@@ -322,6 +334,7 @@ class _InstitutionWorkspaceState extends State<InstitutionWorkspace>
                                                 _active!,
                                                 c.id,
                                               ),
+                                              certificateTitle: c.title,
                                               repository: widget.revocations!,
                                               onRevoked: () {
                                                 if (!_revoked.contains(c.id)) {

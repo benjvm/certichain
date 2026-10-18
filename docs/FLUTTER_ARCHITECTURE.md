@@ -1,5 +1,16 @@
 # Arquitectura Flutter
 
+## Cliente de revocación 10D — 18/10/2026
+
+Se conserva presentation → domain ← data. Validación de motivo Dart pura con
+unorm_dart existente; motivo canónico solo en memoria y clave por cuenta/institución/
+certificado antes del POST. DTO cerrado y barreras token/identidad/generación,
+también en callbacks/dispose. Workspace sin timer que destruya intentos; progreso
+y reautorización manuales distintos. Certificate añade revokedAt nullable, sin
+auditoría. Compare PDF v1 conserva emisión/revocación previas sin fabricar envelope
+v3 ni consultar otra versión. Sin dependencias o decisión estructural nuevas.
+[Aceptación y límites](PHASE10D_ACCEPTANCE.md).
+
 ## Incremento 9D
 
 issuance/domain añade AnchorScope, AnchorOperation/Status, recibos, puertos de

@@ -22,6 +22,7 @@ class BlockchainEvidencePanel extends StatelessWidget {
             'Blockchain',
             style: TextStyle(fontWeight: FontWeight.w600),
           ),
+          const Text('Evidencia de emisión'),
           if (previous)
             const Text('Evidencia anterior; pertenece a otra consulta.'),
           Text(switch (evidence.state) {

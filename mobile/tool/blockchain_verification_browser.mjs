@@ -46,6 +46,8 @@ export async function runBrowserJourney(env) {
   mkdirSync(evidence, { recursive: true });
   let server, chrome, wireFailure, heldOpening, holdOpening = false;
   let heldRevocation, holdRevocation = false, revokePosts = 0;
+  let dropRevokeResponse = false;
+  const revocationKeys = [];
   let assertions = 0,
     publicPosts = 0,
     issuePosts = 0,
@@ -223,6 +225,7 @@ export async function runBrowserJourney(env) {
             ) anchorPosts++;
             if (path.endsWith("/revoke-certificate") && req.method === "POST") {
               revokePosts++;
+              revocationKeys.push(JSON.parse(body).idempotency_key);
             }
             if (
               path.endsWith("/certificate-opening") && req.method === "POST"
@@ -247,6 +250,25 @@ export async function runBrowserJourney(env) {
               });
             }
             const response = Buffer.from(await upstream.arrayBuffer());
+            if (
+              path.endsWith("/revoke-certificate") && dropRevokeResponse &&
+              req.method === "POST"
+            ) {
+              dropRevokeResponse = false;
+              check(
+                upstream.status === 202,
+                "Lost browser response follows real SQL acceptance",
+              );
+              // Discard the accepted response body at the proxy boundary. An
+              // empty, completed response is deterministic across browser socket
+              // retry behavior and cannot be parsed as an accepted decision.
+              res.writeHead(upstream.status, {
+                "content-type": "application/json",
+                "cache-control": "no-store",
+              });
+              res.end();
+              return;
+            }
             if (path.startsWith("/rest/v1/") && !upstream.ok) {
               const error = JSON.parse(response.toString());
               console.log(
@@ -822,12 +844,71 @@ export async function runBrowserJourney(env) {
       );
       await click(issuer, "Revocar certificado");
       await outcome(issuer, "Revocación irreversible");
+      await click(issuer, "Cancelar");
+      check(revokePosts === 0, "Cancelling confirmation sends no revocation");
+      await click(issuer, "Revocar certificado");
+      await outcome(issuer, "Revocación irreversible");
+      dropRevokeResponse = true;
+      await click(issuer, "Confirmar revocación");
+      try {
+        await outcome(issuer, "La revocación puede haberse aplicado");
+      } catch (error) {
+        const visible = await semantics(issuer);
+        console.log(JSON.stringify({
+          stage: "uncertain-revocation-diagnostic",
+          revoke_posts: revokePosts,
+          response_discarded: !dropRevokeResponse,
+          labels: [
+            "Enviando",
+            "puede haberse aplicado",
+            "Revocado en CertiChain",
+            "Reintentar la misma solicitud",
+            "Introduce un motivo privado",
+            "no tienes permiso",
+          ].filter((label) => visible.includes(label)),
+        }));
+        throw error;
+      }
+      await click(issuer, "Reintentar la misma solicitud");
+      await outcome(issuer, "Revocación irreversible");
       await click(issuer, "Confirmar revocación");
       await outcome(issuer, "Revocado en CertiChain");
       check(
-        revokePosts === 1,
-        "Explicit confirmation submits one real revocation request",
+        revokePosts === 2 && revocationKeys[0] === revocationKeys[1],
+        "Lost response recovers original real revocation with the same idempotency key",
       );
+      check(
+        await evaluate(
+          issuer,
+          `!Object.values(localStorage).some(value => value.includes("Synthetic private browser revocation"))`,
+        ),
+        "Private revocation reason never enters browser preferences",
+      );
+      await navigateDocument(holder, "Page.navigate", { url: origin + "/" });
+      await ready(holder, "9D Browser Certificate");
+      await outcome(holder, "Revocado");
+      await click(holder, "9D Browser Certificate");
+      await outcome(holder, "Revocado en CertiChain (SQL, UTC)");
+      check(
+        !(await semantics(holder)).includes(
+          "Synthetic private browser revocation",
+        ),
+        "Holder wallet/detail never displays private reason",
+      );
+      await click(holder, "Blockchain");
+      await click(holder, "Obtener apertura");
+      await outcome(holder, "Copiar apertura");
+      env.pause();
+      try {
+        await click(anonymous, "Actualizar comprobación");
+        await outcome(anonymous, "Certificado revocado");
+        await outcome(
+          anonymous,
+          "Revocación EVM no comprobable actualmente; SQL sigue revocado.",
+        );
+      } finally {
+        env.unpause();
+      }
       await click(anonymous, "Actualizar comprobación");
       await outcome(
         anonymous,

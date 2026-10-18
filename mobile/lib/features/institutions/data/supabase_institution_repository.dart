@@ -51,7 +51,9 @@ class SupabaseInstitutionRepository implements InstitutionRepository {
     final session = _ownSession(null);
     final result = await _client
         .from('certificates')
-        .select('id,holder_id,institution_id,title,issued_at,expires_at,status')
+        .select(
+          'id,holder_id,institution_id,title,issued_at,expires_at,status,revoked_at',
+        )
         .eq('institution_id', institutionId)
         .order('issued_at', ascending: false)
         .order('id', ascending: false)

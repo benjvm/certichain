@@ -252,8 +252,18 @@ class _VerificationScreenState extends State<VerificationScreen> {
                       result: result,
                       previous: _controller.resultIsPrevious,
                     ),
-                    if (result.revocation case final revocation?)
-                      PublicRevocationPanel(revocation: revocation),
+                    if (result.revocation ?? _controller.previousRevocation
+                        case final revocation?)
+                      PublicRevocationPanel(
+                        revocation: revocation,
+                        previous:
+                            _controller.resultIsPrevious ||
+                            result.revocation == null,
+                      )
+                    else if (result.record != null)
+                      const Text(
+                        'Esta versión no incluye progreso ni evidencia de revocación. Su ausencia no demuestra que el certificado no esté revocado.',
+                      ),
                     if (result.blockchain ?? _controller.previousBlockchain
                         case final evidence?)
                       BlockchainEvidencePanel(

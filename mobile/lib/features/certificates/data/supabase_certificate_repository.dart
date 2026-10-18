@@ -6,7 +6,7 @@ class SupabaseCertificateRepository implements CertificateRepository {
   SupabaseCertificateRepository(this._client);
   final SupabaseClient _client;
   static const _fields =
-      'id,holder_id,institution_id,title,issued_at,expires_at,status,institutions(name)';
+      'id,holder_id,institution_id,title,issued_at,expires_at,status,revoked_at,institutions(name)';
 
   @override
   Future<CertificateWallet> readWallet(String userId) async {
@@ -57,6 +57,9 @@ class SupabaseCertificateRepository implements CertificateRepository {
       title: row['title'] as String,
       institutionName: institution?['name'] as String?,
       issuedAt: DateTime.parse(row['issued_at'] as String),
+      revokedAt: row['revoked_at'] == null
+          ? null
+          : DateTime.parse(row['revoked_at'] as String),
       expiresAt: row['expires_at'] == null
           ? null
           : DateTime.parse(row['expires_at'] as String),

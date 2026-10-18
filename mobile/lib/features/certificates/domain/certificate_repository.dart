@@ -12,6 +12,7 @@ class Certificate {
     required this.status,
     this.expiresAt,
     this.institutionName,
+    this.revokedAt,
   });
   final String id;
   final String holderId;
@@ -20,6 +21,7 @@ class Certificate {
   final String? institutionName;
   final DateTime issuedAt;
   final DateTime? expiresAt;
+  final DateTime? revokedAt;
   final CertificateStatus status;
 
   CertificateValidity validityAt(DateTime now) {

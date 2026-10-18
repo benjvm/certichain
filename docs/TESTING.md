@@ -1,5 +1,21 @@
 # Estrategia de pruebas
 
+## Revisión específica 10D — 18/10/2026
+
+[Evidencia y comandos](PHASE10D_ACCEPTANCE.md): dominio/adaptadores/controladores/
+widgets de Unicode, suspended, confirmación/cancelación, respuesta perdida y misma
+clave tras reconstrucción, progreso/reautorización separados, históricos, sesiones/
+ámbitos, privacidad y versiones sin consultas duplicadas. Runner run_phase10.ps1:
+Web release/Auth/Edge/SQL/Anvil reales desechables, pérdida tras aceptación SQL,
+wallet/detalle, RPC caído y recuperación/evidencia revoke. Validación local separada
+de Actions del futuro commit y de aceptación 10E. CERTICHAIN_TEST_CAMERA=0 con
+exclusión persistente y motivo exacto.
+Resultados nuevos: 266 Flutter PASS/12 SKIP, análisis/formato PASS; runner 289
+checks reales, 978 pgTAP y 183 aserciones Chrome Web release PASS; Node 17 PASS/
+2 SKIP; limpieza propia PASS. Primer runner Web FAIL conservado. El lint Deno
+directo opcional del harness Node mantiene los mismos diez hallazgos de HEAD,
+documentados con su comparación; no se afirma PASS de ese lint.
+
 ## Revisión específica 10C — 18/10/2026
 
 [Resultados nuevos y límites](PHASE10C_ACCEPTANCE.md). Se amplían las suites
