@@ -270,6 +270,20 @@ Otros pendientes humanos/plataformas conservan su alcance en
 
 ### Fase 10 — Revocación completa (aceptada para demo Web local, 15/10/2026)
 
+**Revisión exclusiva 10B, 16/10/2026:** se endurece el DTO privado y se amplía la
+cobertura Auth/HTTP/SQL, incluida pérdida real de respuesta tras commit. La
+migración correctora 20261016110000 devuelve 404 uniforme para reautorización de
+operación ausente, manteniendo bloqueos/guards. No cambia el producto 10C–10E.
+El cierre estricto 10B queda
+pendiente del no-store del 401 previo del gateway local; la aceptación del
+15/10 se conserva como evidencia histórica, sin convertirla en PASS de esta
+revisión. [Resultados nuevos](PHASE10_ACCEPTANCE.md). La revisión posterior de
+10C debe centrarse en el coordinador/worker EVM, firmas durables, reconciliación,
+lease/nonces, reorg e issue tardío; no implica reabrir la decisión SQL de 10A.
+El [probe posterior del gateway](PHASE10B_GATEWAY.md) confirma JWT y permisos en
+17 casos, con nueve 401 sin no-store; no hay ajuste soportado para ese error en
+la CLI fijada. Alojado NOT_RUN; no se añade proxy ni se equiparan ambos entornos.
+
 Solicitud owner/admin de emisora verified o suspended, motivo privado, transición
 SQL irreversible inmediata y revoke EVM durable cuando proceda. Tratar tx issue
 tardía, reorg y divergencia, conservar completed/PDF y escrituras directas cerradas.

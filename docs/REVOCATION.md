@@ -1,6 +1,8 @@
 # Revocación — Fase 10
 
-Aceptada para demo Web local; estado, límites y comandos ejecutados: [PHASE10_ACCEPTANCE](PHASE10_ACCEPTANCE.md).
+Aceptación histórica para demo Web local del 15/10/2026; la revisión específica
+10B del 16/10/2026 y sus límites prevalecen para este incremento:
+[PHASE10_ACCEPTANCE](PHASE10_ACCEPTANCE.md).
 Decisiones: [ADR-0018](adr/0018-irreversible-revocation-and-public-v3.md).
 
 Solo owner/admin actuales de la emisora verified/suspended solicitan o reautorizan.
@@ -29,6 +31,27 @@ la primera decisión. Todas las respuestas no-store. Sin raw, salts, nonces,
 secretos, ledger o mensajes upstream. 401 sesión inválida; 400 entrada inválida;
 413 cuerpo grande; 404 revocation_unavailable uniforme para ajeno/ausente/denegado;
 409 idempotency_conflict/busy; 503 temporary_failure.
+
+El handler selecciona y valida explícitamente los seis campos del DTO y los dos
+de cada elemento synchronization. Descarta campos RPC adicionales en ambos
+niveles; campos obligatorios ausentes, tipos/UUID/fechas/estados inválidos o datos
+incoherentes producen 503 cerrado sin contenido upstream. Conserva microsegundos,
+request_id/reason null históricos y los null del certificado activo. `created`
+es booleano interno obligatorio solo en la solicitud; nunca se expone ni permite
+que progreso/reautorización devuelvan 202. UUID admite mayúsculas y se normaliza
+a minúsculas, sin espacios ni saltos de línea. Un deadline del cuerpo da 503.
+
+Pendiente detectado en la revisión 10B: el 401 del gateway JWT local de Supabase
+CLI 2.117.0 ocurre antes del handler y no añade Cache-Control. La garantía no-store
+del handler incluye sus errores, pero no acredita ese rechazo previo. Se conserva
+verify_jwt=true: cerrar el requisito HTTP extremo a extremo exige corregir la
+cabecera en la capa gateway, sin desactivar JWT ni sustituir Auth real. El harness
+registra este incumplimiento como FAIL, no como excepción aceptada al contrato.
+La [continuación de diagnóstico](PHASE10B_GATEWAY.md) identifica el main service
+de la CLI, incluye reproducción sin secretos y matriz HTTP real con token
+ausente/inválido/expirado y sesión válida. No hay configuración soportada para
+sus cabeceras previas al handler. Alojado NOT_RUN; no se atribuye al alojado ni
+un defecto local ni una corrección. Se mantienen JWT y Auth real.
 
 Clave por institución: igual certificado/motivo canónico recupera la petición,
 también tras pérdida de respuesta. Misma clave con certificado/motivo distinto
@@ -71,7 +94,9 @@ y divergencia incompatible. El receipt original de issue nunca se reemplaza.
 
 1. Revisar backup/vínculo y aplicar **solo migraciones nuevas**, en orden:
    `20261015100000_irreversible_revocation.sql` y
-   `20261015110000_revocation_public_v3.sql`. Desde la raíz:
+   `20261015110000_revocation_public_v3.sql` y
+   `20261016110000_revocation_reauthorization_unavailable.sql` (corrección 10B del
+   404 de operación ausente, sin cambios de datos). Desde la raíz:
 
    ```powershell
    supabase migration list --linked

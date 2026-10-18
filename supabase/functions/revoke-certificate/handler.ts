@@ -6,6 +6,7 @@ import { BodyError, boundedBody } from "../_shared/bounded_body.ts";
 import { cors } from "../_shared/http.ts";
 import { object, strictJson } from "../_shared/strict_json.ts";
 import { uuidPattern } from "../_shared/blockchain/application/commitment.ts";
+import { publicTimestamp } from "../verify-certificate/contract.ts";
 
 export function normalizeReason(value: unknown): string {
   if (typeof value !== "string") throw new Error();
@@ -27,6 +28,64 @@ export interface Config {
   url: string;
   anonKey: string;
   serviceKey: string;
+}
+
+// RPCs are a private infrastructure boundary, never an HTTP response template.
+// Select fields at both levels so future ledger additions cannot escape here.
+function decision(value: unknown, certificate?: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error();
+  }
+  const v = value as Record<string, unknown>;
+  const uuid = (id: unknown) =>
+    typeof id === "string" && id.length === 36 && uuidPattern.test(id);
+  if (
+    !uuid(v.certificate_id) ||
+    (certificate !== undefined && v.certificate_id !== certificate) ||
+    (v.request_id !== null && !uuid(v.request_id)) ||
+    !["active", "revoked"].includes(v.status as string) ||
+    (v.revoked_at !== null && !publicTimestamp(v.revoked_at)) ||
+    (v.status === "active" &&
+      (v.revoked_at !== null || v.request_id !== null || v.reason !== null)) ||
+    (v.status === "revoked" && v.revoked_at === null) ||
+    (v.request_id !== null &&
+      (v.status !== "revoked" || v.revoked_at === null || v.reason === null)) ||
+    (v.reason !== null &&
+      (v.request_id === null || normalizeReason(v.reason) !== v.reason)) ||
+    !Array.isArray(v.synchronization)
+  ) throw new Error();
+  const seen = new Set();
+  const synchronization = v.synchronization.map((item: unknown) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      throw new Error();
+    }
+    const s = item as Record<string, unknown>;
+    if (
+      !uuid(s.operation_id) || seen.has(s.operation_id) ||
+      ![
+        "requested",
+        "prepared",
+        "submitted",
+        "included",
+        "confirmed",
+        "reorged",
+        "blocked",
+        "failed",
+        "divergence",
+      ].includes(s.status as string) ||
+      v.status !== "revoked"
+    ) throw new Error();
+    seen.add(s.operation_id);
+    return { operation_id: s.operation_id, status: s.status };
+  });
+  return {
+    certificate_id: v.certificate_id,
+    request_id: v.request_id,
+    status: v.status,
+    revoked_at: v.revoked_at,
+    reason: v.reason,
+    synchronization,
+  };
 }
 export function handler(
   config: Config,
@@ -69,12 +128,16 @@ export function handler(
         for (const key of Object.keys(input).filter((k) => k !== "reason")) {
           if (
             typeof input[key] !== "string" ||
+            input[key].length !== 36 ||
             !uuidPattern.test(input[key] as string)
           ) throw new Error();
           input[key] = (input[key] as string).toLowerCase();
         }
         if (action === "request") input.reason = normalizeReason(input.reason);
       } catch (e) {
+        if (e instanceof BodyError && e.status === 503) {
+          return reply({ error: "temporary_failure" }, 503);
+        }
         return reply({
           error: e instanceof BodyError && e.status === 413
             ? "payload_too_large"
@@ -99,8 +162,22 @@ export function handler(
               : {}),
           },
         );
-      const { created, ...result } = dto as Record<string, unknown>;
-      return reply(result, created === true ? 202 : 200);
+      const result = decision(dto, input.certificate_id);
+      if (
+        action === "request" && (
+          typeof (dto as Record<string, unknown>).created !== "boolean" ||
+          result.status !== "revoked" ||
+          ((dto as Record<string, unknown>).created === true &&
+            (result.request_id === null || result.reason !== input.reason))
+        )
+      ) throw new Error();
+      return reply(
+        result,
+        action === "request" &&
+          (dto as Record<string, unknown>).created === true
+          ? 202
+          : 200,
+      );
     } catch (e) {
       const code = e instanceof RegistryError
         ? e.code

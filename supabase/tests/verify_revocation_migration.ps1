@@ -3,6 +3,7 @@ $ErrorActionPreference='Stop'
 if ($DatabaseContainer -notmatch '^supabase_db_certichain_8[ad]_[0-9a-f]{8}$' -and !($env:GITHUB_ACTIONS -eq 'true' -and $DatabaseContainer -eq 'supabase_db_certichain')) { throw 'Owned disposable database required.' }
 $migrationA=[IO.File]::ReadAllText((Join-Path $PSScriptRoot '../migrations/20261015100000_irreversible_revocation.sql'))
 $migrationB=[IO.File]::ReadAllText((Join-Path $PSScriptRoot '../migrations/20261015110000_revocation_public_v3.sql'))
+$migrationC=[IO.File]::ReadAllText((Join-Path $PSScriptRoot '../migrations/20261016110000_revocation_reauthorization_unavailable.sql'))
 # Reconstruct only the pre-10 additions in a rollback-only transaction. All old
 # issuance/institution/document guards remain enabled. No application data is deleted.
 $setup=@'
@@ -54,7 +55,7 @@ DO $$ BEGIN
 END $$;
 ROLLBACK;
 '@
-$sql=$setup+"`n"+$migrationA+"`n"+$migrationB+"`n"+$assert
+$sql=$setup+"`n"+$migrationA+"`n"+$migrationB+"`n"+$migrationC+"`n"+$assert
 $output=$sql | docker exec -i $DatabaseContainer psql -X -qAt -U postgres -d postgres -v ON_ERROR_STOP=1 2>&1
 if($LASTEXITCODE -ne 0){throw 'Phase10 rollback-only migration preservation failed; no private SQL detail emitted.'}
 Write-Output 'PASS phase10 migrations preserve historical active/revoked/publication/anchor rows and do not invent audit or eligibility'

@@ -1,5 +1,29 @@
 # Seguridad y privacidad
 
+## Revisión específica 10B — 16/10/2026
+
+Se conserva Auth real y verify_jwt=true en los tres endpoints. Actor del ID Auth;
+autorización actual SQL bajo bloqueo institucional en solicitud, recuperación,
+progreso y reautorización. No cambian grants, documentos ni v1/v2/v3. La migración
+correctora 20261016110000 convierte la operación de reautorización ausente a
+PT404 uniforme, sin editar migraciones compartidas ni relajar guards del worker.
+La salida privada pasa por selección y validación explícitas en ambos niveles;
+no se devuelve el resto del objeto RPC ni errores upstream. Motivo canónico
+privado; históricos sin auditoría mantienen null. Cuerpos UTF-8 cerrados de 8192
+bytes, UUID de 36 caracteres, controles Unicode y timeout se validan en backend.
+
+Se ha observado un incumplimiento de no-store en el **401 previo del gateway**
+local CLI 2.117.0. Los errores emitidos por el handler sí incluyen la cabecera.
+No se desactiva JWT para eludirlo. El cierre estricto 10B queda pendiente de
+corregir/verificar esa capa; resultados y límites en
+[PHASE10_ACCEPTANCE](PHASE10_ACCEPTANCE.md). No hay despliegue remoto.
+El [diagnóstico focalizado del gateway](PHASE10B_GATEWAY.md) comprueba 17 casos
+HTTP reales: los rechazos previos carecen de no-store, pero niegan acceso; los
+errores del handler, progreso autorizado y denegación SQL sí lo conservan. No se
+observó información privada en los 401 ni se demostró caché efectiva/fuga. El
+emisor local es el main service generado por CLI, no el handler. No hay ajuste
+soportado para esa cabecera en la configuración revisada; alojado NOT_RUN.
+
 ## Incremento local de revocación — 15/10/2026
 
 [REVOCATION](REVOCATION.md) define los endpoints Auth, motivo/auditoría privados,

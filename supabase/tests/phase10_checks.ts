@@ -133,7 +133,7 @@ export async function phase10Checks(
   );
   check(
     (await revoke(off, key)).data.request_id === decision.request_id,
-    "10 lost response recovers same request",
+    "10 same key recovers same request",
   );
   check(
     (await revoke(off, key, f.owner, "conflicting reason")).response.status ===
@@ -178,9 +178,26 @@ export async function phase10Checks(
   const snapshot = await env.rpc.rpc<Hex>("evm_snapshot");
   env.pause();
   try {
+    const requestKey = crypto.randomUUID();
+    const decisions = await Promise.all([
+      revoke(cert, requestKey, admin),
+      revoke(cert, requestKey, admin),
+      revoke(cert, crypto.randomUUID(), admin),
+    ]);
     check(
-      (await revoke(cert, crypto.randomUUID(), admin)).response.status === 202,
+      decisions.every((r) => [200, 202].includes(r.response.status)) &&
+        decisions.filter((r) => r.response.status === 202).length === 1,
       "10 SQL acceptance independent of paused RPC/worker",
+    );
+    check(
+      decisions.every((r) =>
+        r.data.request_id === decisions[0].data.request_id &&
+        r.data.revoked_at === decisions[0].data.revoked_at
+      ) &&
+        sql(
+            `SELECT count(*) FROM certichain_private.blockchain_operations o JOIN certichain_private.certificate_anchors a ON a.id=o.anchor_id WHERE a.certificate_id='${cert}' AND o.kind='revoke'`,
+          ) === "1",
+      "10B concurrent signed-anchor requests create one decision and one EVM revoke obligation",
     );
     const offline = await query(cert);
     check(
@@ -251,12 +268,51 @@ export async function phase10Checks(
       .response.status === 404,
     "10 removed admin cannot read audit",
   );
+  const beforeReauthorization = sql(
+    `SELECT row_to_json(o) FROM certichain_private.blockchain_operations o WHERE id='${rev}'`,
+  );
+  for (const actor of [admin, issuer, f.holder, f.outsider, f.platform]) {
+    const denied = await post("reauthorize-revocation", actor.token, {
+      operation_id: rev,
+    });
+    check(
+      denied.response.status === 404 &&
+        denied.data.error === "revocation_unavailable",
+      "10B blocked revoke reauthorization denied without current membership role",
+    );
+  }
+  check(
+    sql(
+      `SELECT row_to_json(o) FROM certichain_private.blockchain_operations o WHERE id='${rev}'`,
+    ) === beforeReauthorization,
+    "10B denied reauthorization preserves lease nonce state and audit",
+  );
+  check(
+    (await post("reauthorize-revocation", f.owner.token, {
+      operation_id: issueOp,
+    })).response.status === 404,
+    "10B issue operation cannot use revoke reauthorization",
+  );
+  const decisionBeforeReauthorization = sql(
+    `SELECT row_to_json(r) FROM certichain_private.certificate_revocations r WHERE certificate_id='${cert}'`,
+  );
   const rea = await post("reauthorize-revocation", f.owner.token, {
     operation_id: rev,
   });
   check(
     rea.response.status === 200 && rea.data.request_id !== null,
     "10 suspended owner explicitly reauthorizes blocked revocation",
+  );
+  check(
+    sql(
+      `SELECT row_to_json(r) FROM certichain_private.certificate_revocations r WHERE certificate_id='${cert}'`,
+    ) === decisionBeforeReauthorization,
+    "10B reauthorization preserves original decision actor reason date and request",
+  );
+  check(
+    (await post("reauthorize-revocation", f.owner.token, { operation_id: rev }))
+      .response.status === 409,
+    "10B requested revoke cannot reauthorize outside allowed states",
   );
   check(
     sql(

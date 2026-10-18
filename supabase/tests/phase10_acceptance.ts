@@ -10,6 +10,7 @@ import { pathToFileURL } from "node:url";
 import { runVerificationAcceptance } from "./blockchain_verification_integration.ts";
 import { phase9eChecks } from "./phase9e_checks.ts";
 import { phase10Checks } from "./phase10_checks.ts";
+import { phase10Backend, phase10GatewayCache } from "./phase10_backend.ts";
 import { phase10Faults } from "./phase10_faults.ts";
 import { phase10Concurrency } from "./phase10_concurrency.ts";
 import { phase10Deployments } from "./phase10_deployments.ts";
@@ -53,10 +54,17 @@ try {
     backendOnly,
     extend: async (env, check) => {
       await phase9eChecks(env, check);
+      await phase10Backend(env, check);
       await phase10Checks(env, check);
       await phase10Faults(env, check);
       await phase10Concurrency(env, check);
       await phase10Deployments(env, check);
+      const gatewayCache = await phase10GatewayCache(env);
+      summary.phase10b_gateway_cache = gatewayCache;
+      check(
+        gatewayCache.result === "PASS",
+        "10B gateway JWT errors also require Cache-Control no-store before handler",
+      );
     },
     onScenario: (scenario) => scenarios.push(scenario),
   });
@@ -73,6 +81,21 @@ try {
     summary.flutter = (summary.browser as { result: string }).result;
   }
   if (error instanceof RegistryError) summary.failure_code = error.code;
+  if (error instanceof Error) {
+    // Source location only, never an upstream message, body, token or URL.
+    summary.failure_location = error.stack?.match(
+      /(?:phase10_backend\.ts|issuance_hardening\.mjs|local_issuance_fixture\.mjs):\d+:\d+/,
+    )?.[0];
+    const fixtureAssertions = [
+      "Local Auth signing configuration available",
+      "Matching local Auth signing key",
+      "Original real Auth signature verified before expiring it",
+      "Original local Auth HMAC verified",
+    ];
+    if (fixtureAssertions.includes(error.message)) {
+      summary.failure_assertion = error.message;
+    }
+  }
   summary.reason =
     "Acceptance failed; inspect the last sanitized scenario or stage. No PASS for unexecuted stages.";
   throw new Error("10 acceptance failed");

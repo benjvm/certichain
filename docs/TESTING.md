@@ -1,5 +1,62 @@
 # Estrategia de pruebas
 
+## Probe específico del gateway 10B — 16/10/2026
+
+[Reproducción y límites](PHASE10B_GATEWAY.md). phase10_gateway_probe.ts reutiliza
+la fixture real local y phase10GatewayCache, sin Anvil ni proxy adicional. Matriz
+ampliada por cada ruta: sin token, inválido, JWT real expirado, sesión válida con
+entrada incompleta y API JWT anónimo; además progreso owner/ajeno del mismo
+certificado. No hay cuerpos privados o tokens en gateway-probe.json. Se exige
+verify_jwt=true y se registra sb-error-code permitido para distinguir el rechazo
+previo del handler. **17/17 status/Auth/autorización PASS, no-store FAIL en 9/17,
+exit 1 global**. El runner completo sigue exigiendo no-store, sin rebajar su gate.
+No se reejecutó la aceptación completa de 251 PASS/1 FAIL de la sección posterior.
+Evidencia nueva separada, alojado/Flutter/EVM NOT_RUN. Cámara=0 con el motivo exacto
+existente. Formato, lint y tipos del harness afectado: PASS.
+
+## Revisión exclusiva del backend 10B — 16/10/2026
+
+Base local main/HEAD `ae97f35859e20b470c4dbdde20a2cb84eff0aae0`, árbol inicial
+limpio. Resultado nuevo separado de la aceptación histórica 10A–10E:
+[PHASE10_ACCEPTANCE](PHASE10_ACCEPTANCE.md). No se atribuyen nuevos resultados
+Flutter/Web/nativos a una pasada `-BackendOnly`.
+
+phase10_backend.ts usa Auth, Edge, Storage y SQL reales del stack propio. Un proxy
+loopback del harness recibe la respuesta real del POST, retiene **todos** sus
+bytes y abre una barrera. Otra conexión SQL confirma decisión/alias/fecha/motivo
+committed antes de liberar la barrera; el proxy destruye el socket sin enviar
+respuesta al consumidor. Se exige fallo de transporte, se reintenta con la misma
+clave y se consulta progreso; se compara la identidad completa, snapshots SQL y
+PDF exacto. No usa sleeps ni interruptores de fallos en producción. La vieja
+aserción «lost response» se renombra como recuperación simple, sin atribuirle
+fallo de transporte. El helper existente de JWT expirado se ejecuta en Node
+24.14.0 desde el harness Deno mediante pipes privados stdin/stdout. No se duplican
+su firma ni su lectura de configuración local, ni se publican tokens o claves.
+El shim node:crypto de Deno 2.2.12 no verificó la firma ES256 original en la prueba
+aislada; usar el runtime previsto conserva la comprobación criptográfica real.
+
+Cobertura añadida: DTO cerrado, RPC malformada, fechas/null históricos, UUID con
+salto final, límites UTF-8/Unicode, duplicados escapados, deadline del cuerpo,
+Auth 401/503 (incluida pausa del contenedor Auth propio), alias/huella SQL,
+baja/bloqueo/anonimato/eliminación y reautorización sin cambiar la decisión.
+Concurrencia comprueba una única obligación revoke por anchor firmado. Los
+controles anteriores de reconciliación, lease y nonces siguen ejecutándose.
+Un caso real adicional descubrió el 503 de reautorización sobre UUID de operación
+ausente. La migración nueva 20261016110000 conserva el lock helper compartido y
+traduce su 22023 a PT404 únicamente en la RPC de revocación; pgTAP exige el error
+uniforme y el preparador de preservación aplica también esta corrección.
+
+El gate final consulta los tres endpoints con JWT inválido y exige no-store
+también en el 401 del gateway anterior al handler. Si falta, registra FAIL con
+solo endpoint/status/cabecera y la aceptación no se cierra, aunque las otras
+comprobaciones pasen. No se reduce el requisito ni se deshabilita verify_jwt.
+
+Comandos: `./supabase/tests/run_phase10.ps1 -BackendOnly`, Deno 2.2.12
+fmt/lint/check --frozen/test functions y tests Node del harness. Node 24.14.0
+se añade solo al PATH del proceso; SDKs, locks y dependencias se conservan.
+CERTICHAIN_TEST_CAMERA=0. Cámara **SKIP/NOT_RUN**:
+«Omitidas por instrucción del usuario; no hay cámara física disponible».
+
 ## Incremento local de revocación — 15/10/2026
 
 [REVOCATION](REVOCATION.md) define los endpoints Auth, motivo/auditoría privados,

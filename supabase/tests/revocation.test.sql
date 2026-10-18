@@ -52,6 +52,33 @@ SELECT is((SELECT count(*) FROM certichain_private.certificate_revocations),1::b
 SELECT is((SELECT reason FROM certichain_private.certificate_revocations),E'Revisión\nprivada','Original reason preserved');
 SELECT is((SELECT count(*) FROM certichain_private.certificate_anchors),0::bigint,'No off-chain anchor or salt');
 SELECT is((SELECT count(*) FROM certichain_private.blockchain_operations),0::bigint,'No off-chain transaction');
+-- 10B: SQL remains the authority even when callers bypass HTTP normalization.
+SELECT throws_ok($$SELECT public.reauthorize_certificate_revocation('8a000000-0000-4000-8000-000000000001',gen_random_uuid())$$,'PT404','revocation_unavailable','Missing revoke operation shares denied error');
+SELECT throws_ok($$SELECT public.request_certificate_revocation('8a000000-0000-4000-8000-000000000003',(SELECT id FROM fixture),'aa000000-0000-4000-8000-000000000002','Changed')$$,'23505','idempotency_conflict','Alias stores its own canonical fingerprint');
+SELECT is(public.request_certificate_revocation('8a000000-0000-4000-8000-000000000001',(SELECT id FROM fixture),'aa000000-0000-4000-8000-000000000003',repeat('🙂',500))->>'request_id',(SELECT dto->>'request_id' FROM result),'SQL accepts 500 Unicode points and preserves original decision');
+SELECT throws_ok($$SELECT public.request_certificate_revocation('8a000000-0000-4000-8000-000000000001',(SELECT id FROM fixture),gen_random_uuid(),repeat('🙂',501))$$,'22023','invalid_input','SQL rejects 501 Unicode points');
+SELECT throws_ok(format('SELECT public.request_certificate_revocation(%L,%L,gen_random_uuid(),%L)',
+ '8a000000-0000-4000-8000-000000000001',(SELECT id FROM fixture),'a'||chr(n)),
+ '22023','invalid_input','SQL rejects forbidden control '||n)
+ FROM generate_series(1,127) n WHERE n<32 AND n NOT IN (9,10,13) OR n=127;
+SELECT is((SELECT fingerprint=extensions.digest(convert_to('certichain:revocation-request:v1','UTF8')||decode('00','hex')||uuid_send(certificate_id)||convert_to(E'Revisión\nprivada','UTF8'),'sha256') FROM certichain_private.certificate_revocation_keys WHERE idempotency_key='aa000000-0000-4000-8000-000000000001'),true,'Canonical fingerprint exact binary UUID and UTF8');
+CREATE TEMP TABLE progress_before AS SELECT public.certificate_revocation_progress('8a000000-0000-4000-8000-000000000003',(SELECT id FROM fixture)) AS dto;
+SELECT is(public.certificate_revocation_progress('8a000000-0000-4000-8000-000000000003',(SELECT id FROM fixture)),(SELECT dto FROM progress_before),'Progress is stable');
+UPDATE auth.users SET banned_until=now()+interval '1 day' WHERE id='8a000000-0000-4000-8000-000000000003';
+SELECT throws_ok($$SELECT public.certificate_revocation_progress('8a000000-0000-4000-8000-000000000003',(SELECT id FROM fixture))$$,'PT404','revocation_unavailable','Banned admin denied in SQL');
+UPDATE auth.users SET banned_until=NULL,is_anonymous=true WHERE id='8a000000-0000-4000-8000-000000000003';
+SELECT throws_ok($$SELECT public.certificate_revocation_progress('8a000000-0000-4000-8000-000000000003',(SELECT id FROM fixture))$$,'PT404','revocation_unavailable','Anonymous admin denied in SQL');
+UPDATE auth.users SET is_anonymous=false,deleted_at=now() WHERE id='8a000000-0000-4000-8000-000000000003';
+SELECT throws_ok($$SELECT public.request_certificate_revocation('8a000000-0000-4000-8000-000000000003',(SELECT id FROM fixture),'aa000000-0000-4000-8000-000000000002','New key reason')$$,'PT404','revocation_unavailable','Deleted admin cannot recover previous decision');
+UPDATE auth.users SET deleted_at=NULL WHERE id='8a000000-0000-4000-8000-000000000003';
+DELETE FROM public.institution_members WHERE user_id='8a000000-0000-4000-8000-000000000003';
+SELECT throws_ok($$SELECT public.request_certificate_revocation('8a000000-0000-4000-8000-000000000003',(SELECT id FROM fixture),'aa000000-0000-4000-8000-000000000002','New key reason')$$,'PT404','revocation_unavailable','Former admin cannot recover alias');
+INSERT INTO public.institution_members(institution_id,user_id,role) VALUES ('8a000000-0000-4000-8000-000000000011','8a000000-0000-4000-8000-000000000003','admin');
+SELECT ok(NOT has_function_privilege(r,fn,'EXECUTE'),'No direct RPC execute for '||r||' '||fn)
+ FROM unnest(ARRAY['anon','authenticated']) r CROSS JOIN unnest(ARRAY[
+ 'public.request_certificate_revocation(uuid,uuid,uuid,text)',
+ 'public.certificate_revocation_progress(uuid,uuid)',
+ 'public.reauthorize_certificate_revocation(uuid,uuid)']) fn;
 SELECT throws_ok($$SELECT public.certificate_revocation_progress('8a000000-0000-4000-8000-000000000002',(SELECT id FROM fixture))$$,'PT404','revocation_unavailable','Holder denied');
 SELECT throws_ok($$SELECT public.certificate_revocation_progress('8a000000-0000-4000-8000-000000000004',(SELECT id FROM fixture))$$,'PT404','revocation_unavailable','Platform without membership denied');
 SELECT throws_ok($$SELECT public.certificate_revocation_progress('8a000000-0000-4000-8000-000000000001',gen_random_uuid())$$,'PT404','revocation_unavailable','Unknown same safe error');

@@ -1,5 +1,130 @@
 # Aceptación de revocación — Fase 10
 
+## Continuación: diagnóstico del gateway — 16/10/2026
+
+[Prueba, componente responsable, impacto y opciones](PHASE10B_GATEWAY.md).
+Probe focalizado nuevo, inicio 11:37:48 UTC / 13:37:48 Madrid: **17/17 checks de
+autenticación/autorización/status PASS; 9 respuestas sin no-store; global FAIL**.
+Sin token, inválido y expirado: 401 sin Cache-Control en las tres rutas, emitidos
+por el main service generado por CLI antes del user worker. Sesión válida llega
+al handler (400 con cuerpo incompleto); progreso owner 200 y ajeno 404, no-store.
+verify_jwt=true conservado, sin cambios de producto/configuración, nuevo proxy o
+migración. No hay ajuste soportado en la CLI fijada para esa cabecera; alojado
+NOT_RUN, sin extrapolarle el resultado local. Informe gateway-probe.json separado
+de las pasadas siguientes. El cierre estricto 10B sigue pendiente.
+
+## Revisión exclusiva 10B — 16/10/2026
+
+Base local `main`, HEAD `ae97f35859e20b470c4dbdde20a2cb84eff0aae0`, árbol inicial
+limpio. El commit ya incluye implementaciones 10A–10E. Esta revisión reutiliza
+sus endpoints/tablas/RPC/ledger; no vuelve a implementar 10C–10E ni transforma
+los resultados del 15/10 en evidencia nueva. Sin commit, push, merge, despliegue,
+fondos/claves reales, acceso remoto o reset del stack habitual.
+
+Existían Auth real, verify_jwt=true, actor del ID autenticado, permisos SQL
+owner/admin actuales de emisora verified/suspended bajo el orden de bloqueos
+existente, decisión irreversible, alias institucionales y reautorización auditada
+de revoke. La integración ampliada detectó que blockchain_lock lanza 22023 para
+una operación inexistente: el endpoint de reautorización lo presentaba como 503
+en vez del 404 uniforme. Se añade exclusivamente la migración
+`20261016110000_revocation_reauthorization_unavailable.sql`: traduce esa ausencia
+a PT404 en la RPC de revocación y conserva todos los demás bloqueos/guards.
+Las dos migraciones compartidas del 15/10 permanecen intactas.
+
+Corregido: handler selecciona y valida los seis campos del DTO y los dos de cada
+elemento synchronization; descarta añadidos privados, rechaza RPC malformada con
+503 cerrado y conserva null históricos. Solo una solicitud con `created=true`
+válido devuelve 202. Se rechaza el salto final antes aceptado por `$` en UUID,
+manteniendo la normalización de mayúsculas; deadline del cuerpo pasa a 503.
+No cambian la normalización del motivo ni su huella autoritativa SQL.
+
+La nueva prueba de transporte tiene barrera del harness: recibe/retiene la
+respuesta real Edge, confirma commit desde otra conexión SQL y aborta el socket
+del consumidor antes de entregarle bytes. Reintenta y compara decisión, fecha,
+motivo, alias, operaciones y PDF exacto. No hay sleeps ni fallos en producción.
+HTTP y RPC SQL directa contrastan NFC, LF, trim y límites de puntos Unicode.
+Se añaden casos reales de sesión, pérdida de membresía, progreso sin mutaciones,
+reautorización denegada/autorizada y concurrencia con un anchor firmado.
+
+**Incumplimiento detectado:** el gateway JWT de Supabase CLI 2.117.0 devuelve
+401 sin Cache-Control antes de ejecutar el handler. Medición local independiente
+2026-10-16T10:49:12.369Z (12:49:12 Madrid): las tres rutas devolvieron
+`status=401, cache_control=null`. Evidencia sanitizada local:
+`mobile/build/phase10-evidence/10b-gateway-cache.json`. El gate del runner exige
+no-store también allí y falla; no se acepta una excepción ni se desactiva JWT.
+El código de los handlers no puede añadir cabeceras a una respuesta emitida antes
+de invocarlos. Corresponde corregir/verificar esa cabecera en la infraestructura
+gateway, sin cambiar verify_jwt/Auth, contratos públicos, dependencias o Solidity.
+
+La aceptación histórica inferior se conserva literalmente. El cierre estricto
+**10B sigue pendiente** de ese requisito HTTP extremo a extremo. La revisión
+posterior 10C corresponde a firmas durables, autorización al firmar/reemplazar,
+reconciliación previa, lease/CAS/nonces, issue tardío, reorg y obligaciones por
+deployment; esta pasada backend no acredita Flutter/10D ni aceptación Web/10E.
+
+Archivos del incremento: functions/revoke-certificate/handler.ts y handler_test.ts;
+tests/phase10_backend.ts (nuevo), phase10_checks.ts, phase10_acceptance.ts,
+revocation.test.sql, verify_revocation_migration.ps1 y la migración correctora
+indicada; se reutiliza issuance_hardening.mjs sin modificarlo, en Node
+24.14.0 con pipes privados, porque el shim crypto de Deno no verificó el JWT ES256;
+.github/workflows/revocation.yml (fmt/lint de la cobertura nueva); esta aceptación,
+REVOCATION, SECURITY, TESTING y ROADMAP. ABI/Solidity, app y permisos intactos.
+
+### Resultados nuevos observados
+
+Windows, Node 24.14.0, Supabase CLI 2.117.0, Deno 2.2.12, Docker 29.8.2,
+Foundry 1.8.5/Solidity 0.8.37; sin actualizar toolchains o dependencias. Pasada
+final backend-only iniciada `2026-10-16T10:59:31.726Z` (12:59:31 Madrid), HEAD
+ae97f358… con cambios locales. `mobile/build/phase10-evidence/backend-only.json`
+y result.json: **FAIL**, **251 escenarios PASS y 1 FAIL**, exclusivamente el gate
+de no-store del gateway; las tres observaciones son 401/cache_control=null.
+full.json histórico no se reemplaza. attempts.ndjson conserva los intentos.
+
+| Comprobación ejecutada en esta revisión | Resultado |
+|---|---|
+| SQL/RLS completo, incluida nueva regresión de operación ausente | PASS, 970 comprobaciones |
+| Aplicación de la migración nueva en stack propio | PASS; migraciones compartidas intactas |
+| Preservación histórica rollback-only, incluidas las tres migraciones | PASS; fecha/auditoría/elegibilidad/documentos conservados |
+| Lint SQL public/certichain_private | PASS, sin errores |
+| Suite Deno de todas las funciones | PASS, 233; 133 del handler compartido de revocación |
+| Deno fmt/lint/check --frozen de funciones y harness afectados | PASS |
+| Node browser_harness_test + edge_runtime_test | 17 PASS, 2 SKIP: cámara y fixture exclusivo Unix en Windows |
+| Auth/Edge/SQL/Storage/Anvil reales con run_phase10.ps1 -BackendOnly | 251 PASS / 1 FAIL; resultado global FAIL, no aceptación parcial disfrazada |
+| Recuperación con corte real después del commit; canonicalización HTTP/SQL; alias; PDF/completed | PASS |
+| Auth expirado/inválido/anónimo; eliminado/bloqueado; caída y recuperación Auth | PASS en las tres rutas; caída → 503/no-store |
+| Permisos por rol/institución y pérdida de membresía, progreso sin mutaciones, reautorización y carreras SQL | PASS |
+| Regresiones existentes faults/concurrency/deployments ejecutadas por el runner | PASS; no equivalen a nueva aceptación integral 10C–10E |
+| Gateway JWT previo al handler | FAIL en tres rutas: 401 sin no-store |
+| Limpieza propia y comprobación de contenedores restantes | PASS; solo stack habitual, sin reset |
+| Actionlint 1.7.12, parser PowerShell, enlaces Markdown locales, git diff --check | PASS |
+
+Las comprobaciones posteriores al gate del runner (incluido su reset final de
+Anvil), Flutter/Web, Android/iOS, Safari/Firefox, Sepolia, CI nueva y validación
+humana: NOT_RUN; sin atribuirles resultados históricos como ejecución nueva.
+No se ejecutó la suite completa independiente 9C/Foundry; sí el build/ABI
+congelados y las regresiones reales anteriores del runner indicadas arriba.
+
+Intentos intermedios conservados como FAIL: copia de una aserción SQL provisional;
+uso de Buffer implícito de Node desde Deno en el fixture PDF (se reutilizó el
+adaptador existente); deadline mutable del worker reutilizado en el harness;
+verificación ES256 del helper Node ejecutada desde Deno (probe aislado también
+FAIL; resuelto ejecutando el helper intacto con Node); y 503 de operación ausente
+(corregido con migración nueva). Ninguno se cuenta retroactivamente como PASS.
+
+Comandos ejecutados desde raíz: `./supabase/tests/run_phase10.ps1 -BackendOnly`;
+`npx --yes deno@2.2.12 test --frozen --config supabase/functions/deno.json supabase/functions`;
+Deno fmt --check/lint de supabase/functions y phase10_backend/checks/acceptance;
+Deno check --frozen de esos entrypoints, phase10_acceptance y admin/blockchain;
+`node --test mobile/tool/browser_harness_test.mjs supabase/tests/edge_runtime_test.mjs`;
+actionlint de revocation.yml, parser PowerShell de verify_revocation_migration.ps1,
+enlaces locales y `git diff --check`. El runner ejecutó SQL, preservación y lint
+contra su propio stack desechable. El probe Auth adicional también limpió el suyo.
+
+Cámara SKIP/NOT_RUN, CERTICHAIN_TEST_CAMERA=0:
+«Omitidas por instrucción del usuario; no hay cámara física disponible».
+
+## Evidencia histórica del 15/10/2026
+
 15/10/2026. Base/HEAD inicial y remoto main reconsultados:
 `bb2a93c61950f258136bc88d4b9ad44b46848fc5`, árbol inicial limpio. Cambios locales
 sin commit/push/merge/despliegue remoto ni datos reales. **Revocación completa aceptada para demo Web local**, con los límites enumerados. CI de fase 10 NOT_OBSERVED
