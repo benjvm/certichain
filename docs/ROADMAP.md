@@ -270,6 +270,19 @@ Otros pendientes humanos/plataformas conservan su alcance en
 
 ### Fase 10 — Revocación completa (aceptada para demo Web local, 15/10/2026)
 
+**10E y fase 10 cerradas localmente para Web/Chrome/Anvil, 18/10/2026:** revisión final sobre fe237a08, con base
+10A–10D conservada. Run_id/fechas/SHA/dirty impiden reutilizar evidencia antigua;
+limpieza final condiciona PASS. Se explicitan HTTP suspended owner/admin,
+writes_stopped y privacidad de valores reales. [Dictamen, matriz y resultados
+vigentes](PHASE10_ACCEPTANCE.md). Los apartados inferiores son historia de sus
+revisiones; CI de base observada success no acredita los cambios locales 10E.
+Evidencia nueva: 297 checks reales, 183 aserciones release Web y 978 pgTAP PASS;
+regresión emisión/ledger 163 PASS, 266 Flutter, 272 Deno y 28 Foundry PASS.
+Cleanup propio PASS; IDs habituales y diez servicios principales preservados.
+Vector habitual muestra autoreinicios (comparación total de StartedAt FAIL,
+observación conservada); no se intervino. No lanzamiento público ni validación
+de plataformas/PoS/alojado/humana NOT_RUN. CI de cambios locales pendiente.
+
 **10D cerrada localmente para Web/Chrome, 18/10/2026:** se completa el cliente existente sobre
 bb17d346: motivo canónico, misma clave, progreso/reautorización explícitos,
 permisos/sesión, fecha SQL del titular y evidencia anterior issue/revoke sin

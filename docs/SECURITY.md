@@ -1,5 +1,15 @@
 # Seguridad y privacidad
 
+## Aceptación integrada 10E — 18/10/2026
+
+[Evidencia nueva y límites](PHASE10_ACCEPTANCE.md). Informes con run_id/SHA/dirty/
+fecha/mode; solo se admite navegador de la misma pasada, sin atribuir a otra un
+PASS antiguo. Resultado final depende de cleanup y salida real. JSON sanitizados
+sin bodies/variables de entorno/diagnósticos upstream. El test público contrasta
+motivo/actor/request_id/H/S/ruta reales solo en memoria. JWT/Auth y excepción
+previa limitada de 10B intactos, con diagnóstico estricto visible. No nuevo
+permiso, migración, proxy o secreto en cliente. Pasos remotos solo manuales.
+
 ## Cliente de revocación 10D — 18/10/2026
 
 [Aceptación específica](PHASE10D_ACCEPTANCE.md). Motivo solo en memoria/POST Auth

@@ -1,4 +1,42 @@
-# Demo reproducible blockchain local — 9E
+# Demo reproducible blockchain local — Fases 9 y 10
+
+## Demo de revocación completa 10E — 18/10/2026
+
+[Matriz, versiones y dictamen vigente](PHASE10_ACCEPTANCE.md). Reutiliza los
+prerrequisitos/aislamiento siguientes y el entrypoint de producto main.dart.
+Los apartados de 9E inferiores son historia de aquella fase, no límites actuales
+del flujo de revocación ni resultados nuevos. Operación remota es exclusivamente
+manual según [REVOCATION](REVOCATION.md).
+
+```powershell
+$env:CERTICHAIN_TEST_CAMERA='0'
+./supabase/tests/run_phase10.ps1 -VisibleBrowser
+# Misma aceptación sin ventana visible:
+./supabase/tests/run_phase10.ps1
+```
+
+Guion breve (no pulsar simultáneamente durante la automatización):
+
+1. Owner sintético verified emite el PDF privado. Titular abre wallet/detalle,
+   obtiene PDF/apertura y genera QR/enlace público. Worker confirma el issue real.
+2. En Certificados emitidos, abrir Revocación / consultar estado, introducir
+   motivo privado, cancelar una vez y confirmar explícitamente. El harness descarta
+   la respuesta 202 real: mostrar incertidumbre y recuperar con la misma clave.
+3. Wallet/detalle indica Revocado y fecha SQL. Público conserva SQL revocado
+   mientras worker está pendiente y también con RPC temporalmente indisponible.
+4. Reanudar RPC/worker y actualizar manualmente: evidencia issue original y
+   transacción revoke distintas; Anvil sin finalidad PoS. Comparación PDF/apertura
+   original/alterada nunca se presenta como vigencia. Motivo solo institucional.
+5. Retener respuesta privada, logout/cambio de cuenta y liberarla tarde: los datos
+   no reaparecen. El runner limpia exclusivamente sus recursos y finaliza informes.
+
+Revisar mobile/build/phase10-evidence/{run,preflight,result,full,browser}.json:
+mismo run_id/SHA/dirty, fechas de esta pasada, resultado final y stack_cleanup.
+history/<nuevo-run_id>/ conserva informes anteriores; un navegador antiguo no
+acredita el actual. -BackendOnly no demuestra Web. No publicar dumps, PDF,
+aperturas, salts, tokens, raw transactions o capturas privadas. Sin cámara;
+QR de imagen estática sí. Los pasos manuales de backup/migración/configuración/
+publicación/worker/recuperación se enlazan, no se ejecutan remotamente.
 
 ## Incremento local de revocación — 15/10/2026
 

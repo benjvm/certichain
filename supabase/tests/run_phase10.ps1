@@ -3,9 +3,14 @@ $ErrorActionPreference = 'Stop'
 $source = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 $target = [IO.Path]::GetFullPath((Join-Path ([IO.Path]::GetTempPath()) ('certichain-8d-' + [guid]::NewGuid())))
 $saved = @{}
-foreach ($name in @('CERTICHAIN_TEST_CAMERA','CERTICHAIN_TEST_DISPOSABLE','CERTICHAIN_ANVIL_BIN','CERTICHAIN_SOURCE_ROOT','CERTICHAIN_9E_VISIBLE_BROWSER','SUPABASE_CLI')) { $saved[$name] = [Environment]::GetEnvironmentVariable($name,'Process') }
+foreach ($name in @('CERTICHAIN_ACCEPTANCE_RUN_ID','CERTICHAIN_TEST_CAMERA','CERTICHAIN_TEST_DISPOSABLE','CERTICHAIN_ANVIL_BIN','CERTICHAIN_SOURCE_ROOT','CERTICHAIN_9E_VISIBLE_BROWSER','SUPABASE_CLI')) { $saved[$name] = [Environment]::GetEnvironmentVariable($name,'Process') }
+$completed = $false
+$cleanup = 'NOT_RUN'
+$runId = $null
 function Stage([string]$Name, [scriptblock]$Action) {
   Write-Output "10 stage: $Name"
+  & node (Join-Path $source 'supabase/tests/phase10_evidence.mjs') stage $Name
+  if ($LASTEXITCODE -ne 0) { throw 'Cannot record current acceptance stage.' }
   & $Action
   if ($LASTEXITCODE -ne 0) { throw "10 stage failed: $Name" }
 }
@@ -15,6 +20,10 @@ try {
   $env:CERTICHAIN_TEST_DISPOSABLE = '1'
   $env:CERTICHAIN_SOURCE_ROOT = $source
   $env:CERTICHAIN_9E_VISIBLE_BROWSER = if ($VisibleBrowser) { '1' } else { '0' }
+  $mode = @(); if ($BackendOnly) { $mode = @('--backend-only') }
+  $runId = & node supabase/tests/phase10_evidence.mjs begin @mode
+  if ($LASTEXITCODE -ne 0) { throw 'Cannot initialize acceptance evidence.' }
+  $env:CERTICHAIN_ACCEPTANCE_RUN_ID = $runId
   if ((node --version) -ne 'v24.14.0') { throw 'Use Node 24.14.0 from .node-version.' }
   if (!$env:SUPABASE_CLI) {
     $resolver = @'
@@ -27,7 +36,6 @@ console.log(path.join(path.dirname(require.resolve("@supabase/cli-" + suffix + "
     else { $env:SUPABASE_CLI = $resolver | node --input-type=commonjs; if ($LASTEXITCODE -ne 0) { throw 'Pinned Supabase CLI unavailable.' } }
   }
   Stage 'Frozen Foundry bootstrap' { node blockchain/scripts/bootstrap.mjs }
-  $mode = @(); if ($BackendOnly) { $mode = @('--backend-only') }
   Stage 'Toolchain preflight' { node supabase/tests/phase9e_preflight.mjs --phase10 @mode }
   if (!$BackendOnly) {
     Push-Location mobile
@@ -57,21 +65,25 @@ console.log(path.join(path.dirname(require.resolve("@supabase/cli-" + suffix + "
   try {
     Stage 'Real acceptance' { npx --yes deno@2.2.12 run --allow-all --frozen --config supabase/functions/deno.json supabase/tests/phase10_acceptance.ts @mode }
   } finally { Pop-Location }
+  $completed = $true
 } finally {
   try {
     if (Test-Path -LiteralPath (Join-Path $target 'supabase/config.toml')) {
       & ./supabase/tests/stop_disposable_local.ps1 -Root $target
-      $summaryPath = Join-Path $source 'mobile/build/phase10-evidence/result.json'
-      if (Test-Path -LiteralPath $summaryPath) {
-        $summary = Get-Content -LiteralPath $summaryPath -Raw | ConvertFrom-Json
-        $summary | Add-Member -NotePropertyName stack_cleanup -NotePropertyValue 'PASS' -Force
-        $summary | ConvertTo-Json -Depth 30 | Set-Content -LiteralPath $summaryPath -Encoding utf8
-        $modePath = Join-Path $source ('mobile/build/phase10-evidence/' + $(if ($BackendOnly) { 'backend-only.json' } else { 'full.json' }))
-        if (Test-Path -LiteralPath $modePath) { $summary | ConvertTo-Json -Depth 30 | Set-Content -LiteralPath $modePath -Encoding utf8 }
-      }
+      $cleanup = 'PASS'
     }
+  } catch {
+    $cleanup = 'FAIL'
+    throw
   } finally {
-    foreach ($name in $saved.Keys) { [Environment]::SetEnvironmentVariable($name,$saved[$name],'Process') }
-    Pop-Location
+    try {
+      if ($runId) {
+        & node (Join-Path $source 'supabase/tests/phase10_evidence.mjs') finish $(if ($completed) { '0' } else { '1' }) $cleanup
+        if ($LASTEXITCODE -ne 0 -and $completed) { throw 'Acceptance or owned cleanup did not pass.' }
+      }
+    } finally {
+      foreach ($name in $saved.Keys) { [Environment]::SetEnvironmentVariable($name,$saved[$name],'Process') }
+      Pop-Location
+    }
   }
 }

@@ -1,5 +1,22 @@
 # Operación privada de anclajes — 9C
 
+## Operación y aceptación de revocación 10E — 18/10/2026
+
+[Matriz/dictamen/evidencia vigente](PHASE10_ACCEPTANCE.md),
+[pasos MANUALES no ejecutados](REVOCATION.md) y [demo](DEMO_BLOCKCHAIN_LOCAL.md).
+El worker vigente procesa issue/revoke, nunca setIssuer con clave operativa.
+Las instrucciones inferiores conservan el contexto de su fase.
+
+Diagnóstico por operación original: consultar progreso Auth y separar SQL/EVM;
+revisar bloqueo sin publicar auditoría/secretos. Comprobar deployment habilitado
+y no writes_stopped, cadena/genesis/runtime/bloque canónico, I almacenado,
+binding/signers y canRevoke independiente de canIssue. Revisar saldo y ledger
+íntegro exclusivo del EOA. Observar todos los hashes, incluidos replacements
+antiguos; conservar raw privado y receipts consumidos. Tras corregir la causa,
+owner/admin actual reautoriza explícitamente. No duplicar emisión/anchor/salt ni
+saltar nonce unknown. Reorg no reactiva SQL; otra cadena no sustituye la obligación
+anterior. No borrar completed/PDF/código para corregir blockchain.
+
 ## Recuperación de revocaciones 10C — 18/10/2026
 
 [Aceptación específica](PHASE10C_ACCEPTANCE.md). Aplicar la migración nueva
@@ -141,7 +158,7 @@ nunca nombre/email/UUID de aplicación. configure conserva I y snapshots
 administrativos/config_version. ACTOR_PLATFORM ya debe existir y estar confirmado
 operativamente; la RPC no concede ese rol. Administración EVM con
 EVM_ADMIN_PRIVATE_KEY en sesión separada: admin-worker OPERATION. El worker
-ordinario rechaza recibir esa clave y solo procesa issue, nunca setIssuer.
+ordinario rechaza recibir esa clave y procesa issue/revoke, nunca setIssuer.
 Cada EOA es exclusivo del coordinador. La creación del contrato debe usar otro
 deployer; consumo previo desconocido de nonce se bloquea incluso al iniciar.
 admin-worker vuelve a leer issuer en el head canónico: un receipt administrativo

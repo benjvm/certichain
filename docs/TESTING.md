@@ -1,5 +1,22 @@
 # Estrategia de pruebas
 
+## Aceptación integrada 10E — 18/10/2026
+
+Registro único vigente en [PHASE10_ACCEPTANCE](PHASE10_ACCEPTANCE.md): matriz,
+comandos/resultados nuevos, CI por SHA, fallos y límites. Se reutilizan runner,
+suites 10B/10C y viaje Web release de producto. Nueva identidad de ejecución
+desde antes del bootstrap y finalización tras cleanup; seis regresiones impiden
+reutilizar PASS antiguo de preflight/navegador/resumen o esconder cleanup fallido.
+HTTP real explicita suspended owner/admin y writes_stopped; privacidad contrasta
+valores privados en memoria sin guardarlos. SQL/RLS/lint preceden a los fixtures.
+La CI de base fe237a08 es distinta de los cambios locales 10E. Cámara=0 y motivo
+exacto persistente; no se amplía evidencia a plataformas/PoS/alojado NOT_RUN.
+Dictamen local 10E/fase 10 cerrado: runner final 297 checks, 183 Web release,
+978 pgTAP; regresión independiente 163 checks/978 pgTAP; Flutter 266 PASS/12 SKIP,
+Deno 272 y Foundry 28 PASS; Node 33 PASS/2 SKIP. Cleanup propio PASS. Comparación
+StartedAt total habitual FAIL por autoreinicio Vector, con IDs y diez servicios
+principales preservados; observación explícita en el registro, sin reparación.
+
 ## Revisión específica 10D — 18/10/2026
 
 [Evidencia y comandos](PHASE10D_ACCEPTANCE.md): dominio/adaptadores/controladores/

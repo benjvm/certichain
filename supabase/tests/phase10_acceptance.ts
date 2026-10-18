@@ -1,10 +1,4 @@
-import {
-  appendFileSync,
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { runVerificationAcceptance } from "./blockchain_verification_integration.ts";
@@ -15,6 +9,11 @@ import { phase10Faults } from "./phase10_faults.ts";
 import { phase10Concurrency } from "./phase10_concurrency.ts";
 import { phase10Deployments } from "./phase10_deployments.ts";
 import { RegistryError } from "../functions/_shared/blockchain/domain/registry.ts";
+import {
+  belongsToRun,
+  currentBrowser,
+  evidenceContext,
+} from "./phase10_evidence.mjs";
 
 const root = Deno.env.get("CERTICHAIN_SOURCE_ROOT") ?? Deno.cwd();
 const { sourceRevision } = await import(
@@ -22,13 +21,19 @@ const { sourceRevision } = await import(
 );
 const evidence = resolve(root, "mobile/build/phase10-evidence");
 mkdirSync(evidence, { recursive: true });
+const context = evidenceContext(root);
 const preflight = JSON.parse(
   readFileSync(resolve(evidence, "preflight.json"), "utf8"),
 );
 const backendOnly = Deno.args.includes("--backend-only");
+if (
+  !belongsToRun(preflight, context) ||
+  context.mode !== (backendOnly ? "backend-only" : "full")
+) throw new Error("Fresh matching preflight required");
 const scenarios: { case: string; result: string }[] = [];
 const summary: Record<string, unknown> = {
   ...sourceRevision(root),
+  ...context,
   evaluated_at: new Date().toISOString(),
   mode: backendOnly ? "backend-only" : "full",
   versions: preflight.versions,
@@ -68,16 +73,19 @@ try {
     },
     onScenario: (scenario) => scenarios.push(scenario),
   });
+  if (
+    !backendOnly &&
+    (!belongsToRun(result.browser, context) ||
+      result.browser?.result !== "PASS")
+  ) throw new Error("Fresh release evidence required");
   Object.assign(summary, result, {
     result: "PASS",
     flutter: backendOnly ? "NOT_RUN" : "PASS",
     cleanup: "PASS owned Anvil network Edge and restore destinations",
   });
 } catch (error) {
-  if (!backendOnly && existsSync(resolve(evidence, "browser.json"))) {
-    summary.browser = JSON.parse(
-      readFileSync(resolve(evidence, "browser.json"), "utf8"),
-    );
+  if (!backendOnly && currentBrowser(root, context)) {
+    summary.browser = currentBrowser(root, context);
     summary.flutter = (summary.browser as { result: string }).result;
   }
   if (error instanceof RegistryError) summary.failure_code = error.code;
@@ -103,10 +111,6 @@ try {
   writeFileSync(
     resolve(evidence, "result.json"),
     JSON.stringify(summary, null, 2),
-  );
-  appendFileSync(
-    resolve(evidence, "attempts.ndjson"),
-    JSON.stringify(summary) + "\n",
   );
   writeFileSync(
     resolve(evidence, backendOnly ? "backend-only.json" : "full.json"),

@@ -43,12 +43,26 @@ export async function phase10Checks(
       },
     );
     const data = await r.json();
+    // Compare actual private fixture values in memory; never put them in reports.
+    const privateValues = JSON.parse(
+      sql(`SELECT jsonb_build_array(c.document_hash,c.document_path,
+      (SELECT jsonb_build_array(reason,requested_by::text,id::text) FROM certichain_private.certificate_revocations WHERE certificate_id=c.id),
+      (SELECT jsonb_agg(encode(salt,'hex')) FROM certichain_private.certificate_anchors WHERE certificate_id=c.id))
+      FROM public.certificates c WHERE c.id='${id}'`),
+    ).flat(2).filter((value: unknown): value is string =>
+      typeof value === "string" && value.length > 0
+    ) as string[];
+    const serialized = JSON.stringify(data);
     check(r.status === 200, "10 v3 HTTP available");
     check(
-      !JSON.stringify(data).includes(privateReason) &&
-        !JSON.stringify(data).includes("reason") &&
-        !JSON.stringify(data).includes(f.local.SERVICE_ROLE_KEY),
-      "10 public output contains no reason or service secret",
+      !serialized.includes(privateReason) &&
+        !/"(?:reason|requested_by|request_id|actor|salt|document_hash|document_sha256|document_path|nonce|raw_transaction)"\s*:/
+          .test(serialized) &&
+        !serialized.includes(f.local.SERVICE_ROLE_KEY) &&
+        privateValues.every((value) =>
+          !serialized.includes(JSON.stringify(value).slice(1, -1))
+        ),
+      "10 public output contains no private audit document hash salt path or service secret",
     );
     return data;
   };
@@ -216,11 +230,41 @@ export async function phase10Checks(
     "10 expected synchronization delay distinguished from active EVM",
   );
   const rev = syncId(cert);
+  const suspendedOwnerCertificate = await issue();
+  const suspendedAdminCertificate = await issue();
   // Suspension only removes canIssue. Revoke uses canRevoke and the stored I.
   await f.rpc("set_institution_status", {
     p_institution: f.verified,
     p_status: "suspended",
   }, f.platform.token);
+  check(
+    sql(
+      `SELECT count(*) FROM public.certificates WHERE id IN ('${suspendedOwnerCertificate}','${suspendedAdminCertificate}') AND status='active' AND revoked_at IS NULL`,
+    ) === "2",
+    "10E suspension alone preserves active certificates without revoking them",
+  );
+  for (
+    const [actor, certificate] of [[f.owner, suspendedOwnerCertificate], [
+      admin,
+      suspendedAdminCertificate,
+    ]] as const
+  ) {
+    const accepted = await revoke(certificate, crypto.randomUUID(), actor);
+    check(
+      accepted.response.status === 202 && accepted.data.status === "revoked",
+      "10E current suspended owner and admin can request real SQL revocation",
+    );
+  }
+  const deniedIssuance = await f.issue(f.owner, {
+    institution_id: f.verified,
+    holder_id: f.holder.id,
+    idempotency_key: crypto.randomUUID(),
+    title: "Synthetic denied suspended issuance",
+  });
+  check(
+    deniedIssuance.status === 403,
+    "10E allowing suspended revocation never restores issuance permission",
+  );
   const binding = JSON.parse(
     sql(
       `SELECT row_to_json(b) FROM certichain_private.blockchain_issuers b WHERE institution_id='${f.verified}'`,

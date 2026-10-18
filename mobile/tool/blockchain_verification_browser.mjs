@@ -16,6 +16,7 @@ import {
 import { tmpdir } from "node:os";
 import { basename, extname, join, resolve, sep } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
+import { evidenceContext } from "../../supabase/tests/phase10_evidence.mjs";
 import {
   connectCdp,
   evaluate,
@@ -37,6 +38,7 @@ export async function runBrowserJourney(env) {
     mobile = join(root, "mobile");
   const f = env.f, origin = "https://127.0.0.1:7360";
   const phase = env.phase ?? "9d";
+  const runContext = phase === "10" ? evidenceContext(root) : {};
   const directory = mkdtempSync(join(tmpdir(), "certichain-browser-9d-"));
   if (!resolve(directory).startsWith(resolve(tmpdir()) + sep)) {
     throw new Error("Unsafe own directory");
@@ -1025,6 +1027,7 @@ export async function runBrowserJourney(env) {
     const result = {
       result: "PASS",
       ...sourceRevision(root),
+      ...runContext,
       evaluated_at: new Date().toISOString(),
       assertions,
       stages,
@@ -1064,6 +1067,7 @@ export async function runBrowserJourney(env) {
   } catch (error) {
     const failure = {
       ...sourceRevision(root),
+      ...runContext,
       evaluated_at: new Date().toISOString(),
       result: "FAIL",
       assertions,

@@ -1,5 +1,192 @@
 # Aceptación de revocación — Fase 10
 
+## Aceptación final 10E — 18/10/2026
+
+Base `main`, HEAD `fe237a0803dfd186c7f6c71034e8883dde787d61`, árbol inicial
+limpio. Se acepta la integración de 10A–10D mediante el runner existente y
+recursos sintéticos propios. Esta sección es el registro vigente; los apartados
+inferiores conservan sus resultados históricos. **10E y la fase 10 quedan cerradas
+localmente para la demo Web/Chrome/Supabase local/Anvil**, con la excepción 10B
+y los límites explícitos de esta sección. No equivale a lanzamiento público.
+No commit, push, merge o despliegue remoto.
+
+Contratos verificados en código/configuración: CertificateRegistry/protocol v1,
+endpoints públicos cerrados v1/v2/v3 y compare v1; cliente producto usa v3, sin
+consultas a versiones adicionales para completar resultados. Privados
+revoke-certificate/revocation-progress/reauthorize-revocation con verify_jwt=true
+y Auth adicional. 202 acepta SQL irreversible; 200 recupera la decisión original.
+Worker externo firma EIP-1559; Edge público solo lee y Flutter no firma.
+
+### Cambios específicos de aceptación
+
+Se reutilizan run_phase10.ps1, fixtures reales, suites 10B/10C, viaje de producto
+main.dart release y workflow revocation.yml. Sin cambios de producto, endpoints,
+coordinador, ABI, Solidity, esquema, RLS, migraciones o locks.
+
+- Corregida atribución de informes: run_id UUID desde antes del bootstrap,
+  started_at, SHA/dirty y modo compartidos por preflight/aceptación/navegador.
+  Artefactos anteriores archivados; se rechazan navegador/preflight ajenos o
+  anteriores. Un fallo temprano no puede reutilizar un PASS Web antiguo.
+- Resultados iniciales NOT_RUN; finalización después de cleanup, exit real y
+  comprobación del navegador actual. Un cleanup fallido hace FAIL. attempts.ndjson
+  recibe la pasada finalizada una vez. CI limpia/finaliza antes de subir los JSON.
+- Seis regresiones del mecanismo de evidencia: fallo temprano, éxito antiguo,
+  identidad/fecha, finalización única, cleanup fallido y resumen ajeno.
+- Matriz HTTP ampliada: solicitud owner/admin actuales de suspended, suspensión
+  sin revocación automática y emisión denegada; writes_stopped en deployment
+  original impide reautorización/firma sin alterar SQL ni auditoría.
+- Privacidad pública contrasta también valores reales de motivo/actor/request_id,
+  hash documental, salt y ruta, solo en memoria, sin guardarlos en informes.
+
+Archivos: supabase/tests/{run_phase10.ps1,phase10_acceptance.ts,phase10_checks.ts,
+phase10_deployments.ts,phase9e_preflight.mjs,phase10_evidence.mjs,
+phase10_evidence.test.mjs}, mobile/tool/blockchain_verification_browser.mjs,
+.github/workflows/revocation.yml y documentación PHASE10_ACCEPTANCE, REVOCATION,
+ROADMAP, TESTING, SECURITY, BLOCKCHAIN_OPERATIONS, BLOCKCHAIN_VERIFICATION y
+DEMO_BLOCKCHAIN_LOCAL. No nueva decisión estructural/ADR: siguen ADR-0016/17/18.
+
+### Matriz de aceptación integrada
+
+| Área | Evidencia reproducible en la pasada final | Estado |
+|---|---|---|
+| Base limpia e históricos | Migraciones al crear stack; 978 pgTAP antes de fixtures, lint y verify_revocation_migration rollback-only | PASS |
+| Auth/gateway/permisos | Auth password real, Edge por Kong, roles vigentes verified/suspended; issuer/titular/ajeno/plataforma/pending/rejected denegados | PASS |
+| Suspensión | No revoca automáticamente, owner/admin pueden solicitar, emisión 403 | PASS |
+| Idempotencia y decisión | Concurrencia, claves/payload en conflicto, recuperación y atributos originales; completed/código/PDF intactos | PASS |
+| Respuesta perdida real | 10B proxy retiene todos los bytes, SQL confirma commit, socket/consumidor abortados; misma clave recupera 200 | PASS |
+| Progreso y reautorización | Snapshot SQL sin mutaciones al consultar; reautorización explícita autorizada/auditada y denegaciones | PASS |
+| Sin anchor/issue unsigned/issue tardío | Cancelación fenced y compensación del firmado con K/I/C/S originales | PASS |
+| Crash/broadcast/lease/CAS | Reprocesado durable, broadcast real con respuesta perdida, workers concurrentes/vencidos | PASS |
+| Nonces/replacements/reverts | Unknown bloqueado; anterior gana entre tres replacements; revert consumido, reconciliación y rotación | PASS |
+| Saldo/permisos/deployments | Saldo insuficiente, canIssue/canRevoke independientes, permiso retirado, anterior disabled y writes_stopped | PASS |
+| Reorg/divergencia/restore | Issue/revoke separados, evidencia incompatible, reset y PG/Storage propios; SQL no se reactiva | PASS |
+| Producto Web release | Emitir/PDF/wallet/revocar/confirmar/cancelar/misma clave/detalle/progreso/evidencia revoke | PASS |
+| Público/privacidad | SQL revocado durante demora/RPC caído, recuperación, issue/revoke separados, sin datos privados | PASS |
+| Compatibilidad/duplicados/documento | v1/v2/v3, código/enlace/QR estático, original/alterado y apertura sin inferir vigencia; exactamente un POST por arranque/recarga/navegación | PASS |
+| Limpieza/atribución | Procesos/perfiles/TLS/temporales/Anvil/red/Edge/restore/stack propios; informe solo de esta ejecución | PASS |
+| No-store aplicación | Todas las respuestas del handler, también errores | PASS |
+| Gateway estricto | Ausencia externa de cabecera observada, nunca marcada como corregida | FAIL conocido, no bloqueante bajo política aceptada |
+| Excepción 10B | Solo 401/códigos/cuerpo genéricos previos identificados; Auth/JWT intactos | PASS |
+| Cámara | Captura/permisos/ciclo/getUserMedia/vídeo/probes nativos y dobles excluidos de forma acotada | SKIP/NOT_RUN |
+| Alojado, Android completo/iOS, Firefox/Safari, Sepolia/PoS, accesibilidad humana | Sin evidencia propia nueva | NOT_RUN |
+
+CERTICHAIN_TEST_CAMERA=0. Motivo exacto:
+«Omitidas por instrucción del usuario; no hay cámara física disponible».
+Se conservan QR de imagen estática, enlaces,
+códigos manuales, PDF, Auth, SQL y blockchain. Anvil no acredita finalidad PoS.
+
+### Comandos y evidencia nueva
+
+Prerrequisitos/guion: [DEMO_BLOCKCHAIN_LOCAL](DEMO_BLOCKCHAIN_LOCAL.md).
+Versiones fijadas comprobadas: Node 24.14.0; CLI 2.117.0; Deno 2.2.12; Flutter
+3.47.4/Dart 3.13.3, revisión 9584c6713b324636289d067944a46fd6b49df14b; Foundry
+1.8.5/Solidity 0.8.37. Docker y Chrome se registran desde los ejecutables actuales.
+No se actualizan SDK o locks para conseguir verde.
+
+| Ejecución local nueva | Resultado |
+|---|---|
+| run_phase10.ps1 final, run_id 11bc699b-f9a0-4b86-8ca8-df99c291b369 | PASS, 297 checks reales y cleanup propio PASS |
+| main.dart release HTTPS, Chrome 155.0.8059.84 | PASS, 183 aserciones |
+| Migraciones limpias/SQL/RLS, antes de fixtures | PASS, 978 pgTAP; preservación histórica y lint PASS |
+| Flutter formato/análisis/tests | PASS, 143 archivos sin cambios; sin incidencias; 266 PASS/12 SKIP existentes |
+| Backend Deno y política gateway | PASS, 272 pruebas |
+| Contrato Foundry fmt/tests | PASS, 28 pruebas; ABI/build congelados sin drift |
+| Node transporte/harness/evidencia/readiness | PASS, 33; 2 SKIP: cámara y fixture Unix en Windows |
+| Deno formato/lint/tipos según workflow | PASS, 74/67 archivos formato/lint; tipos del entrypoint y dependencias |
+| PowerShell parser, actionlint, enlaces locales, diff whitespace | PASS |
+| Regresión independiente run_phase9c.ps1 | PASS, 163 checks reales, 978 pgTAP/lint y limpieza propia PASS |
+
+Runner final iniciado 2026-10-18T18:12:06.785Z (20:12:06 Madrid), aceptación
+18:14:19.446Z, navegador evaluado 18:18:56.988Z y finalización tras cleanup
+18:19:08.783Z. Windows x64, Docker 29.8.2 y toolchains fijadas anteriores.
+Todos los informes nuevos son dirty=true sobre fe237a08; no acreditan un commit
+10E inexistente ni la ejecución remota del workflow modificado.
+
+Una emisión/un anchor/tres aperturas en Web; dos POST revoke con la misma clave
+(202 con cuerpo descartado y recuperación 200 de la decisión original). Ocho POST
+públicos; página anónima v1=0/v2=0/v3=7/compare=0. Comparación con apertura original/
+alterada local, QR estático y cambio/logout con respuesta privada retenida PASS.
+La prueba 10B **distinta** demuestra interrupción de transporte después de commit
+SQL independiente, sin recibir bytes: el descarte determinista Web no se presenta
+como corte de socket del proveedor. No cambios de criterio o timeout para verde.
+
+Auth/privacidad/no-store aplicación PASS. Matriz gateway de 17 casos: nueve
+excepciones externas reconocidas; diagnóstico estricto Cache-Control FAIL,
+política revisada PASS. Ausencia de cabecera **no corregida**, alojado NOT_RUN.
+La primera pasada de esta revisión, run_id 35a9691c-e836-4473-9a28-6f52803bae82,
+registró 289 checks/183 Web PASS antes de ampliar la matriz; está archivada bajo
+history/11bc699b-f9a0-4b86-8ca8-df99c291b369. Ambos intentos conservados.
+Una comprobación fmt inicial detectó CRLF en browser_harness.mjs del checkout;
+se normalizaron finales de línea sin diff de contenido versionado y el gate final
+completo pasó. No se atribuye ese intento inicial como PASS.
+
+Preservación/limpieza final: ningún contenedor/red Anvil propio restante y los
+once IDs de contenedores habituales coinciden. Diez servicios habituales,
+incluidos PostgreSQL/Auth/Storage, conservan además StartedAt. La comparación
+estricta de **todos** los StartedAt dio FAIL: Vector habitual cambia su arranque.
+Se conserva ese resultado en mobile/build/phase10e-cleanup.json, no se reescribe
+como PASS. Su mismo ID, política unless-stopped, contador 263 de reinicios,
+eventos retenidos start/die con exit 0 y oom=false son compatibles con autoreinicio
+del agente de logs; no se observaron stop/kill/destroy para ese ID en los eventos
+retenidos. No se intervino ni se reparó el Vector habitual. Esta observación
+operativa no es una revocación fallida ni un reset del stack por el runner;
+queda como pendiente independiente del operador. La comprobación de identidad y
+arranque de los diez servicios de datos/Auth/Storage, y cleanup propio, sí PASS.
+La regresión independiente se ejecutó después del runner final, sin suites SQL
+mutables simultáneas. Log phase10e-9c.log conserva 163 checks y limpieza propia.
+
+```powershell
+$env:CERTICHAIN_TEST_CAMERA='0'
+# Node fijado en PATH, Docker operativo; runners mutables secuenciales:
+./supabase/tests/run_phase10.ps1
+./supabase/tests/run_phase9c.ps1
+# Solo backend, no acredita Web:
+# ./supabase/tests/run_phase10.ps1 -BackendOnly
+npx --yes deno@2.2.12 test --frozen --config supabase/functions/deno.json supabase/functions supabase/tests/phase10_gateway_policy_test.ts
+node --test supabase/tests/phase10_evidence.test.mjs mobile/tool/browser_harness_test.mjs supabase/tests/edge_runtime_test.mjs blockchain/scripts/download.test.mjs blockchain/scripts/harness.test.mjs
+node blockchain/scripts/forge.mjs fmt --check
+node blockchain/scripts/forge.mjs test
+Push-Location mobile
+try {
+  dart format --output=none --set-exit-if-changed lib test tool
+  flutter analyze
+  flutter test --reporter expanded
+} finally { Pop-Location }
+blockchain/.tools/actionlint/actionlint.exe .github/workflows/revocation.yml
+git diff --check
+```
+
+fmt/lint/check adicionales usan exactamente los targets del workflow revisado.
+Informes sanitizados mobile/build/phase10-evidence/{run,preflight,result,full,browser}.json:
+run_id, SHA/dirty, versiones y fechas deben concordar. history/<nuevo-run_id>/
+conserva el juego anterior; attempts.ndjson conserva cada finalización.
+Los logs nuevos son mobile/build/phase10e-*.log; CI observada en phase10e-ci.json.
+
+### CI observada del commit base
+
+Lectura API GitHub, sin disparar ejecuciones. SHA exacto fe237a0803dfd186c7f6c71034e8883dde787d61,
+intento 1, completed/success en los cinco workflows:
+[revocación 39149038645](https://github.com/benjvm/certichain/actions/runs/39149038645),
+[anclaje 39149038554](https://github.com/benjvm/certichain/actions/runs/39149038554),
+[verificación 39149038632](https://github.com/benjvm/certichain/actions/runs/39149038632),
+[contrato 39149038504](https://github.com/benjvm/certichain/actions/runs/39149038504),
+[base de datos 39149038602](https://github.com/benjvm/certichain/actions/runs/39149038602).
+Job de revocación 117738716013: todas sus etapas success, incluida release y
+limpieza. Son CI del commit base 10D, no de los cambios locales de esta aceptación.
+CI del futuro commit 10E pendiente; sin push ni escritura remota en esta tarea.
+
+### Operador y límites del cierre
+
+[Pasos MANUALES de revocación](REVOCATION.md) y
+[diagnóstico/recuperación](BLOCKCHAIN_OPERATIONS.md): revisar backup/vínculo,
+migraciones pendientes/dry-run y aplicar solo nuevas; desplegar los endpoints
+con JWT; contrastar binding/I/signer/canRevoke/deployment vivo; worker con secretos
+solo en host confiable; reconciliar todos los intentos y reautorizar explícitamente;
+comprobar SQL/receipts/eventos/bloques canónicos y conservar historial. Ninguno de
+esos pasos remotos se ejecutó. Rollback de app no revierte una decisión SQL.
+El cierre local/Web no equivale a lanzamiento público ni valida las plataformas
+NOT_RUN de la matriz. La exclusión de cámara no bloquea el alcance autorizado.
+
 ## Revisión específica 10D — 18/10/2026
 
 [Cambios, evidencia nueva y límites del cliente](PHASE10D_ACCEPTANCE.md).

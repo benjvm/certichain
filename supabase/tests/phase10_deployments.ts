@@ -209,6 +209,38 @@ export async function phase10Deployments(
     sql(
       `UPDATE certichain_private.blockchain_deployments SET enabled=false WHERE id='${current}'; UPDATE certichain_private.blockchain_deployments SET enabled=true WHERE id='${prior}'`,
     );
+    // The kill switch is independent of enabled and must not move obligations.
+    const authorizationsBeforeStop = sql(
+      `SELECT authorizations FROM certichain_private.blockchain_operations WHERE id='${operation}'`,
+    );
+    sql(
+      `UPDATE certichain_private.blockchain_deployments SET writes_stopped=true WHERE id='${prior}'`,
+    );
+    try {
+      check(
+        (await f.json("/functions/v1/reauthorize-revocation", f.owner.token, {
+          operation_id: operation,
+        })).response.status === 404,
+        "10E writes_stopped prevents explicit reauthorization of the original deployment",
+      );
+      await env.run(operation);
+      check(
+        sql(
+              `SELECT count(*) FROM certichain_private.blockchain_transaction_attempts WHERE operation_id='${operation}'`,
+            ) === "0" &&
+          sql(
+              `SELECT status FROM public.certificates WHERE id='${certificate}'`,
+            ) === "revoked" &&
+          sql(
+              `SELECT authorizations FROM certichain_private.blockchain_operations WHERE id='${operation}'`,
+            ) === authorizationsBeforeStop,
+        "10E writes_stopped preserves irreversible SQL and prevents a fresh revoke signature",
+      );
+    } finally {
+      sql(
+        `UPDATE certichain_private.blockchain_deployments SET writes_stopped=false WHERE id='${prior}'`,
+      );
+    }
     check(
       (await f.json("/functions/v1/reauthorize-revocation", f.owner.token, {
         operation_id: operation,

@@ -20,6 +20,10 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 24.14.0
+      - name: Initialize fresh acceptance identity before any checks
+        run: |
+          run_id=$(node supabase/tests/phase10_evidence.mjs begin)
+          echo "CERTICHAIN_ACCEPTANCE_RUN_ID=$run_id" >> "$GITHUB_ENV"
       - uses: supabase/setup-cli@1dedf2c611547ede7232d26866dd3c56ab903bbb
         with:
           version: 2.117.0
@@ -49,8 +53,8 @@ jobs:
           node tool/prepare_decoder.mjs --check
       - name: Format, lint, strict types and backend regression tests
         run: |
-          npx --yes deno@2.2.12 fmt --check supabase/tests/phase10_gateway_policy.ts supabase/tests/phase10_gateway_policy_test.ts supabase/tests/phase10_gateway_probe.ts supabase/tests/phase10_backend.ts supabase/tests/phase10_deployments.ts supabase/tests/phase10_concurrency.ts supabase/tests/phase10_checks.ts supabase/tests/phase10_faults.ts supabase/tests/phase10_acceptance.ts supabase/functions supabase/tests/phase9d_environment.ts supabase/tests/blockchain_verification_integration.ts supabase/tests/phase10_acceptance.ts supabase/tests/phase9e_checks.ts supabase/tests/phase9e_preflight.mjs supabase/tests/local_issuance_fixture.mjs mobile/tool/blockchain_verification_browser.mjs mobile/tool/browser_harness.mjs mobile/tool/browser_harness_test.mjs mobile/tool/release_verification_browser.mjs mobile/tool/public_verification_requests.mjs
-          npx --yes deno@2.2.12 lint supabase/tests/phase10_gateway_policy.ts supabase/tests/phase10_gateway_policy_test.ts supabase/tests/phase10_gateway_probe.ts supabase/tests/phase10_backend.ts supabase/tests/phase10_deployments.ts supabase/tests/phase10_concurrency.ts supabase/tests/phase10_checks.ts supabase/tests/phase10_faults.ts supabase/tests/phase10_acceptance.ts supabase/functions supabase/tests/phase9d_environment.ts supabase/tests/blockchain_verification_integration.ts supabase/tests/phase10_acceptance.ts supabase/tests/phase9e_checks.ts supabase/tests/phase9e_preflight.mjs
+          npx --yes deno@2.2.12 fmt --check supabase/tests/phase10_evidence.mjs supabase/tests/phase10_evidence.test.mjs supabase/tests/phase10_gateway_policy.ts supabase/tests/phase10_gateway_policy_test.ts supabase/tests/phase10_gateway_probe.ts supabase/tests/phase10_backend.ts supabase/tests/phase10_deployments.ts supabase/tests/phase10_concurrency.ts supabase/tests/phase10_checks.ts supabase/tests/phase10_faults.ts supabase/tests/phase10_acceptance.ts supabase/functions supabase/tests/phase9d_environment.ts supabase/tests/blockchain_verification_integration.ts supabase/tests/phase10_acceptance.ts supabase/tests/phase9e_checks.ts supabase/tests/phase9e_preflight.mjs supabase/tests/local_issuance_fixture.mjs mobile/tool/blockchain_verification_browser.mjs mobile/tool/browser_harness.mjs mobile/tool/browser_harness_test.mjs mobile/tool/release_verification_browser.mjs mobile/tool/public_verification_requests.mjs
+          npx --yes deno@2.2.12 lint supabase/tests/phase10_evidence.mjs supabase/tests/phase10_evidence.test.mjs supabase/tests/phase10_gateway_policy.ts supabase/tests/phase10_gateway_policy_test.ts supabase/tests/phase10_gateway_probe.ts supabase/tests/phase10_backend.ts supabase/tests/phase10_deployments.ts supabase/tests/phase10_concurrency.ts supabase/tests/phase10_checks.ts supabase/tests/phase10_faults.ts supabase/tests/phase10_acceptance.ts supabase/functions supabase/tests/phase9d_environment.ts supabase/tests/blockchain_verification_integration.ts supabase/tests/phase10_acceptance.ts supabase/tests/phase9e_checks.ts supabase/tests/phase9e_preflight.mjs
           npx --yes deno@2.2.12 check --frozen --config supabase/functions/deno.json supabase/tests/phase10_acceptance.ts supabase/tests/phase10_gateway_probe.ts supabase/functions/verify-certificate-v2/index.ts supabase/functions/certificate-opening/index.ts supabase/functions/revoke-certificate/index.ts supabase/functions/revocation-progress/index.ts supabase/functions/reauthorize-revocation/index.ts supabase/functions/verify-certificate-v3/index.ts
           npx --yes deno@2.2.12 test --frozen --config supabase/functions/deno.json supabase/functions supabase/tests/phase10_gateway_policy_test.ts
       - name: Flutter domain, adapters and widgets without camera
@@ -59,7 +63,7 @@ jobs:
           dart format --output=none --set-exit-if-changed lib test tool
           flutter analyze
           flutter test
-          node --test tool/browser_harness_test.mjs
+          node --test tool/browser_harness_test.mjs ../supabase/tests/phase10_evidence.test.mjs ../supabase/tests/edge_runtime_test.mjs
       - name: Own runner database, schema and permissions before mutable fixtures
         run: |
           node supabase/tests/phase9e_preflight.mjs --phase10
@@ -79,6 +83,14 @@ jobs:
           npx --yes deno@2.2.12 run --allow-all --frozen --config supabase/functions/deno.json supabase/tests/phase10_acceptance.ts
       - name: Whitespace
         run: git diff --check
+      - name: Stop owned runner stack and finalize current evidence
+        if: always()
+        run: |
+          cleanup=NOT_RUN
+          if command -v supabase >/dev/null 2>&1; then
+            if supabase stop --no-backup; then cleanup=PASS; else cleanup=FAIL; fi
+          fi
+          node supabase/tests/phase10_evidence.mjs finish "${{ job.status == 'success' && '0' || '1' }}" "$cleanup"
       - name: Sanitized summary only
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -86,10 +98,8 @@ jobs:
           name: phase10-summary
           path: |
             mobile/build/phase10-evidence/preflight.json
+            mobile/build/phase10-evidence/run.json
             mobile/build/phase10-evidence/result.json
             mobile/build/phase10-evidence/browser.json
           if-no-files-found: error
           retention-days: 7
-      - name: Stop owned runner stack
-        if: always()
-        run: supabase stop --no-backup

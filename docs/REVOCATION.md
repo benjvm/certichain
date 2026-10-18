@@ -1,5 +1,15 @@
 # Revocación — Fase 10
 
+## Aceptación integrada 10E — 18/10/2026
+
+El registro vigente, matriz y evidencia nueva están en
+[PHASE10_ACCEPTANCE](PHASE10_ACCEPTANCE.md). Se reutiliza run_phase10.ps1 y
+main.dart release: emisión/PDF/wallet, decisión SQL, sincronización y evidencia
+issue/revoke. Informes unidos por run_id, SHA/dirty y fecha; los anteriores se
+archivan y nunca acreditan otra pasada. No-store del handler obligatorio; solo
+excepción JWT genérica previa identificada, con FAIL estricto visible. Alojado
+NOT_RUN. Los apartados siguientes conservan el contexto de cada revisión.
+
 ## Revisión del cliente 10D — 18/10/2026
 
 [Aceptación nueva y límites](PHASE10D_ACCEPTANCE.md). Motivo NFC/puntos Unicode,
@@ -75,7 +85,8 @@ es booleano interno obligatorio solo en la solicitud; nunca se expone ni permite
 que progreso/reautorización devuelvan 202. UUID admite mayúsculas y se normaliza
 a minúsculas, sin espacios ni saltos de línea. Un deadline del cuerpo da 503.
 
-Pendiente detectado en la revisión 10B: el 401 del gateway JWT local de Supabase
+**Registro histórico del requisito estricto anterior (16/10; no es el dictamen vigente):**
+el 401 del gateway JWT local de Supabase
 CLI 2.117.0 ocurre antes del handler y no añade Cache-Control. La garantía no-store
 del handler incluye sus errores, pero no acredita ese rechazo previo. Se conserva
 verify_jwt=true: cerrar el requisito HTTP extremo a extremo exige corregir la
@@ -126,6 +137,13 @@ y divergencia incompatible. El receipt original de issue nunca se reemplaza.
 
 ## Pasos MANUALES del operador (no ejecutados remotamente aquí)
 
+No ejecutar estos comandos como parte de la aceptación local. Placeholders:
+IDs/configuración existentes revisados, nunca secretos. Confirmar backup
+recuperable de PostgreSQL, Storage y ledger/bytes durables, vínculo de proyecto
+y manifiesto vivo antes de escribir. Se presupone la base 7B/9D publicada:
+emisión, PDF, anclaje/progreso/reautorización/apertura y públicos v1/v2/compare;
+si falta, revisar sus guías/configuración antes de publicar el cliente v3.
+
 1. Revisar backup/vínculo y aplicar **solo migraciones nuevas**, en orden:
    `20261015100000_irreversible_revocation.sql` y
    `20261015110000_revocation_public_v3.sql` y
@@ -146,6 +164,10 @@ y divergencia incompatible. El receipt original de issue nunca se reemplaza.
    argumentos con claves ni cuentas RPC desbloqueadas. Para suspended, conservar
    revoke y retirar issue; ACTOR_PLATFORM/DEPLOYMENT/INSTITUTION/I/SIGNER/KEY son
    valores existentes revisados, no literales para ejecutar:
+
+   KEY es un UUID de idempotencia administrativa, no una clave privada. Las
+   claves de firma/administración se suministran únicamente por las variables
+   privadas del backend en sesiones separadas; nunca como argumentos o Flutter.
 
    ```powershell
    npx --yes deno@2.2.12 run --allow-env --allow-net --frozen --config supabase/functions/deno.json supabase/admin/blockchain.ts configure ACTOR_PLATFORM DEPLOYMENT INSTITUTION I SIGNER false true KEY
@@ -202,6 +224,13 @@ y divergencia incompatible. El receipt original de issue nunca se reemplaza.
    financiar signers reales como parte de esta aceptación.
 
 ## Demo local
+
+Un rollback del cliente/despliegue de aplicación **no** revierte SQL revoked.
+Tras interrupción: conservar operaciones, ledger, intentos/receipts y PDF;
+esperar lease legítimo y observar con el worker recuperado. Corregir saldo,
+permisos e identidad antes de reautorizar; unknown no permite saltar nonce.
+Divergence/reset/writes_stopped requieren recuperación operativa de identidad
+exacta según BLOCKCHAIN_OPERATIONS, sin cambio implícito de deployment.
 
 ```powershell
 $env:CERTICHAIN_TEST_CAMERA='0'

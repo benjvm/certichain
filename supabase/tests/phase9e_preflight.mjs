@@ -4,8 +4,12 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { lock, verifyVersions } from "../../blockchain/scripts/common.mjs";
 import { sourceRevision } from "../../mobile/tool/browser_harness.mjs";
+import { evidenceContext } from "./phase10_evidence.mjs";
 
 const backendOnly = process.argv.includes("--backend-only");
+const context = process.argv.includes("--phase10")
+  ? evidenceContext(process.cwd())
+  : sourceRevision(process.cwd());
 const run = (command, args) => {
   const result =
     process.platform === "win32" && ["flutter", "npx"].includes(command)
@@ -71,7 +75,7 @@ writeFileSync(
   resolve(evidence, "preflight.json"),
   JSON.stringify(
     {
-      ...sourceRevision(process.cwd()),
+      ...context,
       evaluated_at: new Date().toISOString(),
       versions,
       result: "PASS",
@@ -84,12 +88,18 @@ writeFileSync(
   resolve(evidence, "result.json"),
   JSON.stringify(
     {
-      ...sourceRevision(process.cwd()),
+      ...context,
       evaluated_at: new Date().toISOString(),
       result: "NOT_RUN",
       mode: backendOnly ? "backend-only" : "full",
       reason: "Acceptance has not completed",
       versions,
+      flutter: "NOT_RUN",
+      cleanup: "NOT_RUN",
+      stack_cleanup: "NOT_RUN",
+      camera: "NOT_RUN",
+      camera_reason:
+        "Omitidas por instrucción del usuario; no hay cámara física disponible",
     },
     null,
     2,

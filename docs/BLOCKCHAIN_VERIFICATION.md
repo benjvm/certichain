@@ -1,5 +1,15 @@
 # Verificación blockchain y apertura — Fase 9D
 
+## Aceptación integrada 10E — 18/10/2026
+
+[Resultados y matriz vigentes](PHASE10_ACCEPTANCE.md). V3 añade decisión SQL y
+evidencia revoke, sin reemplazar issue ni ampliar v1/v2/compare v1. Durante demora,
+RPC caído/reorg/divergencia, SQL revocado no se presenta como vigente. Evidencia
+previa fechada sin atribución actual; Anvil no acredita PoS. Comparación PDF y
+apertura demuestran relación/integridad, nunca vigencia. El viaje release usa
+las utilidades de contadores existentes sin relajar una consulta por arranque/
+recarga/navegación. Sin motivo, actor o datos operativos privados públicos.
+
 ## Incremento local de revocación — 15/10/2026
 
 [REVOCATION](REVOCATION.md) define los endpoints Auth, motivo/auditoría privados,
