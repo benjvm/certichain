@@ -85,3 +85,27 @@ nonces, reorg y finalidad; no simular aceptación de testnet con resultados loca
 - [Configuración del compilador](https://docs.soliditylang.org/en/v0.8.37/using-the-compiler.html).
 - [OpenZeppelin v5.7.0](https://github.com/OpenZeppelin/openzeppelin-contracts/releases/tag/v5.7.0).
 - [Ownable2Step fijado](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v5.7.0/contracts/access/Ownable2Step.sol).
+
+## Transporte de la toolchain fijada — 18/10/2026
+
+El bootstrap conserva versiones/commits, tags, SHA-256, digest oficial de la release
+y comprobaciones de binarios/dependencias instalados. No cambia ABI ni contrato.
+Su transporte usa opcionalmente CERTICHAIN_GITHUB_API_TOKEN; en Actions se inyecta
+el GITHUB_TOKEN efímero integrado únicamente en el paso bootstrap, contents:read,
+checkout sin credenciales persistidas. No se requiere PAT ni secreto manual.
+Solo se añade Authorization al origen exacto HTTPS https://api.github.com.
+Redirecciones manuales reconstruyen cabeceras; assets, codeload, mirrors y otros
+orígenes nunca reciben ese token. Se rechazan downgrade y userinfo en redirects.
+
+403 sin evidencia positiva se considera definitivo, no se etiqueta rate limit.
+429, 408 y 500/502/503/504, fallos de red identificados y 403 con Retry-After o
+remaining=0/reset válido admiten hasta tres intentos, con presupuesto total de
+120 segundos. Se respeta Retry-After/reset; si exceden el presupuesto se falla
+sin reintentar antes. TLS/denegación permanente no se reintentan. Diagnóstico
+cerrado: status, clasificación, contadores/reset/retry y request-id validado;
+nunca autorización, tokens, querystrings, cuerpos ni excepción upstream arbitraria.
+
+Referencias oficiales: [errores REST](https://docs.github.com/en/rest/using-the-rest-api/troubleshooting-the-rest-api),
+[buenas prácticas/reintentos](https://docs.github.com/en/rest/using-the-rest-api/best-practices-for-using-the-rest-api),
+[GITHUB_TOKEN](https://docs.github.com/en/actions/tutorials/authenticate-with-github_token).
+El 403 observado en CI 39130026918 no tenía estos datos: causa precisa desconocida.

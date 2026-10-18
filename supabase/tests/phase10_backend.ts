@@ -1,4 +1,9 @@
 // 10B only. Real Auth/Edge/SQL; transport barriers belong solely to this harness.
+import {
+  gatewayObservation,
+  gatewayPolicy,
+  privateRoutes,
+} from "./phase10_gateway_policy.ts";
 import { createServer } from "node:http";
 import { once } from "node:events";
 import { spawnSync } from "node:child_process";
@@ -37,15 +42,6 @@ export async function phase10GatewayCache(
 ) {
   const config = readFileSync("supabase/config.toml", "utf8");
   const expired = expiredFixtureToken(env);
-  const safeCodes = new Set([
-    "UNAUTHORIZED_NO_AUTH_HEADER",
-    "UNAUTHORIZED_INVALID_JWT_FORMAT",
-    "UNAUTHORIZED_ASYMMETRIC_JWT",
-    "UNAUTHORIZED_LEGACY_JWT",
-    "unauthenticated",
-    "invalid_input",
-    "revocation_unavailable",
-  ]);
   const observations = [];
   async function probe(
     endpoint: string,
@@ -67,33 +63,19 @@ export async function phase10GatewayCache(
         signal: AbortSignal.timeout(15000),
       },
     );
-    const data = await response.json().catch(() => ({}));
-    const code = data?.error ?? data?.code;
-    const gatewayCode = response.headers.get("sb-error-code");
-    return {
+    const observation = await gatewayObservation(
       endpoint,
       scenario,
-      status: response.status,
-      expected_status: expectedStatus,
-      cache_control: response.headers.get("cache-control"),
-      error_code: code == null
-        ? null
-        : safeCodes.has(code)
-        ? code
-        : "unexpected",
-      sb_error_code: gatewayCode === null
-        ? null
-        : safeCodes.has(gatewayCode)
-        ? gatewayCode
-        : "unexpected",
-    };
+      response,
+      env.f.legacy,
+    );
+    if (observation.expected_status !== expectedStatus) {
+      throw new Error("Unexpected gateway test scenario");
+    }
+    return observation;
   }
   for (
-    const endpoint of [
-      "revoke-certificate",
-      "revocation-progress",
-      "reauthorize-revocation",
-    ]
+    const endpoint of privateRoutes
   ) {
     const section = config.match(
       new RegExp(`\\[functions\\.${endpoint}\\]([^]*?)(?=\\n\\[|$)`),
@@ -129,34 +111,7 @@ export async function phase10GatewayCache(
       404,
     ),
   );
-  const authentication = observations.every((r) =>
-    r.status === r.expected_status &&
-    (r.scenario === "no_token"
-      ? r.sb_error_code === "UNAUTHORIZED_NO_AUTH_HEADER"
-      : r.scenario === "invalid_token"
-      ? r.sb_error_code === "UNAUTHORIZED_INVALID_JWT_FORMAT"
-      : r.scenario === "expired_token"
-      ? ["UNAUTHORIZED_ASYMMETRIC_JWT", "UNAUTHORIZED_LEGACY_JWT"].includes(
-        r.sb_error_code ?? "",
-      )
-      : r.sb_error_code === null &&
-        r.error_code ===
-          (r.scenario === "valid_owner_authorized"
-            ? null
-            : r.scenario === "valid_foreign_denied"
-            ? "revocation_unavailable"
-            : r.scenario === "anonymous_api_jwt"
-            ? "unauthenticated"
-            : "invalid_input"))
-  );
-  const noStore = observations.every((r) => r.cache_control === "no-store");
-  return {
-    result: authentication && noStore ? "PASS" : "FAIL",
-    authentication_result: authentication ? "PASS" : "FAIL",
-    cache_control_result: noStore ? "PASS" : "FAIL",
-    verify_jwt: true,
-    observations,
-  };
+  return gatewayPolicy(observations);
 }
 
 export async function phase10Backend(

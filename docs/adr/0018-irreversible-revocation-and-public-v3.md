@@ -54,3 +54,26 @@ Alternativas descartadas: pending_revocation público, esperar EVM antes de SQL,
 motivo en calldata/metadata, authorize_issuance para revoke, nuevo ledger,
 salts nuevos, inventar auditoría histórica, cambiar v1/v2 silenciosamente o saltar
 nonces desconocidos. No hay nuevas dependencias de producto.
+
+## Enmienda autorizada de 10B — 18/10/2026
+
+Todas las respuestas de los handlers privados CertiChain deben incluir
+Cache-Control: no-store. Se acepta como limitación externa conocida la ausencia
+exclusiva de esa cabecera en el rechazo JWT genérico previo al handler de la
+infraestructura Supabase identificada y comprobada. Justificación: el main service
+de CLI responde antes del worker y su configuración soportada no permite ajustar
+esa respuesta; el cuerpo genérico no expone datos de certificados ni identidad.
+No se ha demostrado caché efectiva ni fuga. No justifica una nueva capa proxy.
+
+La excepción exige escenario sin token/inválido/firmado expirado, 401, código
+Supabase conocido concordante con el escenario y cuerpo genérico cerrado compatible.
+[Política y evidencia exactas](../PHASE10B_GATEWAY.md). Falta de cabecera en el
+handler, mensajes privados, respuestas inesperadas o errores de red siguen siendo
+fallos. Si Supabase incorpora no-store, se reconoce sin aplicar excepción.
+
+No cambia verify_jwt=true, validación adicional de sesión contra Auth real,
+autorización SQL owner/admin vigente ni contratos v1/v2/v3. El diagnóstico estricto
+y los FAIL históricos permanecen visibles, separados del gate revisado. La
+observación local no acredita infraestructura alojada: requiere prueba autorizada
+del entorno objetivo. Una corrección upstream o del gateway existente controlado
+podrá eliminar esta limitación tras repetir la matriz, sin debilitar autenticación.

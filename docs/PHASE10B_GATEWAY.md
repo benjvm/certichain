@@ -1,5 +1,53 @@
 # 10B — diagnóstico de Cache-Control anterior al handler
 
+## Requisito revisado autorizado — 18/10/2026
+
+Esta sección prevalece sobre el requisito estricto histórico inferior. Por decisión
+explícita del usuario se acepta exclusivamente la ausencia de Cache-Control en
+rechazos JWT genéricos **anteriores al handler**, emitidos por la infraestructura
+Supabase identificada. Todas las respuestas de los handlers CertiChain conservan
+`Cache-Control: no-store`, incluidos 200/202 y errores 400/401/404/409/413/503.
+No se ha corregido Supabase local ni alojado. No se añade proxy ni se parchean
+contenedores. Se mantienen verify_jwt=true, Auth real y autorización SQL vigente.
+Decisión normativa: [enmienda ADR-0018](adr/0018-irreversible-revocation-and-public-v3.md).
+
+El harness inspecciona los bytes/cuerpo en memoria: JSON UTF-8 cerrado, sin claves
+duplicadas ni adicionales, sin texto upstream arbitrario. Solo admite las tres
+rutas privadas y los escenarios sin token, Bearer inválido y token firmado
+expirado; exige HTTP 401, `sb-error-code` y `code` coincidentes y mensaje genérico
+conocido: UNAUTHORIZED_NO_AUTH_HEADER / Missing authorization header,
+UNAUTHORIZED_INVALID_JWT_FORMAT / Invalid JWT format,
+UNAUTHORIZED_ASYMMETRIC_JWT o UNAUTHORIZED_LEGACY_JWT / Invalid JWT.
+`msg`, si existe, debe repetir exactamente message. La cabecera debe estar ausente
+para aplicar la excepción; `public` u otro valor no son aceptables. Si llega
+no-store, se registra cumplimiento observado sin excepción.
+
+Un 401 del handler, estado/código inesperado, fallo de red, cuerpo malformado o
+datos privados no se acogen a la excepción. La matriz debe contener exactamente
+los 17 pares ruta/escenario, sin sustituciones ni duplicados. Informes sanitizados
+retienen solo códigos cerrados, estado y cabecera allowlist, resultados de Auth,
+privacidad y no-store de la aplicación; nunca bodies, identidades o credenciales.
+`cache_control_result` sigue siendo el diagnóstico estricto: FAIL si falta alguna
+cabecera. `result` evalúa el requisito revisado y `external_exception_count` y cada
+`external_exception_applied` hacen visible su uso. Ese FAIL no se convierte en
+PASS ni desaparece; simplemente deja de bloquear globalmente el recorrido Web.
+
+Nueva reproducción real local: probe iniciado **2026-10-18T13:29:46.108Z** sobre
+API `http://127.0.0.1:55321`, CLI 2.117.0 y runtime sin modificar. Mismas peticiones
+inocuas de la sección histórica. Las tres rutas: sin token/inválido/expirado 401,
+Cache-Control ausente, nueve excepciones reconocidas; ocho respuestas del handler
+con no-store. Auth/autorización 17/17 PASS, privacidad PASS, no-store aplicación
+PASS, diagnóstico estricto FAIL, aceptación revisada PASS (exit 0), cleanup PASS.
+Alojado **NOT_RUN**: no se extrapolan cabeceras ni una corrección a ese entorno.
+El informe es `mobile/build/phase10-evidence/gateway-probe.json`; los archivos
+anteriores se archivaron en su subdirectorio history antes de repetir la prueba.
+
+Nueva aceptación backend e integral del 18/10: **PASS**, 256 escenarios en cada
+pasada y 177 aserciones Web release. **10B cerrada bajo el requisito revisado**;
+[detalle, límites y estado de CI](PHASE10_ACCEPTANCE.md).
+
+## Evidencia histórica — requisito estricto del 16/10/2026
+
 16/10/2026. Continuación de [la revisión 10B](PHASE10_ACCEPTANCE.md), en main/HEAD
 `ae97f35859e20b470c4dbdde20a2cb84eff0aae0` con los cambios locales anteriores
 preservados. No se ha corregido infraestructura alojada ni cerrado 10B.

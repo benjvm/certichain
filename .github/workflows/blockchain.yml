@@ -26,7 +26,15 @@ jobs:
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 24.14.0
+      - name: Download transport regressions
+        run: |
+          npx --yes deno@2.2.12 fmt --check scripts/bootstrap.mjs scripts/download.mjs scripts/download.test.mjs
+          npx --yes deno@2.2.12 lint scripts/bootstrap.mjs scripts/download.mjs scripts/download.test.mjs
+          npx --yes deno@2.2.12 check --frozen --config ../supabase/functions/deno.json scripts/download.mjs
+          node --test scripts/download.test.mjs
       - name: Verify tags, official checksums and frozen dependency archives
+        env:
+          CERTICHAIN_GITHUB_API_TOKEN: ${{ github.token }}
         run: node scripts/bootstrap.mjs
       - name: Format, build, unit, fuzz, invariants, coverage, gas, artifacts and real Anvil RPC
         run: node scripts/validate.mjs

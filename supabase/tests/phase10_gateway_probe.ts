@@ -1,5 +1,5 @@
 // Local disposable diagnostic, through Kong + the unmodified CLI main service.
-// A successful auth matrix never turns a missing no-store header into PASS.
+// Revised acceptance and strict missing-header diagnostic are reported separately.
 import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fixture } from "./local_issuance_fixture.mjs";
@@ -44,7 +44,10 @@ try {
     suite: "phase10-gateway",
     result: report.result,
     authentication: report.authentication_result,
-    cache_control: report.cache_control_result,
+    strict_gateway_cache_control: report.cache_control_result,
+    application_no_store: report.application_no_store_result,
+    privacy: report.privacy_result,
+    external_exception_count: report.external_exception_count,
     hosted: report.hosted,
     camera: report.camera,
   }));

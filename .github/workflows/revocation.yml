@@ -23,9 +23,18 @@ jobs:
       - uses: supabase/setup-cli@1dedf2c611547ede7232d26866dd3c56ab903bbb
         with:
           version: 2.117.0
+      - name: Download transport regressions
+        run: |
+          npx --yes deno@2.2.12 fmt --check blockchain/scripts/bootstrap.mjs blockchain/scripts/download.mjs blockchain/scripts/download.test.mjs
+          npx --yes deno@2.2.12 lint blockchain/scripts/bootstrap.mjs blockchain/scripts/download.mjs blockchain/scripts/download.test.mjs
+          npx --yes deno@2.2.12 check --frozen --config supabase/functions/deno.json blockchain/scripts/download.mjs
+          node --test blockchain/scripts/download.test.mjs
+      - name: Verify pinned toolchain downloads
+        env:
+          CERTICHAIN_GITHUB_API_TOKEN: ${{ github.token }}
+        run: node blockchain/scripts/bootstrap.mjs
       - name: Frozen normal contract and ABI
         run: |
-          node blockchain/scripts/bootstrap.mjs
           node blockchain/scripts/forge.mjs build --force
           node blockchain/scripts/artifacts.mjs --check
           node blockchain/scripts/backend-abi.mjs --check
@@ -40,10 +49,10 @@ jobs:
           node tool/prepare_decoder.mjs --check
       - name: Format, lint, strict types and backend regression tests
         run: |
-          npx --yes deno@2.2.12 fmt --check supabase/tests/phase10_gateway_probe.ts supabase/tests/phase10_backend.ts supabase/tests/phase10_deployments.ts supabase/tests/phase10_concurrency.ts supabase/tests/phase10_checks.ts supabase/tests/phase10_faults.ts supabase/tests/phase10_acceptance.ts supabase/functions supabase/tests/phase9d_environment.ts supabase/tests/blockchain_verification_integration.ts supabase/tests/phase10_acceptance.ts supabase/tests/phase9e_checks.ts supabase/tests/phase9e_preflight.mjs supabase/tests/local_issuance_fixture.mjs mobile/tool/blockchain_verification_browser.mjs mobile/tool/browser_harness.mjs mobile/tool/browser_harness_test.mjs mobile/tool/release_verification_browser.mjs mobile/tool/public_verification_requests.mjs
-          npx --yes deno@2.2.12 lint supabase/tests/phase10_gateway_probe.ts supabase/tests/phase10_backend.ts supabase/tests/phase10_deployments.ts supabase/tests/phase10_concurrency.ts supabase/tests/phase10_checks.ts supabase/tests/phase10_faults.ts supabase/tests/phase10_acceptance.ts supabase/functions supabase/tests/phase9d_environment.ts supabase/tests/blockchain_verification_integration.ts supabase/tests/phase10_acceptance.ts supabase/tests/phase9e_checks.ts supabase/tests/phase9e_preflight.mjs
+          npx --yes deno@2.2.12 fmt --check supabase/tests/phase10_gateway_policy.ts supabase/tests/phase10_gateway_policy_test.ts supabase/tests/phase10_gateway_probe.ts supabase/tests/phase10_backend.ts supabase/tests/phase10_deployments.ts supabase/tests/phase10_concurrency.ts supabase/tests/phase10_checks.ts supabase/tests/phase10_faults.ts supabase/tests/phase10_acceptance.ts supabase/functions supabase/tests/phase9d_environment.ts supabase/tests/blockchain_verification_integration.ts supabase/tests/phase10_acceptance.ts supabase/tests/phase9e_checks.ts supabase/tests/phase9e_preflight.mjs supabase/tests/local_issuance_fixture.mjs mobile/tool/blockchain_verification_browser.mjs mobile/tool/browser_harness.mjs mobile/tool/browser_harness_test.mjs mobile/tool/release_verification_browser.mjs mobile/tool/public_verification_requests.mjs
+          npx --yes deno@2.2.12 lint supabase/tests/phase10_gateway_policy.ts supabase/tests/phase10_gateway_policy_test.ts supabase/tests/phase10_gateway_probe.ts supabase/tests/phase10_backend.ts supabase/tests/phase10_deployments.ts supabase/tests/phase10_concurrency.ts supabase/tests/phase10_checks.ts supabase/tests/phase10_faults.ts supabase/tests/phase10_acceptance.ts supabase/functions supabase/tests/phase9d_environment.ts supabase/tests/blockchain_verification_integration.ts supabase/tests/phase10_acceptance.ts supabase/tests/phase9e_checks.ts supabase/tests/phase9e_preflight.mjs
           npx --yes deno@2.2.12 check --frozen --config supabase/functions/deno.json supabase/tests/phase10_acceptance.ts supabase/tests/phase10_gateway_probe.ts supabase/functions/verify-certificate-v2/index.ts supabase/functions/certificate-opening/index.ts supabase/functions/revoke-certificate/index.ts supabase/functions/revocation-progress/index.ts supabase/functions/reauthorize-revocation/index.ts supabase/functions/verify-certificate-v3/index.ts
-          npx --yes deno@2.2.12 test --frozen --config supabase/functions/deno.json supabase/functions
+          npx --yes deno@2.2.12 test --frozen --config supabase/functions/deno.json supabase/functions supabase/tests/phase10_gateway_policy_test.ts
       - name: Flutter domain, adapters and widgets without camera
         working-directory: mobile
         run: |

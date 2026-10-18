@@ -270,6 +270,21 @@ Otros pendientes humanos/plataformas conservan su alcance en
 
 ### Fase 10 — Revocación completa (aceptada para demo Web local, 15/10/2026)
 
+**10B cerrada localmente bajo requisito revisado, 18/10/2026:** no-store obligatorio para toda respuesta del
+handler CertiChain; excepción externa explícita solo para 401 JWT genérico previo
+de Supabase reconocido de forma cerrada. [ADR-0018](adr/0018-irreversible-revocation-and-public-v3.md)
+y [política/diagnóstico](PHASE10B_GATEWAY.md). Se conserva el FAIL estricto histórico;
+no se afirma corrección local/alojada de Supabase. verify_jwt=true, Auth real y
+permisos SQL vigentes intactos. Se corrige también el transporte del bootstrap:
+token efímero de Actions solo en HTTPS api.github.com y paso propio, diagnóstico
+seguro y reintentos acotados identificados, conservando pins e integridad.
+CI **observada FAIL para 741b3a0** (gateway y 403 API, runs en aceptación); la del
+próximo commit queda pendiente. Pruebas/dictamen nuevos en
+[PHASE10_ACCEPTANCE](PHASE10_ACCEPTANCE.md). El texto del 16/10 siguiente conserva
+el requisito estricto anterior como historia. Nueva aceptación backend e integral
+Web: 256 checks y 177 aserciones Web PASS; 10C requiere su revisión específica
+de firmas durables/reconciliación/nonces, conservando las implementaciones existentes.
+
 **Revisión exclusiva 10B, 16/10/2026:** se endurece el DTO privado y se amplía la
 cobertura Auth/HTTP/SQL, incluida pérdida real de respuesta tras commit. La
 migración correctora 20261016110000 devuelve 404 uniforme para reautorización de
@@ -290,7 +305,7 @@ tardía, reorg y divergencia, conservar completed/PDF y escrituras directas cerr
 Entrega 10A–10E: decisión SQL privada inmediata e irreversible, Auth/idempotencia,
 ledger/worker revoke, cliente institucional y evidencia pública v3 explícita.
 [Contrato y operación](REVOCATION.md), [aceptación y dictamen](PHASE10_ACCEPTANCE.md),
-[ADR-0018](adr/0018-irreversible-revocation-and-public-v3.md). Aceptación real Web y backend completada; CI fase 10 NOT_OBSERVED;
+[ADR-0018](adr/0018-irreversible-revocation-and-public-v3.md). Aceptación histórica Web y backend completada; CI de aquella entrega NOT_OBSERVED;
 ningún run anterior acredita estos cambios.
 
 ## Etapas conceptuales del MVP

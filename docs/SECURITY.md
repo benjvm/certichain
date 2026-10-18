@@ -1,5 +1,20 @@
 # Seguridad y privacidad
 
+## Política vigente de no-store 10B — 18/10/2026
+
+El usuario autoriza una excepción externa limitada: ausencia de Cache-Control
+solo en rechazos JWT genéricos de Supabase anteriores al handler, identificados
+por escenario esperado, 401, código conocido y cuerpo genérico cerrado inspeccionado
+en memoria. [Detalle y evidencia](PHASE10B_GATEWAY.md),
+[enmienda ADR-0018](adr/0018-irreversible-revocation-and-public-v3.md).
+Todas las respuestas CertiChain siguen requiriendo no-store, incluso sus 401 y
+503. No se exceptúan errores de red, estados/códigos inesperados ni contenido
+privado. Los informes no retienen bodies/tokens/identidades ni mensajes arbitrarios.
+Si la plataforma añade la cabecera se reconoce cumplimiento sin excepción.
+verify_jwt=true, Auth real y permisos actuales SQL owner/admin siguen obligatorios.
+Se conserva el FAIL estricto histórico separado del nuevo gate. No hay proxy,
+parches a Supabase ni evidencia alojada; el apartado del 16/10 conserva su contexto.
+
 ## Revisión específica 10B — 16/10/2026
 
 Se conserva Auth real y verify_jwt=true en los tres endpoints. Actor del ID Auth;

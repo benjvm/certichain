@@ -1,5 +1,56 @@
 # Estrategia de pruebas
 
+## Revisión vigente 10B y transporte de toolchain — 18/10/2026
+
+[Política y evidencia](PHASE10B_GATEWAY.md), [ejecuciones nuevas](PHASE10_ACCEPTANCE.md).
+La excepción autorizada solo cubre ausencia de no-store en 401 genérico Supabase
+previo al handler, con escenario/código/cuerpo cerrado conocidos. El probe y la
+aceptación conservan las 17 peticiones reales, verify_jwt=true y Auth adicional.
+Informan Auth/autorización, privacidad, no-store de aplicación, cabecera observada,
+conteo/uso de excepción, diagnóstico estricto y resultado revisado por separado.
+No se oculta el FAIL estricto ni se cambia retrospectivamente la evidencia inferior.
+Datos privados se inspeccionan solo en memoria; los informes son DTO sanitizados.
+
+Resultados nuevos: probe revisado PASS (diagnóstico estricto FAIL, nueve
+excepciones), backend-only 256 PASS, integral 256 PASS + 177 aserciones Web,
+anclaje independiente 163 PASS; 970 SQL por runner, preservación/lint/cleanup PASS.
+Deno 252 PASS, Node transporte+harness blockchain 10 PASS, Foundry 28 PASS,
+Flutter 241 PASS/12 SKIP cámara. Detalle de versiones/horas e informes en aceptación.
+
+Regresiones deterministas nuevas: 19 Deno para política completa, no-store obligatorio
+del handler (incluidos 400/401/404/409/413/503 y éxito), estado/código inesperados,
+respuesta/cabecera privada, JSON/UTF-8/duplicados, tamaño/red y mejora upstream sin
+excepción innecesaria. Ocho Node para token opcional/origen exacto HTTPS API,
+redirects sin credenciales en assets/codeload/mirrors, 403 definitivo frente a rate
+limit identificado, Retry-After/reset, fallos recuperables, presupuesto e intentos.
+No hay sleeps de prueba: reloj, fetch y espera inyectados en el transporte.
+La configuración y las descargas reales siguen verificándose por el bootstrap.
+
+Reproducir con Node 24.14.0 y CLI 2.117.0; Flutter 3.47.4 para modo integral:
+
+```powershell
+$env:CERTICHAIN_TEST_CAMERA='0'
+node --test blockchain/scripts/download.test.mjs blockchain/scripts/harness.test.mjs
+npx --yes deno@2.2.12 check --frozen --config supabase/functions/deno.json blockchain/scripts/download.mjs supabase/tests/phase10_gateway_probe.ts supabase/tests/phase10_acceptance.ts
+npx --yes deno@2.2.12 test --frozen --config supabase/functions/deno.json supabase/functions supabase/tests/phase10_gateway_policy_test.ts
+node blockchain/scripts/bootstrap.mjs
+node blockchain/scripts/forge.mjs build --force
+node blockchain/scripts/artifacts.mjs --check
+node blockchain/scripts/backend-abi.mjs --check
+./supabase/tests/run_phase10.ps1 -BackendOnly
+./supabase/tests/run_phase10.ps1
+./supabase/tests/run_phase9c.ps1
+```
+
+Fmt/lint de los archivos afectados, actionlint y regresiones Flutter/harness se
+mantienen; los cuatro workflows consumidores prueban el transporte y limitan el
+token integrado al paso bootstrap con contents:read. No se introducen omisiones
+generales ni continue-on-error. Cada integración utiliza stack propio y finally;
+el stack habitual no se resetea. Los resultados nuevos no equivalen a futura CI.
+Cámara SKIP/NOT_RUN, exclusivamente captura/permisos/ciclo de vida, con motivo:
+«Omitidas por instrucción del usuario; no hay cámara física disponible».
+QR estático, códigos/enlaces manuales, PDF, Auth, SQL y EVM siguen ejecutándose.
+
 ## Probe específico del gateway 10B — 16/10/2026
 
 [Reproducción y límites](PHASE10B_GATEWAY.md). phase10_gateway_probe.ts reutiliza

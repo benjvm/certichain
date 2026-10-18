@@ -63,7 +63,7 @@ try {
       summary.phase10b_gateway_cache = gatewayCache;
       check(
         gatewayCache.result === "PASS",
-        "10B gateway JWT errors also require Cache-Control no-store before handler",
+        "10B revised gateway policy: Auth, privacy and application no-store; generic infrastructure exception visible",
       );
     },
     onScenario: (scenario) => scenarios.push(scenario),

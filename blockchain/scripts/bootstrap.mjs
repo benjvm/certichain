@@ -1,5 +1,6 @@
 // Standard library only. Installs verified archives, never nested Git repositories.
 import assert from "node:assert/strict";
+import process from "node:process";
 import {
   chmodSync,
   copyFileSync,
@@ -14,6 +15,7 @@ import {
 } from "node:fs";
 import { basename, join, resolve } from "node:path";
 import { lock, root, run, sha256, suffix, verifyVersions } from "./common.mjs";
+import { fetchChecked } from "./download.mjs";
 
 const platform = `${process.platform}-${process.arch}`;
 assert(
@@ -24,11 +26,6 @@ const downloadDir = resolve(root, ".tools/downloads");
 mkdirSync(downloadDir, { recursive: true });
 mkdirSync(resolve(root, ".tools/bin"), { recursive: true });
 mkdirSync(resolve(root, "lib"), { recursive: true });
-async function fetchChecked(url) {
-  const response = await fetch(url, { signal: AbortSignal.timeout(120_000) });
-  assert(response.ok, `Download failed: ${response.status} ${url}`);
-  return Buffer.from(await response.arrayBuffer());
-}
 async function download(entry) {
   const destination = join(downloadDir, basename(new URL(entry.url).pathname));
   if (!existsSync(destination)) {

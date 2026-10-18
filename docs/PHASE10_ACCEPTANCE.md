@@ -1,5 +1,91 @@
 # Aceptación de revocación — Fase 10
 
+## Revisión y requisito vigentes — 18/10/2026
+
+Base main/HEAD `741b3a02f5f72e69e7cb790c1806a8e00057ce14`, árbol inicial limpio.
+Los cambios locales de esta revisión se identifican como dirty=true; no se han
+publicado ni desplegado. Se aplica la excepción explícita de
+[ADR-0018](adr/0018-irreversible-revocation-and-public-v3.md) y
+[PHASE10B_GATEWAY](PHASE10B_GATEWAY.md): no-store obligatorio para los handlers;
+solo el 401 JWT genérico previo reconocido puede carecer de la cabecera. La
+observación estricta continúa FAIL y no se atribuye una corrección a Supabase.
+
+CI consultada para ese SHA: [revocación, run 39130026892](https://github.com/benjvm/certichain/actions/runs/39130026892),
+job 117683117339, 251 escenarios PASS y uno FAIL en el gate estricto del gateway;
+Flutter Web de aceptación NOT_RUN, aunque los tests Flutter previos pasaron.
+[Anclaje, run 39130026918](https://github.com/benjvm/certichain/actions/runs/39130026918),
+job 117683117039, falló en bootstrap con 403 de la release API de Solidity. Esos
+logs no incluyen evidencia para afirmar rate limit; etapas posteriores NOT_RUN.
+Ambos FAIL históricos se conservan. La CI del próximo commit queda pendiente;
+las comprobaciones locales nuevas se registran aparte más abajo.
+
+Cambios de este incremento: política/DTO de evidencia y regresiones del harness,
+gate de aceptación, transporte del bootstrap y sus cuatro workflows consumidores.
+No hay nueva migración, cambios de handlers, SQL, ABI, Solidity ni dependencias.
+Auth real, permisos vigentes, decisión irreversible, alias/idempotencia y PDF/
+publicación completed se conservan. La revisión siguiente de 10C corresponde a
+firmas durables, reconciliación previa, lease/CAS/nonces, reorg, issue tardío y
+obligaciones por deployment.
+
+Archivos modificados: `supabase/tests/phase10_backend.ts`,
+`phase10_gateway_probe.ts`, `phase10_acceptance.ts`; nuevos
+`phase10_gateway_policy.ts` y `phase10_gateway_policy_test.ts` en ese directorio.
+`blockchain/scripts/bootstrap.mjs` reutiliza los nuevos `download.mjs` y
+`download.test.mjs`. Workflows `anchoring.yml`, `revocation.yml`, `verification.yml`
+y `blockchain.yml`; README blockchain, PHASE10B_GATEWAY, esta aceptación,
+REVOCATION, SECURITY, TESTING, ROADMAP y ADR-0014/0018. Sin migraciones nuevas.
+
+## Ejecuciones locales nuevas — 18/10/2026
+
+Todas sobre HEAD 741b3a0 con cambios de esta revisión (dirty=true), Windows x64,
+Node 24.14.0, Deno 2.2.12, Supabase CLI 2.117.0, Docker 29.8.2, Foundry 1.8.5 y
+solc 0.8.37. Flutter 3.47.4/Dart 3.13.3/revisión fijada en modo integral.
+
+| Comprobación realmente ejecutada | Resultado nuevo |
+|---|---|
+| Probe gateway real, inicio 13:29:46.108Z | 17 Auth/permisos PASS; aplicación no-store PASS; privacidad PASS; nueve excepciones; diagnóstico estricto FAIL; política revisada PASS; cleanup PASS |
+| `run_phase10.ps1 -BackendOnly`, aceptación desde 13:31:55.58Z | PASS, 256 escenarios; Flutter NOT_RUN; cleanup PASS |
+| `run_phase10.ps1`, aceptación desde 13:36:23.216Z | PASS, 256 escenarios + Web release; cleanup PASS |
+| Web release main.dart, evaluado 13:39:47.048Z | PASS, 177 aserciones, Chrome 155.0.8059.84 |
+| `run_phase9c.ps1`, integración independiente de anclaje | PASS, 163 comprobaciones reales Auth/Edge/Storage/Anvil; 970 pgTAP, lint y cleanup propios PASS |
+| SQL en ambos runners 10 | 970 pgTAP por ejecución; lint y preservación de históricos PASS |
+| Deno funciones + política nueva | 252 PASS, cero FAIL (19 de política) |
+| Descargas Node + harness blockchain | 10 PASS (8 transporte + 2 existentes) |
+| Harness navegador + readiness Edge | 17 PASS, 2 SKIP: cámara y fixture ejecutable Unix en Windows |
+| Flutter formato/análisis/tests | 141 archivos sin cambios; sin incidencias; 241 PASS, 12 SKIP de cámara |
+| Foundry formato/tests | PASS, 28 casos; fuzz 512 y campaña de invariantes 128×64 |
+| Bootstrap real local sin token | PASS: tags, digest/checksums oficiales, SHA-256 y archivos instalados verificados |
+| Build normal, ABI/artefactos congelados y ABI backend | PASS, sin drift |
+| Deno fmt/lint/check (incluido JS con ts-check), actionlint cuatro workflows, enlaces locales, git diff --check | PASS |
+
+Timestamps UTC; los JSON exactos prevalecen sobre los segundos redondeados del
+texto. Informes sanitizados en `mobile/build/phase10-evidence/`: gateway-probe.json,
+backend-only.json, full.json y browser.json. attempts.ndjson conserva pasadas y
+history conserva copias previas a esta revisión; no se reescriben los FAIL del
+16/10 como PASS. La tabla describe estas ejecuciones nuevas exclusivamente.
+
+Web: una emisión, un anchor, una revocación, dos aperturas, siete POST públicos;
+página anónima v1=0/v2=0/v3=6/compare=0. QR de imagen estática, comparación del
+PDF original/alterado, apertura privada, outage RPC, refresh explícito, cambio de
+cuenta y logout PASS. El build release no contiene secretos backend. PDF exacto,
+publicación completed/código/evidencias, decisión irreversible y alias/idempotencia
+se conservan también en las pruebas de pérdida de transporte y concurrencia.
+
+La aceptación backend y la integral muestran Auth/privacidad/aplicación PASS y
+nueve rechazos genéricos con no-store ausente: aceptación revisada PASS, diagnóstico
+estricto FAIL. Alojado, Android/iOS, Firefox/Safari, Sepolia/finalidad PoS y revisión
+humana NOT_RUN; no se amplía su evidencia. Cámara SKIP/NOT_RUN en todas las pasadas:
+«Omitidas por instrucción del usuario; no hay cámara física disponible».
+
+**Dictamen: 10B cerrada localmente bajo el requisito revisado autorizado.** La
+limitación externa sigue visible; no se afirma haber corregido Supabase alojado.
+10C conserva implementación y regresiones ejecutadas; su siguiente revisión
+específica debe auditar firmas durables/replacements, reconciliación, lease/CAS,
+nonces, reorg, issue tardío y obligaciones por deployment. No hay nueva auditoría
+formal de 10C ni despliegue, push, merge o cambios remotos. La CI de estos cambios
+está pendiente del próximo push; los dos runs FAIL de 741b3a0 siguen siendo la CI
+observada para ese SHA.
+
 ## Continuación: diagnóstico del gateway — 16/10/2026
 
 [Prueba, componente responsable, impacto y opciones](PHASE10B_GATEWAY.md).

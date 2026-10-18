@@ -193,3 +193,19 @@ de llamadas normales con fondos no impide ETH forzado por reglas EVM.
 
 Cámara: CERTICHAIN_TEST_CAMERA=0; **NOT_RUN**:
 «Omitidas por instrucción del usuario; no hay cámara física disponible».
+
+## Transporte de descargas y CI — revisión 18/10/2026
+
+`node --test blockchain/scripts/download.test.mjs` prueba sin red la restricción
+de credenciales, redirecciones, diagnóstico y reintentos. Bootstrap local funciona
+sin token. Un entorno local puede suministrar opcionalmente
+`CERTICHAIN_GITHUB_API_TOKEN` sin almacenarlo en archivos/logs. Actions usa su
+token efímero integrado, limitado al paso bootstrap y contents:read. Solo el origen
+exacto HTTPS api.github.com recibe Authorization; assets/codeload/mirrors no.
+
+Hasta tres intentos y 120 s totales para errores recuperables identificados;
+Retry-After/reset se respetan o se falla si no caben en el presupuesto. Un 403
+arbitrario no se reintenta ni se presume rate limit. Se imprimen solo metadatos
+cerrados seguros, nunca bodies o tokens. Tags, SHA-256, digest oficial y validación
+de archivos instalados siguen obligatorios incluso con las descargas ya cacheadas.
+No se cambian pins, ABI ni artefactos. [Decisión completa](../docs/adr/0014-evm-network-toolchain-and-authority.md).

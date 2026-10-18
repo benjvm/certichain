@@ -1,7 +1,19 @@
 # Revocación — Fase 10
 
-Aceptación histórica para demo Web local del 15/10/2026; la revisión específica
-10B del 16/10/2026 y sus límites prevalecen para este incremento:
+## Requisito vigente de cabeceras — 18/10/2026
+
+No-store sigue siendo obligatorio en **todas las respuestas del handler privado**.
+La única excepción autorizada es su ausencia en 401 JWT genéricos emitidos por
+Supabase antes del handler, con ruta/escenario/código/cuerpo cerrado comprobados.
+[Política, diagnóstico estricto y evidencia](PHASE10B_GATEWAY.md),
+[ADR-0018](adr/0018-irreversible-revocation-and-public-v3.md). El gate distingue
+Auth, privacidad, no-store de la aplicación y excepción externa visible. No basta
+cualquier 401. verify_jwt=true, Auth real y autorización SQL no cambian. Alojado
+NOT_RUN. Los pendientes estrictos del 16/10 inferiores son evidencia histórica;
+el nuevo dictamen y pruebas constan en [aceptación](PHASE10_ACCEPTANCE.md).
+
+Aceptación para demo Web local del 15/10 y revisión 10B del 16/10 conservadas
+como historia. El requisito revisado del 18/10 y su dictamen constan en:
 [PHASE10_ACCEPTANCE](PHASE10_ACCEPTANCE.md).
 Decisiones: [ADR-0018](adr/0018-irreversible-revocation-and-public-v3.md).
 
@@ -27,7 +39,7 @@ revoked_at SQL, reason privado nullable y synchronization [{operation_id,status}
 POST `revocation-progress` recibe solo certificate_id y devuelve ese DTO; no cambia
 autorizaciones ni firma. POST `reauthorize-revocation` recibe operation_id de
 revoke, vuelve a autorizar y añade actor/rol/fecha al historial existente; no cambia
-la primera decisión. Todas las respuestas no-store. Sin raw, salts, nonces,
+la primera decisión. Todas las respuestas del handler no-store. Sin raw, salts, nonces,
 secretos, ledger o mensajes upstream. 401 sesión inválida; 400 entrada inválida;
 413 cuerpo grande; 404 revocation_unavailable uniforme para ajeno/ausente/denegado;
 409 idempotency_conflict/busy; 503 temporary_failure.
