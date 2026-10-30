@@ -1,170 +1,131 @@
 # CertiChain
 
-Aplicación móvil para emitir, custodiar y verificar títulos y certificados digitales. Los documentos y metadatos privados viven fuera de la blockchain; el futuro anclaje EVM registrará únicamente evidencia de integridad y revocación.
+**Academic and professional certificates, with private documents and verifiable blockchain evidence.**
 
-## Objetivo del MVP
+CertiChain is a final-year software engineering project (TFG) that implements the certificate lifecycle: an approved institution issues a PDF, its holder accesses and shares a verification link or QR code, and anyone can check the certificate's current status. Institutions can revoke certificates through an authenticated, auditable workflow.
 
-- Una institución autorizada emite un certificado y sube su PDF.
-- El sistema calcula SHA-256 exacto del PDF; el futuro anclaje registra un
-  compromiso con salt privado en Sepolia, sin publicar el hash documental.
-- El estudiante consulta y comparte sus certificados mediante un QR.
-- Cualquier verificador comprueba autenticidad, integridad, emisor y estado sin iniciar sesión.
-- La institución puede revocar certificados emitidos por ella.
+The project combines a Flutter application, a Supabase backend and a Solidity registry. PDFs and personal data stay off-chain. The EVM registry stores opaque identifiers and a document commitment protected by a private salt; it never stores the PDF or its plain document hash.
 
-## Stack inicial
+## What you can explore
 
-- Flutter y Dart para la aplicación móvil.
-- Supabase Auth, PostgreSQL, Storage y Edge Functions.
-- Solidity y Foundry para el registro blockchain.
-- GitHub Actions para integración continua.
+- **Institutional workflows:** membership-based access, validated PDF issuance, retry-safe operations, anchoring requests and irreversible revocation.
+- **Certificate wallet:** authenticated access to certificates and private PDFs, public links and generated QR codes.
+- **Public verification:** no account required; registry status, blockchain evidence and the integrity of a selected PDF are presented separately.
+- **Failure recovery:** durable transaction attempts, nonce tracking, concurrent workers, lost responses, reorgs and explicit reauthorization.
+- **Privacy boundaries:** Row Level Security, short-lived document URLs, restricted public responses and backend-only signing keys.
 
-## Estructura
+The application interface is currently in Spanish. This README is the English entry point; the documentation index identifies the engineering guides.
+
+## Engineering approach
+
+The main challenge is coordinating PostgreSQL and an EVM chain without pretending they share an atomic transaction. Certificate publication, SQL revocation, blockchain synchronization and document integrity each have explicit states. A failed or delayed blockchain transaction never makes a revoked certificate valid again.
+
+Flutter uses feature-first modules and the dependency rule `presentation → domain ← data`. Domain code is independent of Flutter, Supabase and Web3. Privileged operations run in the backend; a separate trusted worker signs and reconciles EVM transactions.
+
+```mermaid
+flowchart LR
+    App[Flutter app] --> API[Supabase Auth and Edge Functions]
+    Public[Public verifier] --> API
+    API --> DB[(PostgreSQL and RLS)]
+    API --> Storage[Private PDF storage]
+    Worker[Trusted transaction worker] --> DB
+    Worker --> EVM[Solidity registry]
+    API -->|Read evidence| EVM
+```
+
+## Technology
+
+| Area | Implementation |
+|---|---|
+| Application | Flutter 3.47.4, Dart 3.13.3, Material UI, local Inter fonts |
+| Backend | Supabase Auth, PostgreSQL, private Storage, TypeScript Edge Functions |
+| Blockchain | Solidity 0.8.37, Foundry 1.8.5, OpenZeppelin Contracts 5.7.0, ethers 6.15.0 |
+| Local EVM | Anvil; Sepolia configuration is specified but deployment is not validated |
+| Test tooling | Flutter tests, pgTAP, Deno 2.2.12, Node.js 24.14.0, Chrome DevTools Protocol |
+| CI | GitHub Actions: database permissions, Flutter/Android builds, contracts, anchoring and revocation |
+
+Exact pins and checksums live in the [blockchain toolchain lock](blockchain/toolchain.lock.json), [Node version file](.node-version), Flutter lockfile and CI workflows.
+
+## Run locally
+
+### 1. Install the prerequisites
+
+Use these versions to reproduce CI:
+
+| Tool | Required setup |
+|---|---|
+| Flutter | **3.47.4**, revision `9584c6713b324636289d067944a46fd6b49df14b`; includes Dart **3.13.3** |
+| [Node.js](https://nodejs.org/download/release/v24.14.0/) | **24.14.0**, with `node`, `npm` and `npx` using that installation |
+| [Supabase CLI](https://github.com/supabase/cli/releases/tag/v2.117.0) | Standalone **2.117.0** binary on `PATH` |
+| [Docker](https://docs.docker.com/desktop/) | Running with Linux containers |
+| [PowerShell](https://github.com/PowerShell/PowerShell#get-powershell) | **7+** (`pwsh`), including on Linux for the local runner |
+| Browser / utilities | Chrome or Chromium, Git, `tar` and OpenSSL; Git for Windows supplies the default Windows OpenSSL path |
+
+Foundry, Solidity and contract dependencies are downloaded and checksum-verified by the repository's bootstrap script. A global Foundry installation is unnecessary. The supported bootstrap targets are Windows x64 and Linux x64.
+
+See [development setup](docs/DEVELOPMENT.md) for installation details, configuration and troubleshooting.
+
+### 2. Clone the repository
+
+```sh
+git clone https://github.com/benjvm/certichain.git
+cd certichain
+```
+
+### 3. Run the complete local demonstration
+
+From the repository root:
+
+```sh
+pwsh -NoProfile -File ./supabase/tests/run_phase10.ps1 -VisibleBrowser
+```
+
+The runner resolves frozen dependencies, builds the contracts and the real Flutter Web release, starts an isolated Supabase stack and Anvil, creates synthetic users and demonstrates issuance, verification and revocation in Chrome. It removes its own stack and temporary resources when finished. The browser is automated: watch the journey without interacting with it during the run.
+
+This is a reproducible demonstration, not a persistent development server. It requires no real certificates, funded wallet or hosted Supabase project. To run without a visible browser, omit `-VisibleBrowser`; `-BackendOnly` tests the backend without validating the UI.
+
+### 4. Start the app for development
+
+For an interactive local session, start the repository's Supabase project from the root:
+
+```sh
+supabase start
+supabase functions serve
+```
+
+Keep Functions running. In another terminal, use `supabase status` to obtain the local **anon/public client key**, then:
+
+```sh
+cd mobile
+flutter pub get --enforce-lockfile
+npm ci --ignore-scripts --prefix tool
+node tool/prepare_decoder.mjs --check
+flutter run -d chrome --web-hostname=localhost --web-port=7357 --dart-define=SUPABASE_URL=http://127.0.0.1:54321 --dart-define=SUPABASE_PUBLISHABLE_KEY=YOUR_LOCAL_ANON_KEY --dart-define=PUBLIC_VERIFICATION_BASE_URL=http://localhost:7357
+```
+
+Replace `YOUR_LOCAL_ANON_KEY` locally. Only public client configuration belongs in Dart defines; service-role and EVM signing keys stay in the backend.
+
+A fresh stack has no preconfigured institution or shared login. Register users, then follow [institution provisioning](docs/INSTITUTION_ADMINISTRATION.md) to grant the required institutional access. Blockchain operations additionally require a live deployment, issuer configuration and the trusted worker described in [blockchain operations](docs/BLOCKCHAIN_OPERATIONS.md). The automated demonstration performs that setup for its temporary environment.
+
+## Verification and current scope
+
+The five CI workflows passed for commit [`3c892cd`](https://github.com/benjvm/certichain/commit/3c892cde3d0d21316089b2f8b6bb94702ca6f36a) on **30 October 2026**. The [complete revocation run](https://github.com/benjvm/certichain/actions/runs/41088795797) includes **978 SQL assertions, 272 backend tests, 266 Flutter tests and 183 browser assertions**; 12 Flutter tests were skipped. See the [acceptance record](docs/PHASE10_ACCEPTANCE.md) for exact scope and limitations.
+
+The demonstrated target is Flutter Web in Chrome with local Supabase and Anvil. Android compilation is covered by CI, while full native acceptance, iOS, other browsers, hosted deployment and Sepolia finality remain unverified. Camera scenarios are intentionally skipped because no physical camera is available; static QR decoding, manual codes, links and PDF checks remain covered. Password recovery and self-service institutional onboarding remain outside the implemented flow.
+
+The MVP has a shared public request budget suitable for local demonstration. Production abuse protection, key custody, retention policy and a human accessibility review require further work. Blockchain evidence proves registry facts and a document commitment; it does not establish academic truth or the identity of the person presenting a certificate.
+
+## Repository and further reading
 
 ```text
-certichain/
-├── mobile/                 # Proyecto Flutter completo
-├── supabase/
-│   ├── migrations/         # Esquema, RLS y funciones SQL versionadas
-│   ├── functions/          # Operaciones privilegiadas del servidor
-│   └── seed.sql            # Datos locales no sensibles
-├── blockchain/
-│   ├── src/                # Contratos Solidity
-│   ├── scripts/            # Bootstrap, despliegue Anvil y artefactos
-│   └── test/               # Pruebas de contratos
-├── docs/                   # Especificaciones y decisiones
-├── .github/workflows/      # CI
-└── AGENTS.md               # Instrucciones permanentes para Codex
+mobile/        Flutter application and browser tools
+supabase/      SQL migrations, RLS, Edge Functions, workers and integration tests
+blockchain/    Solidity registry, Foundry tests and reproducible toolchain
+docs/          Maintained contracts, architecture, operations and acceptance
 ```
 
-`mobile/` es el directorio del proyecto Flutter, no un contenedor adicional. Desde la raíz:
-
-```bash
-flutter create --org com.benjvm --project-name certichain mobile
-```
-
-Si `mobile/` ya existe y está vacío:
-
-```bash
-cd mobile
-flutter create --org com.benjvm --project-name certichain .
-```
-
-## Orden de implementación
-
-1. Requisitos, modelo de dominio y decisiones arquitectónicas.
-2. Proyecto Supabase local, migraciones y RLS.
-3. Esqueleto Flutter y autenticación.
-4. Emisión, almacenamiento y consulta de certificados.
-5. Verificación pública y QR.
-6. Contrato, adaptador blockchain y revocación.
-7. Pruebas de seguridad, integración y demostración del TFG.
-
-## Documentación
-
-- [Alcance y requisitos](docs/REQUIREMENTS.md)
-- [Arquitectura](docs/ARCHITECTURE.md)
-- [Modelo de datos](docs/DATABASE.md)
-- [Integración blockchain](docs/BLOCKCHAIN.md)
-- [Especificación técnica del protocolo 9A](docs/PHASE9A_BLOCKCHAIN_SPEC.md)
-- [Contrato Foundry/Anvil y comandos 9B](blockchain/README.md)
-- [Aceptación local y límites 9B](docs/PHASE9B_ACCEPTANCE.md)
-- [Seguridad](docs/SECURITY.md)
-- [Contrato vigente de emisión y acceso privado al PDF](docs/SECURE_ISSUANCE.md)
-- [Contrato, verificación pública y QR y comparación 8A–8C](docs/PUBLIC_VERIFICATION.md)
-- [Pruebas](docs/TESTING.md)
-- [Flujo de desarrollo](docs/DEVELOPMENT.md)
-- [Hoja de ruta](docs/ROADMAP.md)
-- [Wallet y detalle autenticados](docs/STUDENT_WALLET.md)
-- [Fundamentos visuales Flutter y referencia Figma](docs/FLUTTER_UI_FOUNDATIONS.md)
-- [Registro de decisiones](docs/ADR_README.md)
-
-## Estado
-
-Entregadas Auth/wallet/detalle, autorización, administración institucional y
-7A–7D: emisión autenticada sin blockchain, PDF privado, SHA-256, idempotencia,
-recuperación, interfaz institucional y descarga autorizada. El cierre de 7D
-cuenta con evidencia de CI previamente observada en la
-[ejecución 37218682263](https://github.com/benjvm/certichain/actions/runs/37218682263).
-Esa ejecución no acredita los cambios nuevos de 8A.
-
-8A añade backend público por `credential_code`, proyección mínima y presupuesto
-global PostgreSQL, exclusivamente local. Estado y pruebas en
-[PUBLIC_VERIFICATION.md](docs/PUBLIC_VERIFICATION.md) y [TESTING.md](docs/TESTING.md).
-8B añade interfaz pública independiente de Auth, enlaces Web hash y QR/copia
-desde el certificado propio, comprobados en local. 8C añade escáner con decoder
-local y comparación privada de bytes PDF mediante hash candidato. 8D está
-implementada y publicada inicialmente en `6235486` («8D stage»). El fallo externo
-histórico de Actions 37373509169 se conserva en la aceptación. CI posterior:
-[38280055013, intento 1](https://github.com/benjvm/certichain/actions/runs/38280055013)
-success en database/flutter/android para
-`2066e908af30913462cf3daf77324eab2a63dfc4`, sin acreditar cámara física ni blockchain.
-9A entrega decisiones/ABI objetivo/protocolo/persistencia futura, con Anvil,
-Sepolia y Foundry. 9B implementa el contrato y valida localmente unit/fuzz/
-invariantes, cobertura/gas, despliegue/smoke Anvil real y artefactos reproducibles.
-9B publicada en `5d29a98580493bef07220c0b48780eec7348876c`, con Actions blockchain
-y database success observadas; [aceptación 9B](docs/PHASE9B_ACCEPTANCE.md).
-Backend 9C implementado localmente; cliente 9D, aceptación 9E y revocación
-completa 10 siguen pendientes. La CI del árbol nuevo 9C no se ha ejecutado.
-Sin despliegue remoto; el Anvil de pruebas propio se resetea y descarta.
-
-## Probar verificación y QR en Chrome local
-
-Preparar un stack descartable según [PUBLIC_VERIFICATION.md](docs/PUBLIC_VERIFICATION.md)
-y arrancar functions serve allí. Desde mobile, con su clave **pública** local:
-
-```powershell
-Push-Location tool
-npm ci --ignore-scripts
-node prepare_decoder.mjs
-Pop-Location
-flutter run -d chrome --web-hostname=localhost --web-port=7357 --dart-define=SUPABASE_URL=http://127.0.0.1:55321 --dart-define=SUPABASE_PUBLISHABLE_KEY=CLAVE_PUBLICA_LOCAL --dart-define=PUBLIC_VERIFICATION_BASE_URL=http://localhost:7357
-```
-
-Abrir Verificar certificado o `http://localhost:7357/#/verify/<credential_code>`.
-Como titular, abrir certificado propio publicado por 7B → Mostrar QR y enlace
-→ Copiar enlace; pegar en ventana privada sin sesión y recargar. Histórico sin
-vínculo informa ausencia. Estados del registro y fechas UTC; no se comprueba
-la identidad del presentador. Escanear QR identifica y pide confirmar el código;
-Comparar mi PDF calcula el hash local y mantiene separado el estado del certificado.
-
-SUPABASE_URL es backend; PUBLIC_VERIFICATION_BASE_URL es la base de la app Web,
-nunca la Edge Function. Sin base válida no se comparte, pero funciona la consulta
-manual. localhost solo en el mismo equipo, sin prometer acceso desde teléfonos
-externos. HTTPS requerido fuera de desarrollo loopback. Configuración, pruebas
-automáticas descartables y límites en
-[PUBLIC_VERIFICATION.md](docs/PUBLIC_VERIFICATION.md),
-[TESTING.md](docs/TESTING.md) y [ADR-0012](docs/adr/0012-public-web-navigation-and-credential-sharing.md).
-
-
-La fase 8D dispone de demo técnica local sobre main.dart Web release con HTTPS y
-stack descartable: [guion reproducible](docs/DEMO_VERIFICATION.md) y
-[aceptación/plataformas pendientes](docs/PHASE8_ACCEPTANCE.md). Las herramientas
-Node están fijadas a 24.14.0 en .node-version. Estado vigente, resultados fechados
-y acciones del operador en [checklist 8D](docs/PHASE8_OPERATOR_CHECKLIST.md).
-Esta revisión trabaja solo en local; las ediciones posteriores necesitan CI del
-SHA que publique el operador.
-
-Estado al 13/10/2026: **cliente 9D, evidencia pública v2 y apertura privada implementados**;
-contratos/configuración en [BLOCKCHAIN_VERIFICATION](docs/BLOCKCHAIN_VERIFICATION.md)
-y resultados locales en [PHASE9D_ACCEPTANCE](docs/PHASE9D_ACCEPTANCE.md).
-9E y revocación de producto 10 siguen pendientes. No hay despliegue remoto.
-
-Backend privado 9C implementado; validación local y límites
-en [aceptación 9C](docs/PHASE9C_ACCEPTANCE.md). Operación y recuperación:
-[BLOCKCHAIN_OPERATIONS](docs/BLOCKCHAIN_OPERATIONS.md).
-Comportamiento actual, DTO v1, códigos/enlaces/QR y PDF conservados. Omitir desde
-ahora todas las pruebas de cámara, con CERTICHAIN_TEST_CAMERA=0 y registro
-SKIP/NOT_RUN: «Omitidas por instrucción del usuario; no hay cámara física disponible».
-Conservar funcionalidad/tests y verificaciones de códigos, imagen QR estática,
-PDF, Auth, backend y SQL. Hardware no bloquea fases siguientes ni reabre 8D.
-Otros límites de plataformas/revisión humana se conservan en aceptación/checklist.
-
-Blockchain aportará evidencia externa de compromiso y revocación; comprobar un
-PDF contra ese compromiso requiere apertura autorizada. Supabase sigue a cargo
-de identidad, membresías, PDF, metadatos y atribución institucional. La comparación
-pública actual sigue confiando en su hash esperado privado.
-
-Para reproducir 9B desde un checkout limpio: `node blockchain/scripts/bootstrap.mjs`
-y `node blockchain/scripts/validate.mjs`. El contrato registra compromisos opacos
-y revocación; no demuestra que un commitment arbitrario corresponda a un PDF.
-Revoke probado en contrato no habilita revocación Auth/SQL/EVM desde la app.
+- [Documentation index](docs/README.md)
+- [Architecture](docs/ARCHITECTURE.md) and [Flutter boundaries](docs/FLUTTER_ARCHITECTURE.md)
+- [Security and privacy](docs/SECURITY.md)
+- [Testing guide](docs/TESTING.md) and [local demonstration](docs/DEMO_BLOCKCHAIN_LOCAL.md)
+- [Architecture decisions](docs/ADR_README.md) and [remaining work](docs/ROADMAP.md)

@@ -1,25 +1,12 @@
-# Operación privada de anclajes — 9C
+# Operación de anclajes y revocaciones
 
-## Operación y aceptación de revocación 10E — 18/10/2026
+El worker procesa issue/revoke con claves backend y ledger durable; setIssuer usa una sesión administrativa separada. Estado y CI: [aceptación](PHASE10_ACCEPTANCE.md). Preparación automatizada: [demo](DEMO_BLOCKCHAIN_LOCAL.md).
 
-[Matriz/dictamen/evidencia vigente](PHASE10_ACCEPTANCE.md),
-[pasos MANUALES no ejecutados](REVOCATION.md) y [demo](DEMO_BLOCKCHAIN_LOCAL.md).
-El worker vigente procesa issue/revoke, nunca setIssuer con clave operativa.
-Las instrucciones inferiores conservan el contexto de su fase.
-
-Diagnóstico por operación original: consultar progreso Auth y separar SQL/EVM;
-revisar bloqueo sin publicar auditoría/secretos. Comprobar deployment habilitado
-y no writes_stopped, cadena/genesis/runtime/bloque canónico, I almacenado,
-binding/signers y canRevoke independiente de canIssue. Revisar saldo y ledger
-íntegro exclusivo del EOA. Observar todos los hashes, incluidos replacements
-antiguos; conservar raw privado y receipts consumidos. Tras corregir la causa,
-owner/admin actual reautoriza explícitamente. No duplicar emisión/anchor/salt ni
-saltar nonce unknown. Reorg no reactiva SQL; otra cadena no sustituye la obligación
-anterior. No borrar completed/PDF/código para corregir blockchain.
+Consultar progreso Auth y separar SQL/EVM; revisar deployment/genesis/runtime/bloque canónico, binding/I/signer, canRevoke, saldo y ledger exclusivo del EOA. Observar todos los intentos antes de reautorizar. No duplicar emisión/anchor/salt, saltar nonce unknown o borrar completed/PDF/código para corregir blockchain.
 
 ## Recuperación de revocaciones 10C — 18/10/2026
 
-[Aceptación específica](PHASE10C_ACCEPTANCE.md). Aplicar la migración nueva
+[Aceptación específica](PHASE10_ACCEPTANCE.md). Aplicar la migración nueva
 20261018120000 después de las existentes, antes de usar el coordinador actualizado.
 No requiere cambiar ABI, contrato, red, claves o configuración Edge/Flutter.
 La validación completa precede a la persistencia de confirmación y liberación
@@ -45,23 +32,15 @@ válida y canRevoke vigente. No redirigir al deployment habilitado actual.
 Reorg conserva observaciones fechadas y SQL revoked; reset exige recuperar la
 identidad exacta. Anvil nunca acredita finalidad PoS.
 
-## Incremento local de revocación — 15/10/2026
 
-[REVOCATION](REVOCATION.md) define los endpoints Auth, motivo/auditoría privados,
-SQL irreversible, worker durable y evidencia pública v3 con issue/revoke separados.
-V1/v2 y compare conservan contrato; la app usa v3. Resultados ejecutados y
-dictamen vigente: [PHASE10_ACCEPTANCE](PHASE10_ACCEPTANCE.md). Los apartados
-que describen revocación futura conservan el contexto histórico de sus fases.
-La demo se reproduce con `./supabase/tests/run_phase10.ps1`; sin despliegue remoto,
-Sepolia ni corrección Android atribuida. Cámara=0 con la exclusión persistente.
 
-## Aceptación y recuperación local 9E
+## Recuperación documental y ledger
 
 [run_phase9e.ps1](../supabase/tests/run_phase9e.ps1) comparte infraestructura 9D y
 ejecuta publicación/solicitud/worker/progreso/v2/apertura/archivos de producción.
 `-BackendOnly` comprueba infraestructura sin acreditar Flutter.
 Guion: [DEMO_BLOCKCHAIN_LOCAL](DEMO_BLOCKCHAIN_LOCAL.md); evidencia:
-[PHASE9E_ACCEPTANCE](PHASE9E_ACCEPTANCE.md). No cron ni servicios remotos.
+[Aceptación vigente](PHASE10_ACCEPTANCE.md). No cron ni servicios remotos.
 
 La recuperación nueva usa destinos aislados PG y Storage con datos sintéticos:
 ledger privado completo y bytes recuperados deben conservar H/K/I/C/S y coincidir
@@ -73,11 +52,11 @@ Restaurar el entorno original exacto no equivale a crear otro deployment/cadena.
 Reset invalida identidad previa y debe conservar evidencia histórica, sin fallback
 silencioso a off_chain_only ni firmar contra un contrato distinto. Un ledger
 incompleto no autoriza reconstruir firmas o saltar nonces; se conserva el bloqueo
-demostrado en 9C. Estado ejecutado de restore y limpieza en la aceptación 9E.
+demostrado en 9C. Restore y limpieza se incluyen en la aceptación integral vigente.
 
-## Lectura Edge y cliente 9D
+## Lectura Edge y cliente
 
-Edge verify-certificate-v2 añade EVM_RPC_URL **solo para lectura**, junto con
+Edge verify-certificate-v2/v3 usa EVM_RPC_URL **solo para lectura**, junto con
 EVM_ENVIRONMENT_ID; no claves de firma/administración. En Docker, conectar su
 contenedor a la red privada Anvil propia y usar http://anvil:8545. El lector
 no invoca worker, no encola, no firma ni concilia escrituras. Flutter nunca
@@ -118,7 +97,7 @@ y red propios. No resetear el habitual
 ni ejecutar suites mutables en paralelo.
 
 El worker corre en el host, conecta con Kong/Edge/Storage publicados desde Docker
-y con Anvil por loopback del host. Edge no hace RPC EVM ni recibe claves de firma.
+y con Anvil por loopback del host. El worker conserva la firma; Edge solo hace RPC EVM de lectura y no recibe claves de firma.
 La prueba conecta el contenedor de BD propio a la red del Anvil, resuelve
 anvil:8545 y consulta chainId; confirma que loopback dentro del contenedor falla
 y que la publicación administrativa del host está ligada a 127.0.0.1.
@@ -246,8 +225,10 @@ dump en logs, repositorio o Actions. Raw tx es una capacidad retransmisible.
 
 El harness usa pg_dump custom con umask 077 dentro del contenedor propio y
 pg_restore como supabase_admin en otra BD sintética. Compara S/K/I/H/C/operación
-en memoria sin imprimirlos; finally borra BD/dump. No demuestra restore de
-Storage ni servicio remoto. Tablas privadas no tienen SELECT directo de API.
+en memoria sin imprimirlos; finally borra BD/dump. Ese restore SQL no recupera
+bytes de Storage: la aceptación integral los restaura por separado mediante API
+en un bucket privado propio. No acredita un servicio remoto. Tablas privadas no
+tienen SELECT directo de API.
 
 Anchors/salt/operaciones/bindings/receipts se conservan. close-local OPERATION
 cierra confirmed Anvil; purge-raw purga solo siete días después de ese cierre
@@ -255,5 +236,6 @@ o de finalized Sepolia. Mantiene hashes, metadata y evidencia. Límites de 64
 receipts/auditorías requieren operador. No hay limpieza automática de documentos.
 
 Cámara NOT_RUN: «Omitidas por instrucción del usuario; no hay cámara física disponible».
-El texto técnico 9C anterior es histórico. 9D/v2 están integrados; 9E amplía su
-aceptación local. Fase 10, cron remoto, backfill y Sepolia no se implementan aquí.
+El ciclo issue/revoke está integrado y aceptado para Web/local en
+[10E](PHASE10_ACCEPTANCE.md). No hay cron remoto, backfill automático ni
+despliegue Sepolia validado.

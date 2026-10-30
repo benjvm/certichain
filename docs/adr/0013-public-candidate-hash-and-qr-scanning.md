@@ -99,7 +99,7 @@ Generación y --check conservan idénticos el UMD, la licencia y su manifest SHA
 No se añade una dependencia de producción.
 ZXing-js es el backend legacy del plugin y consume más CPU que su opción WASM.
 Se elige el UMD para QR, por sus assets autocontenidos y la integración local
-comprobada; medidas 8D en PHASE8_ACCEPTANCE.md. Reevaluar dispositivos físicos
+comprobada; medidas 8D en PHASE10_ACCEPTANCE.md. Reevaluar dispositivos físicos
 y la alternativa WASM antes del lanzamiento.
 La alternativa BarcodeDetector nativa Web no es uniforme entre navegadores.
 
@@ -111,12 +111,12 @@ selector DOM real y Auth/Edge/PostgreSQL/Storage locales. Android APK compilado;
 iOS y cámaras físicas pendientes. El smoke CDP corre en Windows y Ubuntu 24.04;
 Los recorridos main.dart release/backend completos se ejecutaron en Chrome y Edge
 Windows. Actions 37350396753 intento 2 valida 8C en d31a273; no valida 8D.
-El cierre local 8D y los pendientes se registran en PHASE8_ACCEPTANCE.md.
+El cierre local 8D y los pendientes se registran en PHASE10_ACCEPTANCE.md.
 Aceptación CI 8D, cámaras físicas, Firefox/Safari/iOS y recorrido Android completo pendientes.
 Al 10/10, 8D está publicada en 6235486; el run 37373509169 intento 1 se canceló
 antes de ejecutar por runners hosted no adquiridos y error interno de GitHub.
 La revisión local posterior y las correcciones de herramientas no cambian esta
-decisión ni quedan validadas por ese run. Ver PHASE8_OPERATOR_CHECKLIST.md.
+decisión ni quedan validadas por ese run. Ver ROADMAP.md.
 
 La carrera histórica de 8B no se atribuye con certeza a un error sin detalles.
 El harness ahora espera nuevo loader/contexto/DOM antes de marcadores Flutter,

@@ -1,176 +1,47 @@
-# Fundamentos visuales Flutter — Fase 4D
+# Fundamentos visuales Flutter
 
-## Incremento vigente 9D
+La fuente de implementación es `mobile/lib/app/theme/` y los widgets compartidos. [Figma · CertiChain](https://www.figma.com/design/XRk4TDOeU4yZwBHIRBRXJ6/CertiChain) conserva la referencia visual; datos, permisos y capacidades reales prevalecen sobre ilustraciones o acciones de un diseño.
 
-Sin rediseño global: Inter/tokens, AppButton/AppTopBar, Cards, scroll, texto
-seleccionable y semántica de mensajes conservados. Registro CertiChain,
-Blockchain, Mi copia y Validez de la apertura se presentan por separado.
-Anvil confirmado dice finalidad no aplicable; evidencia previa tiene etiqueta,
-fecha y fuente propias. Acciones manuales, loading real y sin badges/progreso
-simulados. Institución confirma anclaje del certificado publicado; titular
-consulta evidencia pública y obtiene/copia/exporta apertura explícitamente.
-Layouts 320 px y texto ×2 ejercitados en phase9d_test.dart, sin cámara.
-Los apartados inferiores preservan fundamentos y revisiones históricas.
+## Tokens y componentes
 
-## Referencia inspeccionada
-
-[Figma · CertiChain](https://www.figma.com/design/XRk4TDOeU4yZwBHIRBRXJ6/CertiChain)
-es la referencia visual de esta fase. El wireframe original se conserva en
-`docs/ChatGPT Image Sep 20, 2026, 09_00_47 PM.png`; no hay
-`docs/certichain-wireframe.png`.
-
-| Pieza | Nodo Figma | Evidencia |
-|---|---|---|
-| Inicio estudiante | 4:100 | Contexto completo y captura |
-| Mis certificados | 4:135 | Contexto completo y captura |
-| Detalle | 4:176 | Contexto completo y captura |
-| Mi perfil | 5:219 | Estructura completa y captura en navegador |
-| CertificateCard | 3:24 | Contexto completo y variantes de uso en Inicio/wallet |
-| StatusBadge | 3:23 | Variantes Válido, Revocado y Pendiente |
-| AppButton | 3:12 | Inventario Primary/Outline/Danger/Ghost; Primary incluido en contexto de detalle |
-| AppBottomNavigation | 3:30 | Contexto incluido en Inicio/wallet |
-
-El conector alcanzó el límite del plan Starter durante la inspección. No se
-obtuvo el contexto completo independiente de Mi perfil ni el catálogo completo
-de variables/estilos. Se revisó Mi perfil en el navegador con el nodo seleccionado;
-sus geometrías proceden de metadata, y sus fundamentos compartidos de los
-contextos completos. Esta limitación impide afirmar una auditoría exhaustiva
-de todas las variantes o tokens del archivo. No se modificó Figma.
-
-## Valores comprobados y componentes incorporados
-
-Los valores se centralizan en `mobile/lib/app/theme/`.
-
-| Fundamento | Valor o composición |
+| Fundamento | Valor / fuente |
 |---|---|
-| Primario / superficie / fondo | #4F5FFF / #FFFFFF / #F8F9FC |
-| Fondo primario / borde | #EEF0FF / #E4E7EC |
-| Cabeceras | #0E1950, añadido como inkBlue |
-| Texto principal / secundario | #101828 / #667085 |
-| Familia | Inter, pesos 400/500/600/700 |
-| Saludo / cabecera / tarjeta | 21 bold / 17 semibold / 15 semibold |
-| Sección / caption / navegación | 16 semibold / 12 / 11 medium |
-| Margen horizontal | 24, frente a 20 en la especificación anterior |
-| Tarjeta / total / acceso / botón | Radios 12 / 16 / 13 / 12 |
-| Accesos en referencia | Dos columnas, separación horizontal 10, mínimo 100 de alto |
-| Navegación / botón | Mínimos 70 / 48; crecen con texto |
-| Placeholder de diploma | Ancho máximo 280, mínimo 200 de alto |
+| Primario, superficie y fondo | #4F5FFF, #FFFFFF, #F8F9FC |
+| Fondo primario y borde | #EEF0FF, #E4E7EC |
+| Cabecera, texto principal y secundario | #0E1950, #101828, #667085 |
+| Tipografía | Inter local, pesos 400/500/600/700 |
+| Margen horizontal | 24 |
+| Radios de tarjeta/total/acceso/botón | 12/16/13/12 |
+| Botón / navegación | Alturas mínimas 48/70, ampliables con texto |
 
-`AppTopBar` adapta su altura al texto y comparte volver/actualizar.
-`AppBottomNavigation` usa icono y texto, estado seleccionado y áreas seguras.
-`AppButton` conserva carga/deshabilitado y añade Outline/Ghost con uso real
-en compartir pendiente/cerrar sesión; el primario es plano como en Figma.
-No se construyen variantes destructivas sin un flujo que las necesite.
+Los colores de estado usan texto/icono además de color, con tonos de texto oscuros #067647/#B42318. Las medidas son mínimos y espaciados, no coordenadas rígidas. Scroll, Wrap y Expanded conservan acciones a 320 px y texto ×2; nunca reducir la escala del sistema para ocultar overflow.
 
-`CertificateCard` comparte composición compacta, emisor opcional, fechas,
-insignia y acción de detalle. `StatusBadge` comunica con palabra, icono y color.
-`CertificatePreview` preserva el espacio del diploma con ausencia explícita.
-`ReadLoading`, `ReadEmpty` y `ReadError` comparten panel y jerarquía.
+`AppTopBar`, `AppBottomNavigation`, `AppButton`, `CertificateCard`, `StatusBadge`, `ReadLoading`, `ReadEmpty` y `ReadError` centralizan composición, jerarquía y estados. Iconos Material centralizados en `AppIcons`, con semántica para información y sin etiquetas redundantes para decoración.
 
-No se encontraron imágenes estáticas en los contextos obtenidos de estas vistas:
-el diseño usa formas y glifos de texto para iconos/avatar/diploma. Se usa la
-familia Material outlined/rounded ya incluida en Flutter, centralizada en
-`AppIcons`, en lugar de glifos ambiguos. No se añade Lucide ni otro paquete.
-Los iconos informativos tienen texto/semántica; los decorativos acompañan texto.
+Inter 4.1 se empaqueta en `mobile/assets/fonts/` con licencia SIL OFL. No se descarga tipografía en ejecución. La familia/fallbacks y espaciado viven en el tema; una actualización de assets requiere revisar licencia y regresiones visuales.
 
-Inter 4.1 está empaquetada localmente (aproximadamente 1,6 MiB), sin red en
-ejecución ni dependencia google_fonts. Procedencia:
-[release oficial](https://github.com/rsms/inter/releases/tag/v4.1).
-Licencia SIL OFL incluida en `mobile/assets/fonts/Inter-LICENSE.txt`;
-mantenimiento mediante actualización deliberada de estos assets.
-Roboto/Arial y la fuente de plataforma actúan como alternativas.
+## Referencias de diseño útiles
 
-## Adaptaciones al contrato real y accesibilidad
+| Vista / componente | Nodo Figma |
+|---|---|
+| Inicio / wallet / detalle / perfil | 4:100 / 4:135 / 4:176 / 5:219 |
+| CertificateCard / StatusBadge | 3:24 / 3:23 |
+| AppButton / navegación | 3:12 / 3:30 |
 
-- Las cuatro categorías de Figma se reducen a «Todos», sin filtros ficticios.
-- El emisor puede estar oculto por RLS; no se inventa ni se amplían políticas.
-- El avatar es genérico, sin foto inventada ni acceso de edición.
-- Inicio conserva total exacto, tres recientes y accesos. Añadir/escanear están
-  deshabilitados y etiquetados. La navegación conserva tres destinos funcionales.
-- El componente inferior de Figma tiene cuatro acciones y marca Certificados
-  incluso en algunas otras vistas. Flutter selecciona el destino real y no
-  añade un escáner sin implementar.
-- Mi perfil conserva ficha y filas reconocibles, con mensajes de no disponibilidad
-  que aumentan su altura respecto de los 60 px de referencia. Cerrar sesión
-  funciona también como salida de estados de error.
-- No hay campo de tipo/categoría en la entidad; detalle muestra el título real.
-  La preview y QR ilustrativo de Figma se sustituyen por mensajes explícitos,
-  sin simular PDF, enlaces ni información de blockchain.
-- Válido significa vigencia presentada por la app. No es una prueba blockchain.
-  «Detalles» presenta el ID real; Blockchain/Historial explican datos ausentes.
-- El verde #16B364 y rojo #F04438 de Figma se conservan como tokens. Las palabras
-  de estado usan tonos más oscuros (#067647 / #B42318) para contraste legible.
-  Fechas usan texto secundario, en lugar del terciario claro del diseño.
-- Las medidas son mínimos/espaciados, no coordenadas ni alturas rígidas:
-  scroll, Wrap y Expanded preservan contenido. A escala de texto ≥1,5 los accesos
-  pasan a una columna; la navegación amplía el espacio de Certificados.
-  Cabeceras e ID se ajustan a varias líneas; no se reduce la escala del sistema.
+La inspección original tuvo alcance limitado por el plan del conector; no acredita equivalencia píxel a píxel de todo Figma. Una revisión futura debe consultar el diseño vigente y comprobar sus cambios, en vez de asumir que la captura histórica sigue actual.
 
-## Revisión y alcance
+## Comportamiento de producto
 
-Se revisaron visualmente las cuatro vistas con fuentes/iconos reales en el
-harness Flutter a 390×844, 320×568 y texto ×2, incluidos sus contenidos inferiores
-por scroll. Las pruebas añaden 360×800 y verifican navegación y ausencia de
-overflow. Se corrigieron fuente de cabecera, relleno de accesos y división
-de la etiqueta Certificados. No se afirma equivalencia píxel a píxel de Mi perfil
-por la limitación del conector ni una prueba manual en dispositivo.
+- Formularios con autofill/foco/Next/Done, validación compartida, visibilidad de contraseña, carga y protección de doble envío. Registro en dos pasos; la preferencia institucional no concede privilegios. No mostrar proveedores sociales o recuperación funcional sin implementarlos.
+- Inicio conserva tres certificados recientes, total exacto y navegación real. Wallet muestra el límite de 50; sin categorías ficticias, fotos inventadas o nombre de emisor oculto por RLS.
+- «Espacio institucional» deriva de membresía real. La emisión usa ID voluntario de titular, título y fechas; tres pasos y confirmación. Sin búsqueda de alumnos/email o programas no existentes.
+- Revocación muestra certificado/ámbito y confirmación explícita; motivo privado, cancelación y recuperación de la misma clave. Progreso manual sin porcentajes o confirmación EVM simulados.
+- Detalle distingue registro CertiChain, evidencia issue/revoke, integridad de mi copia y validez de la apertura. Anvil no se presenta como finalidad PoS. Evidencia previa conserva etiqueta, fuente y fecha.
+- PDF y apertura se obtienen por acción explícita. No ofrecer preview ficticia. QR negro/blanco, máximo 280 px, margen de cuatro módulos, únicamente enlace/código públicos. Texto e IDs largos seleccionables y ajustables.
+- Resultado, carga y errores con regiones semánticas; foco visible y acciones alcanzables. Sin contenido privado retenido tras cambio de sesión.
 
-Capturas reproducibles en `mobile/build/phase4d-review/` (ignoradas por Git);
-fixtures solo en tests. Comandos en [TESTING.md](TESTING.md).
-Datos/permisos y rutas en [STUDENT_WALLET.md](STUDENT_WALLET.md).
+## Verificación y límites
 
-Tras 7C, siguen pendientes aprobación institucional por autoservicio,
-QR/escáner, compartir, verificación pública, blockchain, revocación,
-historial real y notificaciones.
+Widgets/layouts comprueban 320×568, 360×800, 390×844 y tamaños amplios, texto aumentado, teclado y ausencia de overflow. [Comandos](TESTING.md). Semántica automática no sustituye revisión humana con teclado/lector de pantalla ni dispositivos físicos.
 
-## Emisión institucional y documentos — Fase 7C
-
-Se intentó inspeccionar Figma: metadatos generales accesibles, pantallas
-institucionales bloqueadas por el límite de llamadas del plan Starter.
-Se usó el collage/wireframe de CERTICHAIN_UI_IMPLEMENTATION.md y sus vistas
-«Emitir certificado» y «Certificados emitidos», conservando Inter local, AppTopBar,
-AppButton, tokens, tarjetas, separación y estados de lectura. No se bloqueó la
-implementación ni se inventó contexto de Figma.
-
-El acceso «Espacio institucional» aparece por membresía real. Selector de
-institución, nombre, rol y estado proceden de RLS. Se mantiene la navegación
-personal. El formulario de tres pasos usa «ID del titular» con pegar/UUID y ayuda
-de consentimiento; no simula emails, búsqueda de estudiantes, programas o tipos
-ausentes. La expiración muestra su interpretación UTC. Solo Confirmar permite
-emitir. En espera hay texto honesto y botones bloqueados, sin porcentaje.
-El resultado presenta el ID y lleva al listado, sin detalle personal indebido.
-
-Listas muestran título, fecha, vigencia y referencia corta, límite 50 visible,
-carga/vacío/error/reintento. No se inventa el nombre del titular ni una acción
-de revocar. Documento disponible ofrece descarga; legado/ausente tiene mensaje
-explícito sin previsualización ficticia. Los ID largos son seleccionables y se
-ajustan; scroll y Wrap mantienen acciones accesibles en 390×844, 360×800 y
-320×568 con texto ×1/×2. Capturas con Inter real en
-mobile/build/phase7c-review/ (ignoradas); resultados en [TESTING.md](TESTING.md).
-
-## Pantalla pública y QR — 8B
-
-Se conserva Inter local, AppTheme/tokens, AppTopBar, AppButton y ReadLoading.
-Se revisaron la captura de detalle Figma 4:176 y el collage original: el QR
-ilustrativo se sustituye por un enlace real; no hay preview de PDF ni prueba
-blockchain inventada. La pantalla pública conserva cabecera, espacios y tarjeta
-de resultado, sin navegación privada de estudiante.
-
-Formulario con UUID, foco/teclado, carga, resultado y errores separados.
-Resultados con palabra e icono además de color; verde oscuro de tokens para
-vigencia. Fechas UTC explicadas y código seleccionable. Verificar, Actualizar
-comprobación y Consultar otro código son explícitos y alcanzables por scroll.
-Estados y confirmación de copia son regiones semánticas vivas.
-
-Panel del detalle con QR negro/blanco, máximo 280 px, zona libre de cuatro
-módulos, código/enlace seleccionables y confirmación de copia. Se elimina con
-cambios de sesión o al salir. Sin hoja nativa, QR ficticio o detalles técnicos
-en el producto.
-
-Pruebas con Inter: 320×568, 360×800, 390×844 y 1280×900, texto ×1/×2, sin overflow
-y acciones alcanzables. Capturas Chrome reales a 390×844 revisadas en
-mobile/build/public-verification-e2e/public-390.png y share-390.png; QR
-decodificado independientemente. No se afirma auditoría con lectores de
-pantalla ni revisión en dispositivos físicos. Este apartado sustituye los
-pendientes QR/compartir/verificación pública históricos de 4D/7C. Escáner y
-comparación de copia quedan en 8C.
+Cámara SKIP/NOT_RUN por instrucción del usuario; se conservan alternativas manuales y pruebas de QR estático, PDF y navegación. [Estado de plataformas](PHASE10_ACCEPTANCE.md#límites-y-pendientes-reales).

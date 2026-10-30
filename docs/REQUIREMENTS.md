@@ -1,138 +1,59 @@
 # Requisitos del producto
 
-## Problema
-
-Las empresas verifican credenciales mediante documentos fáciles de alterar y procesos manuales dependientes del emisor. CertiChain ofrece una verificación reproducible de integridad, procedencia y vigencia sin publicar datos personales en blockchain.
+CertiChain permite emitir, custodiar y verificar certificados académicos/profesionales con documentos privados y evidencia de integridad/revocación. El MVP del ciclo completo está implementado y aceptado para Web/Chrome con Supabase local y Anvil; [evidencia y límites](PHASE10_ACCEPTANCE.md).
 
 ## Actores
 
-Las capacidades siguientes describen el MVP objetivo. Tras Fase 6 se conservan
-Auth y las lecturas de wallet/detalle 4D. 7A–7D entregan emisión autenticada,
-PDF privado, recuperación y cliente institucional. Escrituras directas siguen
-cerradas; el flujo de revocación permanece pendiente. 8A añade backend público
-por código; 8B–8D entregan pantalla, QR/escáner y comparación local de copia.
-CI posterior success en 2066e908af30913462cf3daf77324eab2a63dfc4 (Actions
-38280055013, intento 1); alcance/plataformas en
-[PHASE8_ACCEPTANCE.md](PHASE8_ACCEPTANCE.md). 9A entrega diseño blockchain;
-implementación 9B–9E y revocación completa fase 10 pendientes.
-
-| Actor | Capacidades del MVP |
+| Actor | Capacidad |
 |---|---|
-| Estudiante | Consultar, abrir y compartir sus certificados |
-| Institución | Completar su perfil, emitir, listar y revocar sus certificados |
-| Verificador público | Escanear QR o introducir código y consultar el resultado permitido |
-| Administrador | Aprobar o suspender instituciones y auditar incidencias |
+| Titular | Consultar sus certificados, obtener PDF/apertura y compartir código/enlace/QR |
+| Institución | Emitir, listar, solicitar anclaje y revocar según membresía vigente |
+| Verificador público | Consultar sin cuenta y comparar una copia sin subir el archivo |
+| Plataforma | Aprobar/suspender instituciones y gestionar su alta administrada |
 
-`verifier` no necesita ser un rol autenticado en el MVP: la verificación esencial será pública y de solo lectura.
+No existe un rol autenticado necesario de verificador. La preferencia «Institución» del registro no concede membresía ni administración.
 
-## Historias esenciales
+## Requisitos funcionales vigentes
 
-- Como institución aprobada, quiero emitir un certificado para un estudiante identificado, adjuntando el PDF y sus metadatos.
-- Como estudiante, quiero ver mis certificados y compartir una URL/QR verificable.
-- Como verificador, quiero conocer si el certificado existe, es íntegro, pertenece a un emisor aprobado y no está revocado o expirado.
-- Como institución, quiero revocar un certificado emitido por mí indicando un motivo interno.
-- Como administrador, quiero aprobar instituciones antes de que puedan emitir.
+### Identidad y permisos
 
-## Requisitos funcionales
+Registro/login/logout por Supabase Auth y perfil asociado a `auth.users`. Sesión, identidad y generación protegen datos y respuestas tardías. Autorización efectiva en backend/RLS, independiente de navegación o rol mostrado. Recuperación de contraseña, confirmación por deep link y proveedores sociales quedan pendientes, no se simulan.
 
-### RF-01 Identidad
+### Instituciones
 
-- Registro, inicio y cierre de sesión mediante Supabase Auth.
-- Recuperación de contraseña.
-- Perfil asociado a `auth.users`.
-- Autorización efectiva en servidor/RLS, nunca solo en navegación de UI.
+Estados reales `pending`, `verified`, `suspended`, `rejected`; roles `owner`, `admin`, `issuer`. Plataforma crea pending con primer owner y decide verificación. Owner/plataforma gestionan miembros; owner/admin editan datos permitidos. Último owner protegido ante baja, degradación, cascada y concurrencia. No eliminar instituciones ni promover plataforma por metadatos/API. [Procedimiento](INSTITUTION_ADMINISTRATION.md).
 
-### RF-02 Instituciones
+### Emisión
 
-- El esquema real usa `verification_status` con `pending`, `verified`,
-  `suspended` o `rejected`. «Aprobada» significa `verified`, no `approved`.
-- Solo una institución `verified` podrá emitir mediante backend autorizado;
-  en Fase 5 ninguna institución puede emitir directamente mediante la API.
-- Los roles de membresía reales son `owner`, `admin` e `issuer`.
-- Fase 6 entrega alta administrada: plataforma crea institución pending y primer
-  owner existente en una transacción. Autoservicio e interfaz Flutter quedan
-  pendientes. El registro normal y la selección «Institución» crean un holder.
-- Solo plataforma aprueba/rechaza/suspende/reabre para revisión. Owner y admin
-  institucional editan datos; solo owner y plataforma gestionan miembros.
-- Conservar al menos un owner bajo bajas, degradaciones, cascadas y concurrencia.
-  No permitir eliminar instituciones; conservar referencias e historial.
-- Primer administrador y adicionales: SQL confiable con identidad confirmada,
-  nunca metadatos, RPC público de promoción ni UPDATE ordinario de perfil.
+Sesión y owner/admin/issuer actual de verified; titular válido; título, emisión y expiración opcional. PDF estructuralmente válido ≤8 MiB, privado, SHA-256 sobre bytes exactos y publicación idempotente recuperable. Código público UUID opaco estable; documento/metadatos publicados inmutables. Ningún INSERT directo de cliente. [Contrato](SECURE_ISSUANCE.md).
 
-### RF-03 Emisión
+El anclaje es posterior y explícito: `completed` de emisión y `active/revoked` no significan confirmación EVM. Compromiso con salt privado, sin hash documental on-chain, según [protocolo v1](PHASE9A_BLOCKCHAIN_SPEC.md).
 
-- Operación privilegiada de backend: sesión, membresía autorizada y estado
-  institucional revalidados al persistir; nunca INSERT directo desde Flutter.
-- Cumplir [SECURE_ISSUANCE.md](SECURE_ISSUANCE.md); primero emisión segura sin
-  blockchain, posteriormente anclaje.
-- Registrar destinatario, título, tipo, fecha de emisión y expiración opcional.
-- Aceptar un PDF válido dentro del límite configurado.
-- Calcular SHA-256 sobre los bytes finales almacenados.
-- Crear un identificador público no secuencial y estable.
-- Registrar la prueba on-chain de forma idempotente.
-- Mostrar un estado de proceso si la transacción aún no está confirmada.
-- El anclaje será una solicitud durable separada: completed off-chain y
-  active/revoked no se reinterpretan como confirmación EVM. Compromiso con salt
-  privado según [9A](PHASE9A_BLOCKCHAIN_SPEC.md), sin hash documental público.
+### Wallet y documento
 
-### RF-04 Wallet de certificados
+Lecturas acotadas al titular; emisor opcional por RLS; lista de hasta 50 con total/límite visibles. Detalle releído, fechas UTC y estados derivados. PDF mediante autorización y capacidad de 60 s; apertura explícita para comprobar localmente el compromiso. Copias exportadas no pueden retirarse remotamente. [Wallet](STUDENT_WALLET.md).
 
-- Listar exclusivamente los certificados del estudiante autenticado.
-- Mostrar emisor, título, fechas y estado derivado.
-- Acceder al documento mediante autorización y URL temporal.
+### Verificación pública
 
-### RF-05 Verificación pública
+Código/enlace/QR sin sesión, proyección mínima cerrada y prioridad revoked/expired/issuer_unavailable/valid. `not_found` uniforme para no elegible. Un instante servidor fija vigencia/checked_at. Presupuesto global compartido 60 POST/60 s, 429/Retry-After y errores técnicos explícitos. V3 integra evidencia SQL/issue/revoke; v1/v2/compare conservan compatibilidad.
 
-- 8A: POST público por `credential_code` UUID, sin cuenta o sesión.
-- Responder `revoked`, `expired`, `issuer_unavailable`, `valid` en ese orden
-  para publicaciones elegibles; `not_found` para evidencia ausente/incompleta.
-- Mostrar exclusivamente el contrato v1 de [PUBLIC_VERIFICATION.md](PUBLIC_VERIFICATION.md).
-- Un instante servidor para caducidad y checked_at; expiración inclusiva.
-- Presupuesto compartido global 60 POST/60 s, incluso entradas inválidas;
-  agotamiento 429 y fallo técnico 503, nunca ausencia fabricada.
-- No requerir descarga del PDF para una comprobación normal.
-- 8B–8D implementan pantalla pública, QR/enlaces/escáner y comparación de copia
-  sin subirla ni conservarla. `match`/`integrity_mismatch` están separados del
-  estado del certificado; `not_found` exige integridad `unavailable`.
-  `pending` no existe sin un proceso blockchain real.
+La comparación procesa bytes locales y separa integridad de vigencia. Verificar el compromiso independientemente requiere apertura autorizada compartida; compare v1 sin apertura confía en el hash esperado del backend. Una coincidencia no invalida revocación o caducidad. [Público](PUBLIC_VERIFICATION.md), [evidencia/apertura](BLOCKCHAIN_VERIFICATION.md).
 
-### RF-06 Revocación
+### Revocación
 
-- Solo la institución emisora puede solicitarla.
-- Solicitud autorizada en backend con membresía `owner`/`admin`; ningún cliente,
-  incluido `platform_admin`, utiliza UPDATE directo en `certificates`.
-- La revocación es irreversible en el MVP.
-- Persistir el resultado de blockchain y reflejarlo en la verificación.
-- Política fijada en 9A para fase 10: owner/admin de emisora verified o suspended;
-  revocación SQL inmediata irreversible y anclaje de revoke separado cuando
-  proceda. No esperar RPC para advertir revocación ni reactivar SQL por reorg.
+Owner/admin de la emisora verified/suspended solicita mediante backend, con motivo privado e idempotencia. SQL inmediato e irreversible; auditoría protegida y sincronización revoke durable cuando proceda. Suspender no revoca por sí solo. Issue firmado/tardío se reconcilia y compensa; reorg o fallo RPC nunca restaura active. Progreso y reautorización explícitos. [Contrato](REVOCATION.md).
 
 ## Requisitos no funcionales
 
-- Seguridad: RLS, validación en servidor, buckets privados y secretos fuera del cliente.
-- Privacidad: minimización de datos, nada de PII on-chain y retención documentada.
-- Mantenibilidad: migraciones versionadas, capas desacopladas y ADR.
-- Portabilidad: dominio independiente de Supabase; PostgreSQL estándar cuando sea posible.
-- Accesibilidad: contraste AA, etiquetas semánticas y soporte de tamaño de texto.
-- Rendimiento: respuesta de verificación objetivo menor de 2 s sin contar congestión de red blockchain.
-- Observabilidad: errores correlacionables sin registrar información sensible.
-- Fiabilidad: emisión idempotente y estados recuperables ante fallo parcial.
+- Mínimo privilegio, RLS, validación servidor, buckets privados y secretos solo en backend.
+- Nada de PII/hash documental/salt on-chain ni contenido privado en logs/DTO público.
+- Migraciones nuevas y versionadas; dominio puro e infraestructura detrás de contratos.
+- Recursos limitados, cancelación, idempotencia y estados recuperables ante fallo parcial.
+- Texto/iconos además de color, semántica, scroll y escala de texto. Revisión humana aún pendiente.
+- Observabilidad segura; no presentar el objetivo de latencia como un benchmark de producción.
 
-## Fuera del MVP
+## Fuera de alcance y pendientes
 
-- Compra, venta o transferencia de credenciales.
-- NFT, token fungible o wallet criptográfica del estudiante.
-- Consenso propio o red blockchain privada.
-- Edición de un certificado emitido; se revoca y se crea uno nuevo.
-- Integraciones masivas con universidades, firma eIDAS y pagos.
-- LinkedIn social, marketplace de cursos o mensajería.
+NFT, compra/venta/transferencia de credenciales, pagos, consenso propio, multichain, red privada e integraciones masivas no forman parte del MVP. Certificados emitidos no se editan: revocar y emitir otro. Blockchain no prueba identidad humana, verdad académica ni acreditación legal.
 
-## Criterio de éxito de la demo
-
-9A solo especifica ese recorrido. Evidencia blockchain, registro CertiChain e
-integridad de copia se muestran separados. La comparación independiente del PDF
-contra el compromiso requiere apertura autorizada compartida voluntariamente;
-sin ella la comparación candidata continúa confiando en Supabase. No se acredita
-identidad del presentador ni veracidad académica por registrar un compromiso.
-
-Una institución aprobada emite un PDF; el alumno lo ve y comparte su QR; la verificación devuelve válido. Tras alterar una copia, la comprobación por archivo detecta el cambio. Tras revocarlo, el mismo QR devuelve revocado.
+Pendientes verificables: [ROADMAP](ROADMAP.md). Cámara excluida por instrucción del usuario, sin bloquear trabajo posterior ni omitir QR estático/PDF/Auth/SQL/EVM.

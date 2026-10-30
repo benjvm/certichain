@@ -1,31 +1,25 @@
-# CertiChain Flutter
+# CertiChain Flutter application
 
-App feature-first con capas presentation/domain/data. SDK fijado en CI:
-Flutter 3.47.4 / Dart 3.13.3. Dependencias exactas y lockfiles versionados.
+The app uses feature-first `presentation → domain ← data` boundaries. Flutter **3.47.4** / Dart **3.13.3** and lockfiles match CI. Start with the [project README](../README.md) and [development setup](../docs/DEVELOPMENT.md).
 
 ```powershell
+$env:CERTICHAIN_TEST_CAMERA='0'
 flutter pub get --enforce-lockfile
-Push-Location tool
-npm ci --ignore-scripts
-node prepare_decoder.mjs
-Pop-Location
+npm ci --ignore-scripts --prefix tool
+node tool/prepare_decoder.mjs --check
 dart format --output=none --set-exit-if-changed lib test tool
 flutter analyze
 flutter test
-flutter build web --no-web-resources-cdn
 ```
 
-Escanear QR y Comparar mi PDF están en verificación pública con/sin sesión.
-Configurar SUPABASE_URL y PUBLIC_VERIFICATION_BASE_URL; Auth privada necesita
-SUPABASE_PUBLISHABLE_KEY. Nunca usar service_role en Flutter. HTTPS en producción;
-HTTP loopback solo debug. Web cámara requiere getUserMedia/permiso/contexto seguro;
-decoder ZXing se sirve local desde web/decoder. Android permiso CAMERA opcional;
-iOS NSCameraUsageDescription, sin fotos/micrófono. Archivo local máximo 8 MiB,
-SHA-256 exacto, sin subir bytes/nombre/ruta; match no cambia un estado revocado.
+Run from this directory with public configuration:
 
-[Contrato y aplicación local](../docs/PUBLIC_VERIFICATION.md),
-[pruebas y límites de plataformas](../docs/TESTING.md),
-[arquitectura](../docs/FLUTTER_ARCHITECTURE.md),
-[ADR-0013](../docs/adr/0013-public-candidate-hash-and-qr-scanning.md).
-Los fixtures SQL/HTTP requieren stack descartable. No ejecutar un reset sobre
-la base habitual ni desplegar para reproducirlos.
+```sh
+flutter run -d chrome --web-hostname=localhost --web-port=7357 --dart-define=SUPABASE_URL=http://127.0.0.1:54321 --dart-define=SUPABASE_PUBLISHABLE_KEY=YOUR_LOCAL_ANON_KEY --dart-define=PUBLIC_VERIFICATION_BASE_URL=http://localhost:7357
+```
+
+Start local Supabase/Functions first. Dart defines must never contain service-role or EVM keys. Non-debug builds require HTTPS; use the [complete local demo](../docs/DEMO_BLOCKCHAIN_LOCAL.md) for release/Anvil acceptance.
+
+The public client uses v3 and keeps registry status, issue/revoke evidence and local document integrity separate. Private capabilities and openings are explicitly requested and discarded on session changes. Camera implementation remains available, but camera tests are SKIP/NOT_RUN by user instruction; static QR decoding, manual codes, links and PDF checks stay covered.
+
+See [Flutter architecture](../docs/FLUTTER_ARCHITECTURE.md), [UI foundations](../docs/FLUTTER_UI_FOUNDATIONS.md), [wallet](../docs/STUDENT_WALLET.md) and [testing](../docs/TESTING.md).

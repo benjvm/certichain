@@ -16,8 +16,7 @@ no recibe acceso. Contrato: [BLOCKCHAIN_VERIFICATION](BLOCKCHAIN_VERIFICATION.md
 
 La primera migración, `initial_schema`, define cuatro tablas: `profiles`,
 `institutions`, `institution_members` y `certificates`. La Fase 7A añade
-`certificate_issuance_operations`. Otras tablas descritas más abajo son
-propuestas para incrementos futuros. La primera migración habilitó RLS; la segunda,
+`certificate_issuance_operations`. Las tablas privadas de anclaje, operaciones, intentos y revocación se implementan mediante las migraciones de octubre; su estructura actual se describe más abajo. La primera migración habilitó RLS; la segunda,
 `rls_policies`, define las políticas para `authenticated`. La Fase 5 añade
 `close_direct_certificate_writes` para retirar escrituras de certificados y
 grants administrativos sobrantes. `anon` no puede obtener filas de ninguna
@@ -181,7 +180,7 @@ estos dependen de `institution_members.role` (`owner`, `admin` o `issuer`).
 | `profiles` | Perfil propio o cualquier perfil para `platform_admin` | Actualización propia sin cambiar `role`; plataforma puede editar datos de otros perfiles, nunca sus roles por API. Sin INSERT ni DELETE de cliente. |
 | `institutions` | Miembros y `platform_admin` | Ningún DML directo. RPC: alta solo plataforma con owner atómico; datos por owner/admin/plataforma; estado solo plataforma. DELETE cerrado. |
 | `institution_members` | Fila propia; todas las filas de la institución para `owner`/`admin`; todas para `platform_admin` | Ningún DML directo. RPC de alta/cambio/baja solo owner de esa institución o plataforma, conservando último owner. |
-| `certificates` | Titular, cualquier miembro de la institución emisora o `platform_admin` | Ninguna: sin INSERT, UPDATE, upsert ni DELETE, incluidos `owner`/`admin`/`issuer` y `platform_admin`. Emisión solo por backend autenticado 7B; revocación pendiente. |
+| `certificates` | Titular, cualquier miembro de la institución emisora o `platform_admin` | Ninguna: sin INSERT, UPDATE, upsert ni DELETE, incluidos `owner`/`admin`/`issuer` y `platform_admin`. Emisión solo por backend autenticado 7B; revocación solo por backend Auth, según REVOCATION.md. |
 | `certificate_issuance_operations` | Ninguna para clientes | Ninguna: RLS sin políticas y sin grants API. |
 
 Las funciones `certichain_private.is_platform_admin`,
@@ -273,10 +272,10 @@ política autoriza filas; se comprueba con el rol efectivo en las pruebas.
 La migración no contiene DML, no cambia columnas/enums ni borra datos. Los
 privilegios del propietario y del rol técnico de backend siguen siendo
 confiables, no permisos de usuarios. Fase 5 no añadió un endpoint; 7B implementa
-la emisión y mantiene pendiente la revocación. Su backend valida
+la emisión; la revocación actual se implementa mediante las migraciones de octubre y backend Auth. Su backend valida
 `verification_status = 'verified'`, sesión, membresía, destinatario, PDF y hash,
 además de idempotencia y fallos parciales: [SECURE_ISSUANCE.md](SECURE_ISSUANCE.md).
-Las tablas futuras de la sección «Modelo futuro propuesto» no existen todavía;
+Las tablas antiguamente propuestas y no recogidas en las migraciones no existen;
 la tabla de operaciones de 7A sí existe y se describe arriba.
 
 ## Aprovisionamiento confiable de perfiles — Phase 4A
@@ -487,3 +486,10 @@ El presupuesto privado existente y su RPC se reutilizan por ambos endpoints,
 sin nueva tabla/contador. SQL total 611 (54 nuevas), preservación transaccional
 compara filas y metadata Storage; HTTP comprueba bytes reales intactos.
 Contrato/comandos: [PUBLIC_VERIFICATION.md](PUBLIC_VERIFICATION.md).
+
+
+## Revocación vigente
+
+Las migraciones `20261015100000_irreversible_revocation.sql` y `20261015110000_revocation_public_v3.sql` incorporan la decisión SQL irreversible, auditoría privada, idempotencia y proyección pública v3. `20261016110000_revocation_reauthorization_unavailable.sql` uniforma la operación ausente; `20261018120000_revocation_evidence_reconciliation.sql` actualiza reconciliación/evidencia conservando ledger y fencing.
+
+Owner/admin actual de emisora verified/suspended solicita o reautoriza mediante los endpoints Auth. No hay UPDATE directo de certificados para clientes ni elevación de permisos por ser plataforma. Motivo/actor/request_id no aparecen en DTO de titular/público. Reorg o fallo EVM no reactiva SQL. Esquema exacto y funciones: migraciones; [contrato](REVOCATION.md), [seguridad](SECURITY.md) y [aceptación](PHASE10_ACCEPTANCE.md).

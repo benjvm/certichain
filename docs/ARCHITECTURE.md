@@ -1,174 +1,63 @@
 # Arquitectura
 
-## Cliente y lectura 9D
+CertiChain separa identidad y gestión documental, decisiones operativas SQL y evidencia externa EVM. El MVP implementa emisión, verificación, apertura documental y revocación. [Estado y límites](PHASE10_ACCEPTANCE.md).
 
-Flutter institucional → AnchoringRepository → endpoints Auth 9C; worker externo
-conserva firma/secretos y nunca se ejecuta desde cliente. Titular → código propio
-autorizado → verify-certificate-v2 pública, sin abrir progreso institucional.
-Verificador anónimo → presupuesto global → snapshot SQL coherente → lector EVM
-sin signer y con métodos/deadline acotados. SQL fallido es error técnico; RPC
-fallido deja registro + unavailable y evidencia anterior fechada.
-certificate-opening Auth → RPC técnica con autorización actual → apertura mínima.
-Flutter recalcula SHA-256/compromiso localmente, sin Web3 ni upload de PDF/apertura.
-No atomicidad SQL/EVM ni cambios de contrato/v1. [ADR-0017](adr/0017-public-blockchain-evidence-and-private-opening.md)
-y [contratos](BLOCKCHAIN_VERIFICATION.md).
-
-## Principios
-
-1. El dominio define el producto; Supabase y EVM son adaptadores reemplazables.
-2. Ningún secreto o privilegio administrativo reside en Flutter.
-3. La base de datos es la fuente operativa; blockchain es la prueba externa de integridad y revocación.
-4. Los procesos distribuidos usan estados explícitos e idempotencia, no una transacción ficticia entre PostgreSQL y blockchain.
-
-## Contenedores
+## Componentes y confianza
 
 ```mermaid
 flowchart TD
-    A[Flutter app] -->|HTTPS| B[Supabase API y Edge Functions]
-    B --> C[(PostgreSQL)]
+    A[Flutter: UI y dominio puro] -->|Repositorios y JWT| B[Supabase Auth / Edge Functions]
+    V[Verificador público] -->|Código sin sesión| B
+    B --> C[(PostgreSQL / RLS)]
     B --> D[Storage privado]
-    C -->|cola privada 9C| E[Worker y adaptador EVM]
-    E --> F[CertificateRegistry v1]
-    G[Verificador web o app] -->|URL o QR| B
+    W[Worker backend confiable] --> C
+    W -->|Firma y reconciliación| E[CertificateRegistry v1]
+    B -->|RPC de solo lectura| E
 ```
 
-Flutter puede leer datos autorizados mediante repositorios respaldados por el SDK de Supabase. Emisión, revocación, hashing definitivo y escritura blockchain pasan por una Edge Function u otro backend confiable.
+- Flutter y el navegador son clientes no confiables. El dominio define entidades/casos de uso y no importa Flutter, Supabase, PostgREST o Web3.
+- UI accede a infraestructura mediante contratos propios. Identidad, sesión y generaciones invalidan respuestas privadas tardías.
+- Edge vuelve a validar Auth, permisos y entradas; los RPC técnicos aplican invariantes transaccionales. `service_role` no sustituye autorización de negocio.
+- El worker externo conserva secretos EVM y ledger durable. El lector público no firma, encola ni ejecuta el worker.
+- PostgreSQL es la fuente operativa. No hay atomicidad PostgreSQL/Storage/EVM ni transacciones SQL abiertas durante RPC blockchain.
 
-Tras Fase 5, la API de tablas de `certificates` solo permite SELECT autorizado
-para `authenticated`; emisión y revocación directas no están habilitadas,
-incluido para `platform_admin`. 7B implementa la Edge Function autenticada y
-RPC técnicos de publicación; 7C añade cliente y acceso autorizado al PDF.
-El [contrato vigente](SECURE_ISSUANCE.md) define sus controles. El nuevo flujo
-de revocación y blockchain siguen pendientes.
-
-Fase 6 resuelve administración institucional mediante operaciones SQL
-transaccionales expuestas como RPC autenticados: alta pending con primer owner,
-datos, estados y miembros. Sus funciones verifican auth.uid() y autorización
-en BD y sustituyen el DML institucional directo. La aprobación corresponde a
-plataforma; owner gestiona miembros y admin institucional edita datos. La
-escritura de la fila institucional serializa los cambios y protege último owner,
-también en cascadas de Auth. DELETE institucional se cierra para conservar historial.
-Bootstrap y altas adicionales de plataforma requieren SQL operativo confiable;
-no son RPC públicos ni actualizaciones ordinarias de perfil.
-Decisión: [ADR-0007](adr/0007-managed-institution-administration.md).
-La Fase 7 entrega emisión segura sin blockchain con backend, PDF privado, SHA-256
-e idempotencia; los RPC de fase 6 no escriben certificados ni implementan PDF.
-
-## Estructura Flutter
+## Organización
 
 ```text
 mobile/lib/
-├── app/                    # arranque, router, tema e inyección
-├── core/                   # errores, utilidades y contratos compartidos
-├── features/
-│   ├── auth/
-│   ├── certificates/
-│   ├── issuance/
-│   ├── verification/
-│   ├── institutions/
-│   └── profile/
-└── main.dart
+  app/                 Arranque, navegación, tema e inyección
+  core/                Errores y capacidades compartidas
+  features/
+    auth/ certificates/ issuance/ verification/
+    institutions/ profile/ revocation/
+      domain/          Entidades, contratos y casos de uso Dart puros
+      data/            SDK/HTTP, DTO, archivos y almacenamiento
+      presentation/    Pantallas, controladores y widgets
+supabase/
+  migrations/          Esquema, RLS, funciones e invariantes versionadas
+  functions/           Handlers y módulos de dominio/aplicación/infraestructura
+  admin/               Operación confiable y worker
+  tests/               SQL, HTTP, Anvil y aceptación
+blockchain/            Contrato v1, herramientas aisladas y pruebas
 ```
 
-Cada feature puede contener:
+Regla: `presentation → domain ← data`. Añadir únicamente las abstracciones necesarias para un caso de uso concreto. Detalle de composición y recursos en [FLUTTER_ARCHITECTURE](FLUTTER_ARCHITECTURE.md).
 
-```text
-feature/
-├── domain/
-│   ├── entities/
-│   ├── repositories/
-│   └── usecases/
-├── data/
-│   ├── datasources/
-│   ├── models/
-│   └── repositories/
-└── presentation/
-    ├── pages/
-    ├── controllers/
-    └── widgets/
-```
+## Estados y recorridos
 
-Regla de dependencias: `presentation → domain ← data`. El dominio no depende de las otras capas. `data` implementa interfaces definidas en `domain`.
+1. **Administración:** plataforma crea una institución pending con primer owner; solo plataforma decide su verificación. Las mutaciones autorizadas bloquean la fila padre y conservan al último owner. El registro ordinario no concede privilegios.
+2. **Emisión:** sesión y membresía vigentes de institución verified; reserva idempotente; validación/almacenamiento/lectura del PDF y SHA-256; publicación SQL `active` y operación `completed`. Los datos publicados y bytes quedan inmutables.
+3. **Anclaje:** solicitud explícita posterior a publicación crea identidad/compromiso privados. Worker reclama lease, firma y persiste intento antes de broadcast, luego contrasta receipt/evento/estado/bloque canónicos. Reintentos conservan identidad, salt y ledger.
+4. **Verificación pública:** código → presupuesto global → snapshot SQL coherente → lectura EVM acotada. La app consume v3; v1/v2 y compare v1 conservan compatibilidad. Una caída RPC deja el registro y evidencia anterior fechada, no fabrica ausencia.
+5. **Apertura documental:** endpoint Auth permite al titular propio o miembro autorizado obtener los datos mínimos para recalcular el compromiso localmente. No se publica hash/salt ni se sube el PDF comparado.
+6. **Revocación:** owner/admin autorizado de emisora verified/suspended decide SQL irreversible inmediatamente. Se cancela issue sin firma o se conserva obligación de compensar un issue firmado/tardío. Worker sincroniza revoke; reorg/fallo EVM nunca restaura `active`.
 
-## Contratos principales
+La vigencia SQL, publicación documental, sincronización issue/revoke e integridad de una copia son juicios diferentes. Confirmado no equivale a finalidad PoS; Anvil indica `not_applicable`. Una coincidencia documental no anula expiración o revocación.
 
-- `AuthRepository`: sesión, registro y recuperación.
-- `CertificateRepository`: consultas autorizadas y detalle.
-- `IssuanceRepository`: solicitud y seguimiento de emisión.
-- `VerificationRepository`: proyección pública por código.
-- `HashComparisonRepository`: comparación pública de un hash candidato.
-- `ComparisonPdfPicker` / `PdfHasher` / `QrCamera`: capacidades locales de copia y QR.
-- `InstitutionRepository`: perfil, miembros y estado.
-- `BlockchainRegistry` (backend 9C): preparar/enviar/observar tx,
-  consultar registro/emisor y validar despliegue; solo backend, DTO puro y
-  adaptador RPC separados según [9A](PHASE9A_BLOCKCHAIN_SPEC.md).
-- `DocumentStorage`: guardar, recuperar y eliminar documentos según política.
+## Contratos y recuperación
 
-Los nombres representan responsabilidades; no obligan a crear una clase por método.
+`AuthRepository`, `CertificateRepository`, `InstitutionRepository`, `IssuanceRepository`, `AnchoringRepository`, `RevocationRepository`, `VerificationRepository` y capacidades de archivos/cámara separan producto de infraestructura. `BlockchainRegistry` es el puerto backend EVM, con DTO puros y adaptador independiente.
 
-## Flujo de emisión vigente sin blockchain
+Conservar ledger íntegro de intentos/nonces, documentos, hash/salt y snapshots de deployment. Una cadena nueva o manifiesto histórico no sustituye el deployment original. Unknown/divergence no permite saltar nonces ni firmar a ciegas. Reautorizar exige revisión y permisos actuales.
 
-7A–7D implementan emisión segura sin blockchain: autorización de sesión y
-membresía, `verification_status = 'verified'` al persistir, destinatario válido,
-PDF validado/privado, SHA-256 de sus bytes finales e idempotencia durable con
-recuperación ante fallos de Storage/base de datos. Publica estado `active` y
-conserva inmutables sus datos finales. Reserva y publicación transaccionales
-rodean las operaciones Storage; véase [SECURE_ISSUANCE.md](SECURE_ISSUANCE.md).
-
-## Backend público 8A
-
-Verificador sin sesión → POST verify-certificate → consumo de presupuesto
-compartido en PostgreSQL → entrada JSON cerrada → lookup_public_certificate.
-Solo el backend posee service_role; ambos RPC técnicos tienen EXECUTE exclusivo.
-La consulta enlaza certificado/operación completed/institución y proyecta campos
-públicos. Un instante servidor evalúa resultados. No accede a Auth, membresías
-del verificador ni Storage; no descarga ni compara PDFs por petición.
-
-El limitador serializa una fila privada, usa reloj servidor tras el lock y no
-depende de cabeceras o IP. El backend consume antes de validar para cubrir los
-POST desconocidos/inválidos y falla cerrado ante problemas de infraestructura.
-No hay cambios Flutter en 8A. Contrato y límites:
-[PUBLIC_VERIFICATION.md](PUBLIC_VERIFICATION.md), [ADR-0011](adr/0011-public-registry-verification.md).
-
-## Backend privado 9C conforme al protocolo 9A
-
-Publicar active/completed conserva el flujo actual. Después, una solicitud de
-anclaje explícita y autorizada crea identidad/compromiso y operación durable en
-tablas privadas nuevas de 9C. Un worker backend revalida, firma, persiste intento
-antes de enviar y reconcilia receipt/evento/bloque/confirmaciones/finalidad.
-El adaptador vive bajo `supabase/functions/_shared/blockchain/data/`; su puerto
-y DTO puros en `domain/`. No hay transacción PostgreSQL abierta durante RPC ni
-atomicidad PostgreSQL/EVM. Flutter no firma ni contiene Web3 en dominio.
-
-`certificate.status` sigue active/revoked; emisión completed, anclaje e integridad
-de la copia tienen estados distintos. Se retira la propuesta antigua de añadir
-anchoring/anchor_failed al certificado. Expired se deriva de fecha; confirmed
-no equivale a finalized. Salt/hash documental privados, compromiso público.
-Sepolia/Anvil y autoridad por I según [ADR-0014](adr/0014-evm-network-toolchain-and-authority.md).
-Recuperación/versionado según [ADR-0015](adr/0015-private-commitments-and-durable-anchoring.md).
-Ethers fijado, nonce revertido y despliegue local según
-[ADR-0016](adr/0016-durable-evm-adapter-and-reverted-nonce.md);
-[operación 9C](BLOCKCHAIN_OPERATIONS.md).
-
-La fase 10 añadirá revocación SQL irreversible inmediata y solicitud EVM durable
-cuando proceda, sin retrasar la advertencia pública por un RPC caído. El trigger
-histórico no implementa ese flujo. Especificación completa:
-[PHASE9A_BLOCKCHAIN_SPEC.md](PHASE9A_BLOCKCHAIN_SPEC.md).
-
-## Portabilidad futura
-
-La primera migración prevista sería `Supabase SDK → API propia`, manteniendo casos de uso y entidades. Posteriormente, Auth y Storage pueden sustituirse detrás de adaptadores. Las dependencias específicas de Supabase se inventarían en ADR y en `docs/DATABASE.md`.
-
-
-## Comparación y escáner 8C
-
-Flutter selecciona una copia local de máximo 8 MiB y calcula SHA-256 exacto sin
-upload. Envía exclusivamente código/hash a compare-certificate-hash; el backend
-consume el mismo presupuesto 8A y compara contra evidencia elegible en un
-snapshot SQL coherente. verification v1 y file_integrity son resultados distintos:
-coincidencia no elimina revocación/caducidad. verify-certificate permanece cerrado.
-Escáner QrCamera local, accionado por usuario y detenido por ciclo de vida,
-acepta solo enlace canónico de base confiable/UUID y requiere confirmar consulta.
-Cámara/selector/hash detrás de contratos; raíz compone preview y adaptador sin
-hacer depender data de presentation. La operación privilegiada/hash esperado
-continúa en backend. [ADR-0013](adr/0013-public-candidate-hash-and-qr-scanning.md).
+Referencias: [seguridad](SECURITY.md), [datos](DATABASE.md), [emisión](SECURE_ISSUANCE.md), [revocación](REVOCATION.md), [operación EVM](BLOCKCHAIN_OPERATIONS.md), [protocolo normativo](PHASE9A_BLOCKCHAIN_SPEC.md) y [ADRs](ADR_README.md).

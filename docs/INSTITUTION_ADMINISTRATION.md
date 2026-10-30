@@ -7,20 +7,21 @@ Confirmación con título/ID y motivo privado canónico. Suspended sigue sin emi
 ni acceder a PDF/apertura institucional. Denegación del backend retira datos y
 acciones; servidor conserva autoridad. Reautorización explícita continúa solo
 sincronización. Refresco manual/al volver a primer plano, sin desmontaje cada 30 s.
-[Contrato](REVOCATION.md), [aceptación](PHASE10D_ACCEPTANCE.md). Los apartados de
+[Contrato](REVOCATION.md), [aceptación](PHASE10_ACCEPTANCE.md). Los apartados de
 fase 6 inferiores conservan su contexto histórico.
 
 ## Decisión del MVP
 
 El alta institucional es administrada: un `platform_admin` crea una institución
 `pending` y asigna un primer `owner` a una identidad de Auth con perfil existente,
-en una operación atómica. Las solicitudes de autoservicio y la interfaz Flutter
-institucional quedan para otro incremento. Elegir «Institución» al registrarse
+en una operación atómica. La creación/aprobación y gestión administrativa de miembros
+se operan mediante RPC; el autoservicio sigue pendiente. Elegir «Institución» al registrarse
 continúa creando únicamente un perfil `holder`.
 
-No hay emisión ni revocación: ni siquiera una institución `verified` obtiene
-INSERT/UPDATE en `certificates`. La fase 7 será emisión segura sin blockchain,
-mediante backend, PDF privado, SHA-256 e idempotencia.
+Emisión y revocación están implementadas mediante backend Auth y cliente
+institucional. Ni siquiera una institución `verified` obtiene INSERT/UPDATE
+directo en `certificates`. Contratos: [emisión](SECURE_ISSUANCE.md) y
+[revocación](REVOCATION.md).
 
 ## Primer administrador y administradores adicionales
 

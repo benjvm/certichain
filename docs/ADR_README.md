@@ -1,95 +1,24 @@
 # Architecture Decision Records
 
-Los ADR registran decisiones estructurales para evitar que el proyecto cambie de dirección sin contexto y sirven como evidencia razonada en la memoria del TFG.
+Accepted ADRs preserve the rationale behind decisions that are expensive to reverse. Keep their historical context; a new structural decision should supersede and link an earlier ADR rather than erase its reasoning. Implementation status is maintained in [acceptance](PHASE10_ACCEPTANCE.md) and [roadmap](ROADMAP.md).
 
-## Convención
+| ADR | Decision |
+|---|---|
+| [0007](adr/0007-managed-institution-administration.md) | Managed institutional onboarding and controlled SQL mutations |
+| [0008](adr/0008-private-issuance-reservations.md) | Persistent issuance reservation and private PDF storage |
+| [0009](adr/0009-leased-private-issuance.md) | Leases, publication and terminal cleanup |
+| [0010](adr/0010-institutional-client-and-document-capabilities.md) | Institutional client and short-lived document capabilities |
+| [0011](adr/0011-public-registry-verification.md) | Restricted public registry projection and shared budget |
+| [0012](adr/0012-public-web-navigation-and-credential-sharing.md) | Public Web navigation and authorized sharing |
+| [0013](adr/0013-public-candidate-hash-and-qr-scanning.md) | Local candidate hashing and QR scanning |
+| [0014](adr/0014-evm-network-toolchain-and-authority.md) | EVM network, reproducible tools and registry authority |
+| [0015](adr/0015-private-commitments-and-durable-anchoring.md) | Private commitments and durable anchoring |
+| [0016](adr/0016-durable-evm-adapter-and-reverted-nonce.md) | Durable EVM adapter and consumed/reverted nonces |
+| [0017](adr/0017-public-blockchain-evidence-and-private-opening.md) | Public EVM evidence and authenticated opening |
+| [0018](adr/0018-irreversible-revocation-and-public-v3.md) | Irreversible revocation, v3 evidence and the limited JWT gateway exception |
 
-Nombre:
+The early proposed numbers 0001–0006 were never created; do not add empty records just to fill numbering gaps. The normative commitment/registry protocol remains [Protocol v1](PHASE9A_BLOCKCHAIN_SPEC.md).
 
-```text
-NNNN-titulo-corto.md
-```
+## Convention
 
-Estados permitidos: `proposed`, `accepted`, `superseded`, `rejected`.
-
-No se edita el razonamiento histórico de un ADR aceptado para ocultar un cambio. Se crea otro ADR que lo sustituye y ambos se enlazan.
-
-## Plantilla
-
-```markdown
-# ADR-NNNN: Título
-
-- Status: proposed
-- Date: YYYY-MM-DD
-- Deciders: Benjamin Sánchez
-
-## Context
-
-¿Qué problema o restricción obliga a decidir?
-
-## Decision
-
-¿Qué se ha decidido exactamente?
-
-## Alternatives considered
-
-- Alternativa A: ventajas y desventajas.
-- Alternativa B: ventajas y desventajas.
-
-## Consequences
-
-### Positive
-
-- ...
-
-### Negative / risks
-
-- ...
-
-## Validation
-
-¿Cómo sabremos que la decisión funciona?
-```
-
-## ADR iniciales recomendados
-
-Decisión aceptada implementada en Fase 6:
-[0007-managed-institution-administration.md](adr/0007-managed-institution-administration.md).
-
-Decisiones aceptadas de emisión y documentos:
-[ADR-0008](adr/0008-private-issuance-reservations.md),
-[ADR-0009](adr/0009-leased-private-issuance.md) y
-[ADR-0010](adr/0010-institutional-client-and-document-capabilities.md).
-
-Verificación pública del registro y presupuesto compartido:
-[ADR-0011](adr/0011-public-registry-verification.md).
-
-Navegación pública Web y compartición autorizada 8B:
-[ADR-0012](adr/0012-public-web-navigation-and-credential-sharing.md).
-
-1. `0001-use-supabase-initially.md`.
-2. `0002-feature-first-clean-boundaries.md`.
-3. `0003-version-database-with-migrations.md`.
-4. `0004-private-document-storage.md`.
-5. `0005-select-evm-test-network.md`.
-6. `0006-backend-owned-blockchain-signing.md`.
-
-No crear ADR para cada detalle menor; reservarlos para decisiones caras de revertir o con alternativas reales.
-
-Comparación por hash candidato y escáner público 8C:
-[ADR-0013](adr/0013-public-candidate-hash-and-qr-scanning.md).
-
-Diseño blockchain 9A aceptado el 12/10/2026, implementación pendiente:
-
-- [ADR-0014: red, herramientas y autoridad EVM](adr/0014-evm-network-toolchain-and-authority.md).
-- [ADR-0015: compromiso privado y anclaje durable](adr/0015-private-commitments-and-durable-anchoring.md).
-
-0014 resuelve las recomendaciones históricas 0005/0006 (que no llegaron a
-crearse); no reutiliza esos números. Interfaz y protocolo normativos en
-[PHASE9A_BLOCKCHAIN_SPEC.md](PHASE9A_BLOCKCHAIN_SPEC.md).
-
-[ADR-0016](adr/0016-durable-evm-adapter-and-reverted-nonce.md): adaptador 9C,
-worker explícito y reautorización tras nonce revertido con identidad durable.
-# Decisión 9D
-
-[ADR-0017 — Evidencia pública v2 y apertura privada](adr/0017-public-blockchain-evidence-and-private-opening.md).
+Use `NNNN-short-title.md`. States: `proposed`, `accepted`, `superseded`, `rejected`. Include status, date, context, decision, alternatives, consequences and validation. Reserve an ADR for a real structural choice; routine fixes and documentation cleanup do not require a new decision record.

@@ -1,56 +1,16 @@
-# Emisión privada autenticada — Fases 7B, 7C y 7D
+# Emisión y acceso privado al PDF
 
-## Incremento local de revocación — 15/10/2026
+`POST /functions/v1/issue-certificate` exige owner/admin/issuer actual de una institución verified. El backend reserva, valida PDF/campos/destinatario, almacena y relee los bytes finales antes de publicar active/completed. La UI institucional usa ese contrato y `certificate-pdf` para la descarga autorizada.
 
-[REVOCATION](REVOCATION.md) define los endpoints Auth, motivo/auditoría privados,
-SQL irreversible, worker durable y evidencia pública v3 con issue/revoke separados.
-V1/v2 y compare conservan contrato; la app usa v3. Resultados ejecutados y
-dictamen vigente: [PHASE10_ACCEPTANCE](PHASE10_ACCEPTANCE.md). Los apartados
-que describen revocación futura conservan el contexto histórico de sus fases.
-La demo se reproduce con `./supabase/tests/run_phase10.ps1`; sin despliegue remoto,
-Sepolia ni corrección Android atribuida. Cámara=0 con la exclusión persistente.
+Anclaje explícito, apertura y revocación están implementados mediante contratos separados: [evidencia/apertura](BLOCKCHAIN_VERIFICATION.md), [revocación](REVOCATION.md) y [operación](BLOCKCHAIN_OPERATIONS.md). Ningún fallo de EVM borra o vuelve a emitir el PDF. 202 de una solicitud blockchain no confirma inclusión. [Aceptación y CI](PHASE10_ACCEPTANCE.md).
 
-## Integración posterior 9D
-
-Emisión sigue publicando active/completed y PDF privado exactamente como antes.
-Cliente institucional permite anclaje explícito de ese certificado, sin repetir
-formulario/PDF. Recibo/key aislados antes del POST, recuperar misma solicitud
-ante respuesta perdida; progreso/reautorización manuales. 202 no confirma cadena;
-worker confiable externo conserva toda firma. Wallet, v1, QR y códigos intactos.
-Apertura es otro endpoint Auth protegido, con permisos propios equivalentes al
-documento; ningún fallo de anclaje borra la publicación.
-[Contrato/operación](BLOCKCHAIN_VERIFICATION.md), [aceptación 9D](PHASE9D_ACCEPTANCE.md).
-
-## Estado y límite de confianza
-
-7B implementa `POST /functions/v1/issue-certificate`. Solo owner/admin/issuer
-vigentes de una institución verified pueden emitir. 7C incorpora el cliente
-Flutter institucional y `POST /functions/v1/certificate-pdf` para descarga privada.
-7D cierra las pruebas integrales y endurecimiento. 8A añade el backend público
-descrito en [PUBLIC_VERIFICATION.md](PUBLIC_VERIFICATION.md). 8B–8D entregan
-pantalla pública, QR, escáner y comparación local de copia. 8D está publicada en
-6235486; el bloqueo histórico de 37373509169 se conserva. CI posterior success
-38280055013 intento 1 para 2066e908af30913462cf3daf77324eab2a63dfc4 en
-database/flutter/android. Cámara omitida por instrucción vigente; ver TESTING.
-Revocación de producto y blockchain siguen pendientes: [9A](PHASE9A_BLOCKCHAIN_SPEC.md)
-define el protocolo sin cambiar publicación/completed, hash o permisos actuales.
-No se ha desplegado ninguna función ni migración remota.
-
-Para servirlo manualmente, con el stack local reconstruido y la CLI 2.117.0:
+Para servirlo con Supabase CLI 2.117.0 y el proyecto local arrancado:
 
 ```powershell
-npx --no-install supabase functions serve
+supabase functions serve
 ```
 
-Enviar el multipart descrito abajo a http://127.0.0.1:54321/functions/v1/issue-certificate
-con Authorization: Bearer de una sesión Auth local real y la clave pública local.
-No usar --no-verify-jwt ni el token service_role como sesión del solicitante.
-
-`verify_jwt = true` permanece habilitado. La función consulta efectivamente
-Auth `/user` con el JWT del solicitante y la clave pública. Su ID verificado
-es el único actor. Otro cliente técnico usa service_role, exclusivamente en
-servidor, para las RPC estrechas y Storage. Metadatos y cuerpo no autorizan.
-No se amplían grants, RLS ni SELECT de perfiles para clientes.
+Enviar el multipart siguiente a `http://127.0.0.1:54321/functions/v1/issue-certificate` con JWT de una sesión Auth real y clave pública local. `verify_jwt=true` permanece habilitado; Auth `/user` identifica al actor y las RPC estrechas revalidan permisos. Nunca usar service_role como sesión del solicitante. El cliente técnico con service_role solo existe en servidor. Metadatos o cuerpo no autorizan.
 
 ## Entrada y respuesta
 
@@ -258,22 +218,12 @@ Reservas antiguas de 7A sin metadatos siguen limpiables, no se inventa su títul
 Publicación sigue terminando en active/completed con PDF privado. Anclaje posterior
 mediante anchor-certificate, Auth real y autorización actual, nunca automático.
 Sus fallos no borran completed/certificado/PDF. 202/200 mínimo de operación no
-garantiza inclusión. Progreso/reautorización privados. Sin cambiar Flutter ni
-habilitar revocación. [Operación](BLOCKCHAIN_OPERATIONS.md) y
-[evidencia/límites](PHASE9C_ACCEPTANCE.md).
+garantiza inclusión. Progreso/reautorización privados. La revocación usa su contrato separado. [Operación](BLOCKCHAIN_OPERATIONS.md) y
+[evidencia/límites](PHASE10_ACCEPTANCE.md).
 
-## Revocación y siguientes fases
+## Revocación y separación de estados
 
-El trigger histórico de certificados solo controla UPDATE y no bloquea el INSERT
-del flujo nuevo; se conserva intacto junto con la inmutabilidad de 7A. No existe
-endpoint de revocación. Su futuro backend exigirá owner/admin de la institución,
-transición active → revoked, hora de servidor y una política explícita sobre
-instituciones suspended. Blockchain necesitará su propio registro/reconciliación.
-
-7C entrega pantallas de emisión, ID de titular voluntario y descarga autorizada
-con URL firmada breve. 7D entrega E2E, carga/límites de abuso, revisión de compatibilidad
-PDF y endurecimiento operativo. QR/verificación pública y blockchain permanecen
-fuera de 7B. Resultados reales y CI observado están en TESTING.md.
+La revocación está implementada mediante backend Auth y transición SQL inmediata e irreversible para owner/admin de emisora verified/suspended. Se conserva publicación completed, metadatos, PDF y apertura. EVM revoke se sincroniza de forma durable; sus fallos no revierten SQL. [Contrato vigente](REVOCATION.md).
 
 ## Cliente institucional 7C y recuperación
 

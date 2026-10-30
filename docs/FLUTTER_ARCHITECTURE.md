@@ -1,37 +1,12 @@
 # Arquitectura Flutter
 
-## Cliente de revocación 10D — 18/10/2026
+## Composición vigente
 
-Se conserva presentation → domain ← data. Validación de motivo Dart pura con
-unorm_dart existente; motivo canónico solo en memoria y clave por cuenta/institución/
-certificado antes del POST. DTO cerrado y barreras token/identidad/generación,
-también en callbacks/dispose. Workspace sin timer que destruya intentos; progreso
-y reautorización manuales distintos. Certificate añade revokedAt nullable, sin
-auditoría. Compare PDF v1 conserva emisión/revocación previas sin fabricar envelope
-v3 ni consultar otra versión. Sin dependencias o decisión estructural nuevas.
-[Aceptación y límites](PHASE10D_ACCEPTANCE.md).
+La app mantiene presentation → domain ← data en auth, certificates, issuance, verification, institutions, profile y revocation. La raíz compone `HttpVerificationRepository` con v3; v1/v2 permanecen para compatibilidad y compare conserva su contrato independiente, sin fallback ni consultas duplicadas.
 
-## Incremento 9D
+Anclaje y revocación usan repositorios Auth, claves de idempotencia mínimas por ámbito y controladores que protegen identidad/token/generación. Motivo canónico solo en memoria; ninguna regeneración automática de clave tras timeout. Progreso y reautorización son acciones explícitas. El titular ve revokedAt nullable, nunca auditoría institucional.
 
-issuance/domain añade AnchorScope, AnchorOperation/Status, recibos, puertos de
-anclaje/apertura/transferencia. data implementa POST cerrado con JWT actual,
-abort/deadline/límite/parse estricto y barrera token/identidad al recibir, y
-preferencias mínimas por usuario/institución/certificado (20/7 días).
-AnchoringController guarda key antes de POST, evita doble envío y descarta
-trabajos al cambiar sesión/ámbito/disponer; acciones manuales de progreso y
-reautorización. UI institucional reutiliza certificado ya publicado.
-
-verification/domain mantiene registro v1, añade evidencia y apertura puras y
-caso de cálculo protocol-v1 SHA-256/UUID exacto con crypto ya existente.
-data traduce DTO v2/apertura y gateways de archivo JSON acotados. main.dart
-compone HttpVerificationRepository(useV2:true); v1 continúa disponible para
-consumidores previos/tests y compare independiente, sin fallback de v2.
-OpeningCheckController procesa solo memoria local; panel distingue cuatro juicios.
-certificates/presentation permite evidencia pública del titular y apertura
-autorizada/copy/export explícitos, nunca anchor-progress al holder.
-Router compartido conserva hash/recarga/historial y cooldown. No SDK en UI/dominio,
-dependencias nuevas, firma, claves ni caché persistente de H/S/apertura.
-[ADR-0017](adr/0017-public-blockchain-evidence-and-private-opening.md).
+Apertura/archivo/JSON y cálculo SHA-256/compromiso están detrás de contratos de dominio. H/salt/apertura no se persisten. Logout/cambio de cuenta/dispose descartan respuestas tardías y recursos. No firma, Web3, secretos o consultas Supabase en UI/dominio. [Aceptación](PHASE10_ACCEPTANCE.md).
 
 La aplicación móvil usa una organización **feature-first** inspirada en Clean
 Architecture. El objetivo es mantener límites claros sin introducir
@@ -55,8 +30,7 @@ Cada feature se divide solo cuando lo necesita en:
 - `domain/`: entidades, contratos de repositorio y casos de uso. Es Dart puro y
   no depende de Flutter, Supabase, formatos JSON ni librerías blockchain.
 - `data/`: fuentes de datos, DTO/modelos, mapeos e implementaciones de los
-  contratos definidos por el dominio. Aquí se integrarán posteriormente
-  Supabase, APIs o almacenamiento local.
+  contratos definidos por el dominio. Aquí se integran Supabase, APIs o almacenamiento local.
 - `presentation/`: páginas, widgets y providers/controladores de estado. Puede
   depender del dominio, pero no consulta directamente infraestructura ni
   contiene reglas de negocio.
@@ -240,7 +214,7 @@ alternativa, mantenimiento y permisos en
 ZXing JS 0.23.0 UMD servido local desde web/decoder, generado por tool/prepare_decoder.mjs
 con npm lockfile y manifest SHA-256. No CDN ni gallery ni imágenes retornadas.
 Android CAMERA opcional; iOS texto de cámara; Web HTTPS/loopback y getUserMedia.
-Actualizar exige repetir E2E con cámara emulada y revisión en dispositivos reales.
+Las actualizaciones deben repetir las comprobaciones sin cámara y registrar la captura/permisos/ciclo como SKIP/NOT_RUN por la instrucción vigente. La revisión en dispositivos reales requiere evidencia separada.
 
 
 ## Recursos y cancelación — 8D

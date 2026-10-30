@@ -1,51 +1,8 @@
-# Verificación blockchain y apertura — Fase 9D
+# Evidencia blockchain y apertura privada
 
-## Aceptación integrada 10E — 18/10/2026
+El producto usa `verify-certificate-v3`, definido en [REVOCATION](REVOCATION.md), con registro SQL y evidencia issue/revoke separadas. V2 conserva el contrato de evidencia de emisión documentado aquí; v1 y compare v1 permanecen compatibles. El lector es de solo lectura y no firma ni ejecuta el worker.
 
-[Resultados y matriz vigentes](PHASE10_ACCEPTANCE.md). V3 añade decisión SQL y
-evidencia revoke, sin reemplazar issue ni ampliar v1/v2/compare v1. Durante demora,
-RPC caído/reorg/divergencia, SQL revocado no se presenta como vigente. Evidencia
-previa fechada sin atribución actual; Anvil no acredita PoS. Comparación PDF y
-apertura demuestran relación/integridad, nunca vigencia. El viaje release usa
-las utilidades de contadores existentes sin relajar una consulta por arranque/
-recarga/navegación. Sin motivo, actor o datos operativos privados públicos.
-
-## Incremento local de revocación — 15/10/2026
-
-[REVOCATION](REVOCATION.md) define los endpoints Auth, motivo/auditoría privados,
-SQL irreversible, worker durable y evidencia pública v3 con issue/revoke separados.
-V1/v2 y compare conservan contrato; la app usa v3. Resultados ejecutados y
-dictamen vigente: [PHASE10_ACCEPTANCE](PHASE10_ACCEPTANCE.md). Los apartados
-que describen revocación futura conservan el contexto histórico de sus fases.
-La demo se reproduce con `./supabase/tests/run_phase10.ps1`; sin despliegue remoto,
-Sepolia ni corrección Android atribuida. Cámara=0 con la exclusión persistente.
-
-## Base de fase 9 reconsultada — 15/10/2026
-
-main/HEAD revisados: `bb2a93c61950f258136bc88d4b9ad44b46848fc5`.
-API GitHub: cuatro workflows completed/success, intento 1, para ese SHA:
-[Database permissions 38645390011](https://github.com/benjvm/certichain/actions/runs/38645390011),
-[Blockchain verification client 38645389979](https://github.com/benjvm/certichain/actions/runs/38645389979),
-[Private durable anchoring 38645389971](https://github.com/benjvm/certichain/actions/runs/38645389971),
-[Blockchain registry 38645389759](https://github.com/benjvm/certichain/actions/runs/38645389759).
-Actualiza el NOT_OBSERVED histórico del árbol 9E/base; se conserva el registro
-anterior más abajo. No acredita los cambios locales de fase 10: su CI sigue
-**NOT_OBSERVED**. Android archivos conserva la incidencia 9E; plataformas,
-Sepolia y accesibilidad humana no se elevan a PASS por estos runs.
-
-
-Aceptación ampliada 9E: [PHASE9E_ACCEPTANCE](PHASE9E_ACCEPTANCE.md),
-[DEMO_BLOCKCHAIN_LOCAL](DEMO_BLOCKCHAIN_LOCAL.md),
-`./supabase/tests/run_phase9e.ps1` (completa) o `-BackendOnly` (sin Flutter).
-Misma app main.dart/contratos v1/v2/apertura Auth. Añade evidencia de recuperación
-ledger/Storage, archivos, cambio de cuenta, presupuesto y reset sin nuevo producto.
-CI 9D integrada success observada para 7737d303…; CI del árbol 9E NOT_OBSERVED.
-
-9A sección 3 define exactamente SHA-256/U/K/I/H/S/C; contrato, ABI y vector 9B
-no cambian. [ADR-0017](adr/0017-public-blockchain-evidence-and-private-opening.md)
-separa evidencia pública, documento y apertura. Ninguna comprobación acredita
-identidad del presentador, verdad académica o validez legal. Supabase atribuye
-institución/metadatos; el RPC backend observa la cadena.
+La aceptación integral y CI vigentes están en [PHASE10_ACCEPTANCE](PHASE10_ACCEPTANCE.md). Anvil no acredita Sepolia/finalidad PoS, plataformas nativas ni despliegue alojado. Los ejemplos v2 siguientes describen compatibilidad, no la selección actual del cliente.
 
 ## POST verify-certificate-v2
 
@@ -223,9 +180,7 @@ Anvil/Edge/red propios y frontend main.dart release HTTPS. El harness confiable
 ejecuta el worker; Flutter jamás lo hace. finally limpia solo recursos propios.
 Inputs/exportaciones sintéticos temporales no se copian a artefactos; result.json
 solo guarda revisión/dirty/fecha/contadores/etapas/cámara. Comandos de formato,
-análisis/regresiones/resultados y CI exacto en [PHASE9D_ACCEPTANCE](PHASE9D_ACCEPTANCE.md).
+análisis/regresiones/resultados y CI exacto en [Aceptación vigente](PHASE10_ACCEPTANCE.md).
 
-9E amplía aceptación local (estado en su documento); 10 pendiente. Sin backfill,
-cron remoto, Sepolia, wallet/NFT/token o revocación
-de producto. Cámara SKIP/NOT_RUN:
+La aceptación vigente incorpora el ciclo completo y revocación en [10E](PHASE10_ACCEPTANCE.md). Sin backfill/cron remoto, despliegue Sepolia validado o wallet/NFT/token. Cámara SKIP/NOT_RUN:
 «Omitidas por instrucción del usuario; no hay cámara física disponible».

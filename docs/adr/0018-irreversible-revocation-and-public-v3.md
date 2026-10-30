@@ -67,7 +67,7 @@ No se ha demostrado caché efectiva ni fuga. No justifica una nueva capa proxy.
 
 La excepción exige escenario sin token/inválido/firmado expirado, 401, código
 Supabase conocido concordante con el escenario y cuerpo genérico cerrado compatible.
-[Política y evidencia exactas](../PHASE10B_GATEWAY.md). Falta de cabecera en el
+[Política y evidencia exactas](../SECURITY.md). Falta de cabecera en el
 handler, mensajes privados, respuestas inesperadas o errores de red siguen siendo
 fallos. Si Supabase incorpora no-store, se reconoce sin aplicar excepción.
 

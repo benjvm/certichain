@@ -1,202 +1,38 @@
-# Wallet personal y detalle — Fases 4D y 7C
+# Wallet personal y detalle
 
-## Revocación 10D — 18/10/2026
+## Navegación y ámbito
 
-Badge Revocado con texto/icono/color conservado. SELECT añade solo revoked_at
-ya autorizado, sin motivo/actor/auditoría. El detalle distingue fecha SQL UTC de
-emisión/EVM y ausencia histórica. PDF/apertura/código/enlace/QR conservan permisos;
-revocar no elimina documentos o copias externas. Una coincidencia PDF no acredita
-vigencia. [Evidencia nueva](PHASE10D_ACCEPTANCE.md).
+El área autenticada ofrece Inicio, Mis certificados y Mi perfil. Inicio muestra perfil real, total exacto y tres certificados recientes. Wallet lista hasta **50** registros por `issued_at DESC, id DESC`, con total/límite visibles y sin categorías inventadas. El avatar es genérico.
 
-## Ampliación 9D del detalle
-
-Wallet, emisión, PDF privado y QR/enlace existentes conservados. La pestaña
-Blockchain permite consultar v2 mediante código propio autorizado y obtener
-apertura autenticada; nunca progreso institucional. Estado EVM, fecha y fuente
-se muestran independientemente de la vigencia SQL. Obtener/copy/export son
-acciones explícitas; sesión/token/salida descartan referencias a la apertura.
-Titular mantiene acceso con emisora suspendida; no solicita anclaje sin membresía.
-Sin Web3, claves, QR con H/S ni promesa de borrar copias externas.
-[Contrato](BLOCKCHAIN_VERIFICATION.md), [aceptación](PHASE9D_ACCEPTANCE.md).
-
-## Navegación y datos reales
-
-Después de autenticar, `/` contiene los destinos internos
-`AuthenticatedSection.home/wallet/profile`: Inicio, Mis certificados y Mi perfil.
-Atrás desde wallet/perfil vuelve a Inicio. Las rutas públicas `/`, `/login` y
-`/register` conservan su comportamiento cuando no hay sesión.
-
-Inicio presenta nombre y rol de `profiles`, avatar genérico, total exacto y
-tres certificados recientes. Wallet muestra hasta 50 registros ordenados por
-`issued_at DESC, id DESC`, e indica el límite si el total lo supera. Solo hay
-«Todos»: el esquema no tiene categorías. Mi perfil muestra los datos reales y
-opciones explícitamente no disponibles; cerrar sesión sigue funcionando.
-No se usan fixtures en producción ni se conceden permisos por el rol mostrado.
-
-Una tarjeta de Inicio o wallet abre `/certificates/detail` con un ID como
-argumento y el titular de la sesión. Es una ruta interna, sin deep links.
-El detalle vuelve al destino y desplazamiento originales; se evita abrir dos
-detalles por pulsaciones consecutivas. Renovar el token del mismo usuario
-conserva la ruta. Cambiar de identidad o salir sustituye todo el navegador.
+Una tarjeta abre el detalle interno por ID y titular actual. No es un deep link público. Volver conserva destino/desplazamiento; doble pulsación no abre dos detalles. Renovar sesión del mismo usuario conserva navegación; logout, cambio de identidad, expiración o error de sesión retiran el área privada.
 
 ## Lecturas y autorización
 
-- Perfil: `profiles.select(id,full_name,role).eq(id, userId).maybeSingle()`.
-  Un perfil ausente muestra error/reintento y permite salir.
-- Wallet: selección mínima de `id, holder_id, institution_id, title, issued_at,
-  expires_at, status` y relación opcional `institutions(name)`, filtro de
-  `holder_id`, límite 50 y `count=exact`.
-- Detalle: `CertificateRepository.readCertificate(userId, certificateId)`;
-  el adaptador reutiliza la selección y mapeo de wallet, filtra tanto `id`
-  como `holder_id`, y usa `maybeSingle()`. Un resultado sin fila significa
-  «No existe o no tienes acceso», sin distinguir casos que permitan enumeración.
-  Titular/ID inesperados y estados desconocidos fallan de forma segura.
-- Se conserva el cliente con clave pública y sesión del usuario; RLS es la
-  autorización efectiva. El filtro de titular sigue siendo obligatorio para
-  cuentas que también puedan leer datos institucionales o administrativos.
-- RLS puede ocultar `institutions`: ser titular no concede acceso al emisor.
-  Se muestra «Institución no disponible» sin descartar el certificado.
-- No se consultan rutas de documentos, hashes, códigos de credencial, correos,
-  transacciones ni historiales. 7C añade un endpoint PDF separado; las selecciones
-  y políticas de lectura personal permanecen intactas.
+- Perfil: selección `id,full_name,role` filtrada por usuario. Ausencia/error ofrece reintento y salida segura.
+- Wallet/detalle: selección mínima de certificado, fechas, estado, `revoked_at` y relación opcional de emisor; filtros explícitos `holder_id` y, en detalle, `id`. El detalle relee y usa ausencia uniforme «No existe o no tienes acceso».
+- RLS autoriza en servidor. El filtro de titular sigue siendo necesario si el usuario también tiene membresía o rol plataforma con lecturas más amplias.
+- Si RLS oculta la institución, mostrar «Institución no disponible» sin descartar el certificado. No ampliar políticas ni inventar emisor.
+- Adaptadores traducen filas a dominio puro y rechazan identidad/estado desconocidos. Lecturas con timeout de 20 s; futuros/generaciones descartan respuestas obsoletas.
+- Una selección personal no incluye ruta/hash privados, motivo/actor/auditoría ni ledger. El código compartible se obtiene por el repositorio autorizado específico.
 
-Las lecturas del adaptador tienen timeout de 20 segundos. Los mensajes de error
-son fijos y seguros; no se presentan errores crudos del proveedor.
+## Documento y estados
 
-## Detalle y significado de los estados
+El detalle muestra título, emisor opcional, emisión, expiración opcional y vigencia. `active`/`revoked` son SQL; expiración se deriva de fecha. El titular ve `revoked_at` cuando existe, sin motivo/actor privado. No confundirlo con timestamp EVM o checked_at.
 
-El detalle relee el certificado en lugar de considerar la tarjeta una fuente
-actualizada. Presenta título, emisor opcional, emisión, expiración opcional y
-vigencia. Si no hay expiración, indica «Sin fecha de expiración».
-7C consulta la disponibilidad autorizada del documento. Si está disponible
-ofrece «Descargar PDF»; cada pulsación solicita una capacidad nueva de 60 segundos.
-Un certificado histórico sin documento conserva un estado de ausencia explícito.
-No se simula una vista previa. Los errores y la sesión caducada se gestionan sin
-exponer respuestas crudas. Chrome descarga un Blob temporal y Android/iOS usan
-guardado nativo; no se navega ni se persiste la URL firmada.
+Cada «Descargar PDF» obtiene autorización y capacidad nueva de 60 s mediante `certificate-pdf`, descarga y descarta la URL. No se persiste ni navega a ella; Chrome guarda un Blob temporal y Android/iOS usan adaptadores nativos. Histórico sin documento, objeto ausente o ajeno se presentan de forma segura. No hay preview inventada.
 
-«Detalles» muestra el ID real. «Blockchain» muestra «Sin datos de blockchain»;
-«Historial» explica que el backend todavía no lo proporciona. Compartir está
-deshabilitado y QR/verificación pública se señalan como pendientes. No hay hashes,
-bloques, enlaces ni códigos inventados.
+Revocar no elimina PDF, código o copias exportadas. El titular propio conserva la política de acceso con emisora suspended; pertenecer a plataforma u otra institución no concede acceso al PDF ajeno. [Contrato documental](SECURE_ISSUANCE.md).
 
-La entidad deriva la vigencia: revocado prevalece sobre expiración; active con
-`expires_at <= ahora` se muestra «Expirado»; el resto, «Válido». Este estado no
-acredita verificación blockchain y la UI lo explica. Fechas locales `dd/MM/yyyy`,
-instantes comparados con su zona horaria. La hora del dispositivo sirve solo
-para presentación; la verificación autoritativa requerirá el backend.
+## Evidencia, apertura y compartir
 
-## Estados y ciclo de vida
+El titular consulta la evidencia pública **v3** mediante código propio autorizado. No accede al progreso institucional por ser titular. La UI distingue registro SQL, issue, revoke, finalidad y evidencia previa fechada. Obtener apertura Auth, copiar/exportar/importar y comparar PDF son acciones explícitas. Hash/salt/apertura permanecen solo en el contexto local; una coincidencia de PDF nunca acredita vigencia.
 
-Perfil y wallet conservan carga, error y reintento independientes. Un fallo
-no se interpreta como lista vacía ni total cero. El detalle añade carga,
-ausencia/inaccesibilidad y error/reintento. Los nuevos futuros ocultan datos
-anteriores durante la lectura y descartan respuestas sustituidas.
+QR/enlace contienen solo URL pública `/#/verify/<credential_code>`. La base Web se valida por separado del backend; si falta, la consulta manual sigue disponible. No códigos improvisados ni QR con datos personales, PDF, apertura, hash, salt, motivo o JWT. Verificación pública funciona sin sesión y conserva su navegación/cooldown independientemente del área privada.
 
-Wallet y detalle actualizan la vigencia con temporizadores de expiración.
-Actualizar datos o volver al primer plano relee el recurso correspondiente;
-no hay Realtime. La revocación externa se refleja al recargar.
-El navegador ligado a identidad/estado Auth destruye rutas, futuros visibles
-y temporizadores al cambiar de cuenta o salir. No hay caché persistente adicional.
+El perfil permite compartir voluntariamente el ID de titular con el emisor; no buscar/listar alumnos ni compartir credenciales. «Espacio institucional» aparece por membresía real y abre un ámbito distinto para emitir/listar/anclar/revocar, con permisos revalidados por backend.
 
-## Verificación
+## Ciclo de vida y comprobación
 
-Desde `mobile/`:
+Reanudar/refrescar relee datos autorizados. La generación vigente, identidad/token, cancelación y mounted/dispose protegen respuestas y callbacks tardíos. El selector/hash no introduce bytes en preferencias; logout no promete borrar copias que el usuario exportó fuera de la aplicación.
 
-```powershell
-dart format lib test
-dart format --output=none --set-exit-if-changed lib test
-flutter analyze
-flutter test
-```
-
-Cobertura funcional:
-
-- Navegación al detalle desde ambos orígenes y regreso.
-- Lectura fresca, carga, ausencia, error seguro y reintento; campos opcionales,
-  revocación y expiración; pestañas explícitas y compartir deshabilitado.
-- Renovación de token, reanudación, respuestas sustituidas y respuesta tardía
-  tras cambio de usuario o salida.
-- Selección mínima y filtros de titular/ID con SDK real y HTTP loopback simulado;
-  ausencia, emisor oculto y rechazo de identidad/estado inesperados.
-- Regresiones existentes de Auth, perfil y wallet.
-
-Se inspeccionaron capturas de las cuatro pantallas a 390×844, 320×568 y texto ×2.
-Las pruebas incluyen también 360×800 y 320×568 con texto ×2, con Inter e iconos
-Material cargados. Los campos inferiores y cerrar sesión siguen accesibles por
-scroll. Las capturas usan fixtures sintéticos exclusivos de tests.
-Véase [FLUTTER_UI_FOUNDATIONS.md](FLUTTER_UI_FOUNDATIONS.md) y [TESTING.md](TESTING.md).
-
-Estas pruebas no prueban RLS en un Supabase real ni equivalen a una revisión en
-dispositivo físico. El test local de Auth sigue siendo opt-in.
-
-Resultado ejecutado el 28/09/2026: formato sin cambios pendientes, análisis sin
-incidencias, 68 pruebas superadas y 1 omitida (integración opt-in de Supabase local).
-`flutter build web` también completó correctamente. Las 14 pruebas del detalle
-y las 2 nuevas del adaptador están incluidas en ese total.
-
-## Pendiente
-
-Paginación completa, categorías, edición/configuración de perfil,
-QR/escáner, compartir, autoservicio de aprobación institucional, revocación
-desde la app, notificaciones, verificación pública y blockchain.
-
-4D no añadió escrituras. La Fase 5 posterior conserva sus políticas SELECT y
-selecciones de wallet/detalle, y cierra INSERT/UPDATE y demás escrituras directas
-de certificados mediante grants y RLS, también para `platform_admin` y para
-instituciones `verified`. Sus pruebas SQL verifican esas lecturas efectivas;
-no habilita emisión, revocación ni acceso al PDF. El backend futuro deberá
-cumplir [SECURE_ISSUANCE.md](SECURE_ISSUANCE.md).
-
-## Facetas de titular e institución en 7C
-
-Mi perfil incorpora «Copiar mi ID de titular» para perfiles holder. El estudiante
-comparte voluntariamente ese UUID con la institución; no comparte credenciales
-ni concede acceso a su perfil. La institución lo pega como ID, nunca como email.
-La elegibilidad sigue siendo comprobada por el backend; no hay búsqueda global.
-
-Una membresía real añade «Espacio institucional» sin sustituir los tres destinos
-personales. Listado y formulario se filtran por la institución seleccionada y
-su rol/estado real. Registrar la preferencia Institución no concede membresías
-ni cambia la autorización. El detalle personal sigue filtrando holder_id aun
-cuando esa cuenta sea emisora; el éxito de emisión abre el listado institucional.
-
-La nueva descarga comprueba completed, objeto e integridad en servidor: el titular
-conserva acceso aunque se suspenda la institución. Owner/admin/issuer actuales
-de una institución emisora verified pueden descargar desde su listado. Un
-platform_admin sin esa condición no obtiene el PDF. La consulta de disponibilidad
-no guarda capacidades y cada descarga vuelve a autorizar. Una capacidad ya
-entregada puede usarse hasta su vencimiento, incluso tras una baja de membresía.
-
-La navegación destruye borradores/URLs visibles ante cambio de cuenta o 401.
-Solo hay recibos mínimos de emisión pendientes separados por identidad;
-recuperación y límites en [SECURE_ISSUANCE.md](SECURE_ISSUANCE.md).
-Pruebas locales actuales y limitaciones de dispositivos en [TESTING.md](TESTING.md).
-
-## Compartición propia y verificación pública — 8B
-
-Inicio autenticado y bienvenida ofrecen Verificar certificado. /verify y
-/verify/<credential_code> son públicos con/sin sesión, con hash en Web y sin
-navegación privada. Router exterior conserva URL/resultado durante Auth;
-Navigator privado se destruye por identidad/estado. Logout no permite recuperar
-rutas, formularios ni QR privados mediante atrás.
-
-Detalle ofrece Mostrar QR y enlace con base Web válida. CredentialRepository
-obtiene id, holder_id, credential_code e issuance_operation_id con filtros
-explícitos id/holder_id. Revalida usuario/token/vencimiento antes y después; no
-consulta perfiles ajenos ni operación técnica. El vínculo protegido de 7B
-habilita compartición; legados sin vínculo no reciben enlace. El código público
-difiere de certificates.id. Caducidad/revocación/suspensión no cambian el UUID;
-el endpoint devuelve estado y elegibilidad definitivos al abrirlo.
-
-QR, código y enlace seleccionable en el detalle; Copiar enlace confirma
-semánticamente. Cambiar cuenta/token/sesión retira el panel y descarta lectura
-anterior. Sin persistencia de códigos o respuestas. PDF con bytes intactos.
-La selección separada no cambia las lecturas de wallet/detalle ni sus grants.
-
-Sin PUBLIC_VERIFICATION_BASE_URL válido se explica la indisponibilidad de
-compartir; consulta manual pública disponible. Sin QR ficticio ni ID interno
-sustituto. Web local con puerto 7357, localhost solo en ese equipo. Sin Universal
-Links/App Links nativos. Pendientes actuales: escáner/comparación de copia (8C),
-endurecimiento completo (8D), paginación, categorías, edición de perfil,
-revocación nueva y blockchain.
+Pruebas de repositorio, detalle, sesión, layout, compartición y revocación en `mobile/test/`; recorrido real en [demo](DEMO_BLOCKCHAIN_LOCAL.md). [Aceptación](PHASE10_ACCEPTANCE.md) y [guía de pruebas](TESTING.md). Paginación completa, edición de perfil, notificaciones y revisión humana quedan en [ROADMAP](ROADMAP.md).

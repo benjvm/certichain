@@ -1,18 +1,10 @@
-# Revocación — Fase 10
+# Revocación irreversible y evidencia pública v3
 
-## Aceptación integrada 10E — 18/10/2026
-
-El registro vigente, matriz y evidencia nueva están en
-[PHASE10_ACCEPTANCE](PHASE10_ACCEPTANCE.md). Se reutiliza run_phase10.ps1 y
-main.dart release: emisión/PDF/wallet, decisión SQL, sincronización y evidencia
-issue/revoke. Informes unidos por run_id, SHA/dirty y fecha; los anteriores se
-archivan y nunca acreditan otra pasada. No-store del handler obligatorio; solo
-excepción JWT genérica previa identificada, con FAIL estricto visible. Alojado
-NOT_RUN. Los apartados siguientes conservan el contexto de cada revisión.
+Implementada y aceptada para Web/Chrome/Supabase local/Anvil, con CI observada del SHA indicado en [PHASE10_ACCEPTANCE](PHASE10_ACCEPTANCE.md). El contrato siguiente es vigente; no describe trabajo pendiente de una fase futura.
 
 ## Revisión del cliente 10D — 18/10/2026
 
-[Aceptación nueva y límites](PHASE10D_ACCEPTANCE.md). Motivo NFC/puntos Unicode,
+[Aceptación nueva y límites](PHASE10_ACCEPTANCE.md). Motivo NFC/puntos Unicode,
 identificación/confirmación, recuperación de la misma clave, reautorización
 explícita y retirada de datos ante denegación. Clave por ámbito sin motivo ni
 regeneración por timeout/reconstrucción. Progreso manual; workspace sin desmontar
@@ -21,7 +13,7 @@ al comparar PDF v1. Sin cambios backend/EVM/migraciones.
 
 ## Revisión del worker 10C — 18/10/2026
 
-[Validación específica y límites](PHASE10C_ACCEPTANCE.md). Revoke contrasta
+[Validación específica y límites](PHASE10_ACCEPTANCE.md). Revoke contrasta
 nonce del intento, evento y C/I/estado en inclusión y head antes de persistir
 evidencia o liberar reserva. La migración nueva
 `20261018120000_revocation_evidence_reconciliation.sql` conserva el ledger y el
@@ -37,17 +29,13 @@ Las migraciones compartidas del 15/16 de octubre permanecen intactas.
 No-store sigue siendo obligatorio en **todas las respuestas del handler privado**.
 La única excepción autorizada es su ausencia en 401 JWT genéricos emitidos por
 Supabase antes del handler, con ruta/escenario/código/cuerpo cerrado comprobados.
-[Política, diagnóstico estricto y evidencia](PHASE10B_GATEWAY.md),
+[Política, diagnóstico estricto y evidencia](SECURITY.md),
 [ADR-0018](adr/0018-irreversible-revocation-and-public-v3.md). El gate distingue
 Auth, privacidad, no-store de la aplicación y excepción externa visible. No basta
 cualquier 401. verify_jwt=true, Auth real y autorización SQL no cambian. Alojado
-NOT_RUN. Los pendientes estrictos del 16/10 inferiores son evidencia histórica;
-el nuevo dictamen y pruebas constan en [aceptación](PHASE10_ACCEPTANCE.md).
-
-Aceptación para demo Web local del 15/10 y revisión 10B del 16/10 conservadas
-como historia. El requisito revisado del 18/10 y su dictamen constan en:
-[PHASE10_ACCEPTANCE](PHASE10_ACCEPTANCE.md).
-Decisiones: [ADR-0018](adr/0018-irreversible-revocation-and-public-v3.md).
+NOT_RUN. El diagnóstico estricto, dictamen y pruebas constan en
+[aceptación](PHASE10_ACCEPTANCE.md). La ausencia de cabecera del proveedor
+no se presenta como corregida.
 
 Solo owner/admin actuales de la emisora verified/suspended solicitan o reautorizan.
 La decisión SQL se aplica inmediatamente, de forma irreversible, antes de cualquier
@@ -85,18 +73,7 @@ es booleano interno obligatorio solo en la solicitud; nunca se expone ni permite
 que progreso/reautorización devuelvan 202. UUID admite mayúsculas y se normaliza
 a minúsculas, sin espacios ni saltos de línea. Un deadline del cuerpo da 503.
 
-**Registro histórico del requisito estricto anterior (16/10; no es el dictamen vigente):**
-el 401 del gateway JWT local de Supabase
-CLI 2.117.0 ocurre antes del handler y no añade Cache-Control. La garantía no-store
-del handler incluye sus errores, pero no acredita ese rechazo previo. Se conserva
-verify_jwt=true: cerrar el requisito HTTP extremo a extremo exige corregir la
-cabecera en la capa gateway, sin desactivar JWT ni sustituir Auth real. El harness
-registra este incumplimiento como FAIL, no como excepción aceptada al contrato.
-La [continuación de diagnóstico](PHASE10B_GATEWAY.md) identifica el main service
-de la CLI, incluye reproducción sin secretos y matriz HTTP real con token
-ausente/inválido/expirado y sesión válida. No hay configuración soportada para
-sus cabeceras previas al handler. Alojado NOT_RUN; no se atribuye al alojado ni
-un defecto local ni una corrección. Se mantienen JWT y Auth real.
+La excepción limitada para rechazos JWT previos al handler se define en [SECURITY](SECURITY.md#excepción-del-gateway-jwt). El diagnóstico estricto de no-store sigue visible y no equivale a una reparación del proveedor.
 
 Clave por institución: igual certificado/motivo canónico recupera la petición,
 también tras pérdida de respuesta. Misma clave con certificado/motivo distinto

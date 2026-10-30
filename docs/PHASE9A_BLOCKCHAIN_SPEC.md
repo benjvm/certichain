@@ -1,6 +1,6 @@
 # Fase 9A — Protocolo blockchain de CertiChain, versión 1
 
-Fecha: 2026-10-12. Estado: diseño aceptado; **sin integración ni despliegue**.
+Protocolo normativo aceptado el 12/10/2026 e implementado en el MVP. La sección de base inspeccionada conserva el contexto histórico de diseño; no describe el estado actual de implementación. [Aceptación vigente](PHASE10_ACCEPTANCE.md).
 Decisiones: [ADR-0014](adr/0014-evm-network-toolchain-and-authority.md) y
 [ADR-0015](adr/0015-private-commitments-and-durable-anchoring.md).
 Este documento es normativo para 9B–9E y la revocación de fase 10. Los fragmentos
@@ -652,23 +652,3 @@ Vector SHA-256 recalculado con Node crypto y comprobado independientemente con
 de ejecución. Solo documentación: no se ejecutan Flutter/SQL/HTTP/Foundry ni 8D,
 no reset, migración, firma, envío EVM, despliegue, commit o push.
 Esto no acredita compatibilidad compilada ni integración: corresponden a 9B/9C.
-
-## 13. Archivos entregados
-
-Creaciones documentales:
-
-- [Esta especificación](PHASE9A_BLOCKCHAIN_SPEC.md).
-- [ADR-0014](adr/0014-evm-network-toolchain-and-authority.md).
-- [ADR-0015](adr/0015-private-commitments-and-durable-anchoring.md).
-
-Documentación existente actualizada para coherencia, estado CI y cámara:
-
-- [AGENTS.md](../AGENTS.md) y [README.md](../README.md).
-- [BLOCKCHAIN](BLOCKCHAIN.md), [ARCHITECTURE](ARCHITECTURE.md),
-  [DATABASE](DATABASE.md), [SECURITY](SECURITY.md) y [REQUIREMENTS](REQUIREMENTS.md).
-- [ROADMAP](ROADMAP.md) e [índice ADR](ADR_README.md).
-- [PUBLIC_VERIFICATION](PUBLIC_VERIFICATION.md) y [SECURE_ISSUANCE](SECURE_ISSUANCE.md).
-- [TESTING](TESTING.md), [aceptación 8D](PHASE8_ACCEPTANCE.md),
-  [checklist 8D](PHASE8_OPERATOR_CHECKLIST.md) y [guion de demo](DEMO_VERIFICATION.md).
-
-18 archivos Markdown en total (3 nuevos, 15 modificados); sin cambios ejecutables.

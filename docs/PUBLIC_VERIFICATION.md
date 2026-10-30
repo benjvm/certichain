@@ -1,42 +1,8 @@
-# Verificación pública — Backend 8A e interfaz Web 8B
+# Verificación pública, QR y comparación de PDF
 
-## Cliente de revocación 10D — 18/10/2026
+La app usa `verify-certificate-v3` sin cuenta ni sesión y separa registro SQL, evidencia de emisión y evidencia de revoke. V1, v2 y compare v1 conservan sus contratos. Una única versión por consulta; sin fallback ni peticiones adicionales para completar resultados. [V3/revocación](REVOCATION.md), [evidencia/apertura](BLOCKCHAIN_VERIFICATION.md) y [aceptación vigente](PHASE10_ACCEPTANCE.md).
 
-V1/v2/v3 cerrados, un endpoint por consulta. V3 separa SQL revocado, emisión y
-revoke; demora/indisponibilidad/reorg/divergencia no acreditan vigencia. Versiones
-sin bloque de revocación declaran su límite. Compare PDF v1 conserva ambos
-snapshots previos fechados como no comprobados actualmente, sin consultar v3.
-Anvil indica finalidad no aplicable. No motivo/actor/auditoría privada.
-[Resultados nuevos y límites](PHASE10D_ACCEPTANCE.md).
-
-## Incremento local de revocación — 15/10/2026
-
-[REVOCATION](REVOCATION.md) define los endpoints Auth, motivo/auditoría privados,
-SQL irreversible, worker durable y evidencia pública v3 con issue/revoke separados.
-V1/v2 y compare conservan contrato; la app usa v3. Resultados ejecutados y
-dictamen vigente: [PHASE10_ACCEPTANCE](PHASE10_ACCEPTANCE.md). Los apartados
-que describen revocación futura conservan el contexto histórico de sus fases.
-La demo se reproduce con `./supabase/tests/run_phase10.ps1`; sin despliegue remoto,
-Sepolia ni corrección Android atribuida. Cámara=0 con la exclusión persistente.
-
-## Alcance local
-
-**Completada y comprobada localmente el 04/10/2026.** 557 SQL, 44 Deno y 296
-aserciones HTTP públicas pasan; se conservan las suites anteriores. No es un
-despliegue remoto ni una ejecución GitHub Actions de 8A.
-
-8A implementa contrato, consulta restringida PostgreSQL, Edge Function pública,
-presupuesto compartido, pruebas SQL/Deno/HTTP y CI. No implementa pantalla
-Flutter, QR, enlace navegable, escáner, comparación de una copia, blockchain,
-nuevo flujo de revocación ni despliegue remoto. Estado de validación y resultados
-reales en [TESTING.md](TESTING.md). Decisiones en
-[ADR-0011](adr/0011-public-registry-verification.md).
-
-7A–7D ya entregaron emisión autenticada, validación PDF, SHA-256 sobre bytes
-finales, idempotencia, recuperación y documento privado. La
-[ejecución 7D 37218682263](https://github.com/benjvm/certichain/actions/runs/37218682263)
-es **evidencia previamente observada**, aportada al cierre de 7D. No es CI de
-estos cambios 8A; no se ejecutó ni se observó un nuevo GitHub Actions para 8A.
+Los apartados v1 y comparación describen compatibilidad mantenida. Integridad de copia y vigencia son independientes; compare v1 conserva issue/revoke anteriores como no comprobados actualmente, sin consultar otra versión. El backend público no firma ni encola. No despliegue alojado/testnet validado. [Pruebas y exclusión de cámara](TESTING.md).
 
 ## Contrato v1
 
@@ -251,18 +217,9 @@ de una publicación de 7B consultado por un operador SQL local autorizado. No us
 service_role en el cliente ni --no-verify-jwt global. El stack habitual continúa en
 54321 y no recibe la migración automáticamente por probar en el sandbox.
 
-## Reparto vigente de los incrementos
+## Versiones vigentes
 
-- **8B:** pantalla pública, enlaces Web navegables y QR del titular.
-- **8C completada localmente y CI observada:** escáner y comparación;
-  Actions 37350396753 intento 2 valida d31a273. Despliegue pendiente.
-- **8D implementada localmente:** recorrido main.dart release HTTPS y endurecimiento;
-  publicada en 6235486; resultados y plataformas pendientes en PHASE8_ACCEPTANCE.md.
-  CI 37373509169 intento 1 observada el 10/10: run failure/jobs cancelled antes de pasos por
-  runners hosted no adquiridos/error interno GitHub; aceptación CI pendiente.
-
-Este reparto corrige la discrepancia del documento de 8A; su evidencia histórica
-se conserva. Blockchain y revocación completa tienen sus propios incrementos.
+La app consulta v3, con registro y evidencia issue/revoke separados. Los contratos v1/v2 y compare v1 documentados aquí permanecen compatibles. [Revocación/v3](REVOCATION.md), [evidencia/apertura](BLOCKCHAIN_VERIFICATION.md), [aceptación](PHASE10_ACCEPTANCE.md).
 
 ## Interfaz Web y compartición local — 8B
 
@@ -466,12 +423,11 @@ checkout, y main.dart release con configuración pública válida y HTTPS loopba
 Auth, PostgREST, Edge y Storage son reales. TLS, service_role, SQL y fixtures quedan
 en el host. El navegador recibe solo URL pública y anon key pública para las
 operaciones privadas. Las consultas públicas utilizan credentials=omit incluso
-con cookies en el mismo origen. [DEMO_VERIFICATION.md](DEMO_VERIFICATION.md) explica
+con cookies en el mismo origen. [DEMO_BLOCKCHAIN_LOCAL.md](DEMO_BLOCKCHAIN_LOCAL.md) explica
 preparación, ejecución y limpieza. Los harness 7D/8B/8C siguen como complementos.
-# Ampliación vigente 9D
+## Evidencia blockchain y apertura
 
-Producción Flutter consulta el endpoint independiente verify-certificate-v2,
-schema_version='2', sin Auth/apikey/cookies. registry conserva v1 literal;
+Producción Flutter consulta verify-certificate-v3, sin Auth/apikey/cookies, con evidencia issue/revoke separada. El endpoint v2 sigue disponible para compatibilidad con schema_version='2'; registry conserva v1 literal;
 blockchain muestra evidencia y fecha/origen propios, con ausencia uniforme y
 off_chain_only. No se modifican verify-certificate/compare-certificate-hash v1.
 Los tres comparten presupuesto global atómico 60 POST/60 s y cooldown de UI.

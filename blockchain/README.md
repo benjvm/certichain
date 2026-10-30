@@ -1,14 +1,8 @@
-# CertificateRegistry v1 — fase 9B
+# CertificateRegistry v1
 
-Backend local 9C: [operación](../docs/BLOCKCHAIN_OPERATIONS.md) y
-[aceptación](../docs/PHASE9C_ACCEPTANCE.md). El smoke de este README sigue siendo
-descartable y sus manifests históricos. El nuevo harness despliega otra cadena
-viva propia; firma raw en backend antes de enviar. Módulo ABI/runtime generado:
-`node blockchain/scripts/backend-abi.mjs` y `--check` para detectar drift.
+Contrato Solidity del MVP integrado con Supabase y Flutter mediante un worker backend confiable. [Arquitectura](../docs/ARCHITECTURE.md), [operación/recuperación](../docs/BLOCKCHAIN_OPERATIONS.md) y [aceptación vigente](../docs/PHASE10_ACCEPTANCE.md).
 
-Implementación local del [protocolo normativo 9A](../docs/PHASE9A_BLOCKCHAIN_SPEC.md),
-base `b6051bc1c0489d84204ee1aae14e3feb7edf30e2`. No integra Supabase ni Flutter.
-Resultados y matriz de aceptación: [PHASE9B_ACCEPTANCE](../docs/PHASE9B_ACCEPTANCE.md).
+Este README describe las herramientas y pruebas del contrato, incluido un smoke Anvil aislado. Sus manifests son evidencia de aquella ejecución, no despliegues vivos reutilizables. Protocolo normativo: [9A/v1](../docs/PHASE9A_BLOCKCHAIN_SPEC.md). El ABI/runtime del backend se genera con `node blockchain/scripts/backend-abi.mjs`; `--check` detecta drift.
 
 El contrato guarda K/C/I y fechas de bloque, autoriza al firmante actualmente
 configurado por emisor y conserva una revocación irreversible. Un compromiso
@@ -25,11 +19,11 @@ node blockchain/scripts/bootstrap.mjs
 node blockchain/scripts/validate.mjs
 ```
 
-Prerrequisitos: Git, `tar`, Node >=22, PowerShell 7 con .NET >=6 (`pwsh`) y acceso
+Prerrequisitos: Git, `tar`, Node 24.14.0, PowerShell 7 con .NET >=6 (`pwsh`) y acceso
 HTTPS a GitHub/releases/codeload. CI usa la versión Node ya fijada por el proyecto,
-24.14.0; la validación Windows usó el Node disponible 22.14.0. No se cambia ningún
-lockfile o SDK de Flutter, Supabase, Node o Deno. No se usó WSL; la única distribución
-detectada era docker-desktop. No se necesita Docker para estas pruebas.
+24.14.0; la versión debe coincidir también para npm/npx. No se cambia ningún
+lockfile o SDK de Flutter, Supabase, Node o Deno. Las pruebas aisladas del contrato
+no necesitan Docker; la aceptación integrada con Supabase sí lo requiere.
 
 `bootstrap.mjs` comprueba los commits de los tags, compara los SHA-256 oficiales
 de Foundry/solc y verifica los archivos descargados antes de instalar. Los archivos
@@ -139,7 +133,7 @@ desarrollo efímeras.
 Administrador, firmante inicial y nuevo firmante son distintos. Despliega el
 bytecode normal mediante una transacción real de creación; no es una simulación
 de Forge ni un mock RPC. Las cuentas desbloqueadas se usan solamente en este
-harness local. 9C firmará en backend según 9A y no reutilizará este transporte.
+harness local. El worker de producto firma en backend y envía raw transactions; no reutiliza cuentas desbloqueadas de este smoke.
 
 Configura I, emite el vector, consulta, comprueba rechazos, rota, emite con el nuevo
 firmante, revoca el registro anterior y vuelve a leer. Compara eventos con topics,
@@ -187,8 +181,7 @@ acciones por SHA, bootstrap congelado y el mismo validate; comprueba diff de
 artefactos y sube solo evidencia sanitizada/LCOV. Los workflows anteriores quedan
 intactos. Workflow preparado y validación local no equivalen a CI remoto observado.
 
-La revocación aquí probada no habilita el flujo Auth/SQL/EVM de la app (fase 10).
-9C/9D/9E siguen pendientes. Anvil no prueba finalidad PoS ni Sepolia. El rechazo
+El flujo Auth/SQL/EVM de la app también está implementado; su aceptación se registra por separado del smoke de contrato. Anvil no prueba finalidad PoS ni Sepolia. El rechazo
 de llamadas normales con fondos no impide ETH forzado por reglas EVM.
 
 Cámara: CERTICHAIN_TEST_CAMERA=0; **NOT_RUN**:

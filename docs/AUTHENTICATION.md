@@ -1,4 +1,4 @@
-# Phases 4B–4C — Flutter Supabase Authentication and authenticated area
+# Authentication and session boundaries
 
 ## Configuration and local run
 
@@ -19,11 +19,11 @@ Startup errors never echo supplied values. SDK debug logging is disabled.
 Start/inspect Supabase from the repository root:
 
 ```bash
-npx --yes supabase start
-npx --yes supabase status
+supabase start
+supabase status
 ```
 
-The standalone CLI equivalents are `supabase start` and `supabase status`.
+Use the pinned Supabase CLI 2.117.0; see [development setup](DEVELOPMENT.md).
 Read the local **publishable/anon** key from status; never commit status output.
 Use the URL appropriate to the device, without automatic rewriting:
 
@@ -149,9 +149,7 @@ request generation and mounted state. Same-user token refresh retains the active
 tab. Successful logout returns to Welcome; failed logout retains the existing
 safe error and real Auth behavior.
 
-Deferred: institutional dashboards/onboarding/approval, profile editing,
-password recovery, confirmation deep links, social login, certificate details,
-Storage, verification, blockchain and privileged backend operations.
+Deferred: self-service institutional onboarding/approval, profile editing, password recovery, confirmation deep links and social login. Wallet/details, private documents, institutional issuance/revocation and public blockchain verification are implemented; see [current scope](PHASE10_ACCEPTANCE.md).
 
 ## Verification
 
