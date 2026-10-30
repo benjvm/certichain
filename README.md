@@ -1,7 +1,7 @@
 # CertiChain
 
 <p align="center">
-  <img src="docs/assets/CertiChainLogo.png" alt="CertiChain logo" width="500">
+  <img src="docs/assets/CertiChainLogo.png" alt="CertiChain logo" width="400">
 </p>
 
 **Academic and professional certificates, with private documents and verifiable blockchain evidence.**
