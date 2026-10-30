@@ -1,0 +1,14 @@
+{
+  "name": "certichain-branding",
+  "private": true,
+  "description": "Local Lottie preview and rendering; never bundled into Flutter",
+  "scripts": {
+    "render": "node render_lottie.mjs"
+  },
+  "devDependencies": {
+    "lottie-web": "5.13.0"
+  },
+  "engines": {
+    "node": ">=22.14.0"
+  }
+}

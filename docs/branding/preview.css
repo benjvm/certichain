@@ -1,0 +1,153 @@
+:root {
+  font-family: Inter, system-ui, sans-serif;
+  color: #e9edf8;
+  background: #101324;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+main {
+  max-width: 900px;
+  margin: auto;
+  padding: 44px 24px 28px;
+}
+header {
+  margin-bottom: 26px;
+}
+.eyebrow {
+  color: #62e4f3;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+}
+h1 {
+  font-size: clamp(24px, 4vw, 36px);
+  font-weight: 550;
+  letter-spacing: -0.04em;
+  margin: 16px 0 8px;
+}
+.intro {
+  color: #949eb8;
+  margin: 0;
+  font-size: 14px;
+}
+.stage {
+  min-height: 540px;
+  display: grid;
+  place-items: center;
+  background: #080b1c;
+  border: 1px solid #272b40;
+  border-radius: 18px;
+  overflow: hidden;
+}
+.stage.light {
+  background: #f5f6fa;
+}
+.stage.transparent {
+  background: repeating-conic-gradient(#272b3d 0% 25%, #34394e 0% 50%) 50% /
+    24px 24px;
+}
+#animation {
+  width: 512px;
+  max-width: 100%;
+  aspect-ratio: 1;
+}
+.timeline {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 20px 0;
+  font-size: 12px;
+  color: #b4bdd1;
+}
+.timeline input {
+  flex: 1;
+  min-width: 40px;
+  accent-color: #40d8ed;
+}
+output {
+  min-width: 104px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+button,
+select {
+  font: inherit;
+  color: #e9edf8;
+  border: 1px solid #41485f;
+  background: #1c2237;
+  border-radius: 8px;
+  padding: 10px 14px;
+}
+button {
+  min-width: 90px;
+  cursor: pointer;
+}
+#play {
+  background: #a7f1fa;
+  border-color: #a7f1fa;
+  color: #0b192a;
+}
+label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+.loop input {
+  accent-color: #40d8ed;
+}
+button:focus-visible,
+select:focus-visible,
+input:focus-visible,
+a:focus-visible {
+  outline: 2px solid #65edfa;
+  outline-offset: 4px;
+}
+#status {
+  font-size: 12px;
+  color: #aab5d0;
+  min-height: 18px;
+  margin: 18px 0 24px;
+}
+footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  padding-top: 18px;
+  border-top: 1px solid #272d43;
+  font-size: 11px;
+  color: #949eb8;
+}
+footer span {
+  margin-right: auto;
+}
+a {
+  color: #b5c5ea;
+  text-decoration: none;
+}
+@media (max-width: 600px) {
+  main {
+    padding: 28px 16px;
+  }
+  .stage {
+    min-height: 0;
+  }
+  .timeline {
+    gap: 8px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  * {
+    scroll-behavior: auto;
+  }
+}

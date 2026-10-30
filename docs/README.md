@@ -32,6 +32,7 @@ This directory contains the maintained engineering reference for CertiChain. The
 | [Contract tools](../blockchain/README.md) | Bootstrap, Foundry, artifacts and local Anvil smoke |
 | [Flutter architecture](FLUTTER_ARCHITECTURE.md) | Feature modules, adapters and resource ownership |
 | [UI foundations](FLUTTER_UI_FOUNDATIONS.md) | Theme, components, semantics and design references |
+| [Brand animation](branding/LOTTIE_ANIMATION.md) | Reproducible Lottie, vector logo, local preview and GIF export |
 | [ADRs](ADR_README.md) | Accepted decisions and their rationale |
 
 Phase-by-phase work logs and superseded UI instructions are available in Git history rather than maintained as competing sources of current status. Dated observations in the normative protocol and ADRs retain their original context. Operational instructions and current acceptance take precedence over a historical description of work that was not yet implemented at that time.

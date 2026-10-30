@@ -1,0 +1,3 @@
+# Only the raster export/visual checks need Pillow. JSON/SVG generation is stdlib.
+Pillow==13.0.0
+jsonschema==4.26.0

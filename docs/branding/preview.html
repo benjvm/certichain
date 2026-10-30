@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <title>CertiChain · Identidad en movimiento</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="preview.css" />
+    <script
+      defer
+      src="../../tools/branding/node_modules/lottie-web/build/player/lottie.min.js"
+    ></script>
+    <script defer src="preview.js"></script>
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="eyebrow">CERTICHAIN / IDENTIDAD VISUAL</p>
+        <h1>Conectar. Certificar. Verificar.</h1>
+        <p class="intro">Una firma visual en movimiento.</p>
+      </header>
+      <section class="stage" id="stage" aria-label="Vista previa del logotipo">
+        <div
+          id="animation"
+          role="img"
+          aria-label="CertiChain: red blockchain, certificado y símbolo de verificación"
+        ></div>
+      </section>
+      <div class="timeline">
+        <label for="frame">Fotograma</label>
+        <input type="range" id="frame" min="0" max="83" value="0" step="1" />
+        <output id="time">0.00 / 2.80 s</output>
+      </div>
+      <section class="controls" aria-label="Controles de reproducción">
+        <button id="play" type="button">Pause</button>
+        <button id="restart" type="button">Restart</button>
+        <label
+          >Fondo
+          <select id="background">
+            <option value="dark">Oscuro</option>
+            <option value="transparent">Transparente</option>
+            <option value="light">Claro</option>
+          </select>
+        </label>
+        <label
+          >Tamaño
+          <select id="size">
+            <option value="160">160 px</option>
+            <option value="256">256 px</option>
+            <option value="512" selected>512 px</option>
+            <option value="600">600 px</option>
+          </select>
+        </label>
+        <label class="loop"><input id="loop" type="checkbox" /> Bucle</label>
+      </section>
+      <p id="status" role="status">Cargando animación local…</p>
+      <footer>
+        <span>512 × 512 · 30 FPS · 2,8 s · Vectorial</span>
+        <a href="../../assets/branding/certichain-logo.svg" download
+          >SVG estático ↗</a
+        >
+        <a href="../../mobile/assets/animations/certichain_intro.json" download
+          >Lottie JSON ↗</a
+        >
+      </footer>
+    </main>
+  </body>
+</html>
