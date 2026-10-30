@@ -18,6 +18,10 @@ import { basename, extname, join, resolve, sep } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { evidenceContext } from "../../supabase/tests/phase10_evidence.mjs";
 import {
+  localBrowserAuthReady,
+  restFailureDiagnostic,
+} from "./local_browser_auth.mjs";
+import {
   connectCdp,
   evaluate,
   launchChrome,
@@ -175,6 +179,9 @@ export async function runBrowserJourney(env) {
     };
     scan(build);
     stage("main-release-no-backend-secrets");
+    const authReadiness = await localBrowserAuthReady(f.local, f.owner);
+    stages.push(authReadiness);
+    console.log(JSON.stringify(authReadiness));
     server = createServer(
       { key: readFileSync(key), cert: readFileSync(cert) },
       async (req, res) => {
@@ -272,15 +279,15 @@ export async function runBrowserJourney(env) {
               return;
             }
             if (path.startsWith("/rest/v1/") && !upstream.ok) {
-              const error = JSON.parse(response.toString());
+              let error;
+              try {
+                error = JSON.parse(response.toString());
+              } catch { /* diagnostic only */ }
               console.log(
                 JSON.stringify({
                   stage: "rest-failure",
                   resource: path.split("/").at(-1),
-                  status: upstream.status,
-                  code: /^[A-Z0-9_]+$/.test(error.code ?? "")
-                    ? error.code
-                    : "OTHER",
+                  ...restFailureDiagnostic(upstream.status, error),
                 }),
               );
             }
@@ -468,7 +475,7 @@ export async function runBrowserJourney(env) {
         await until(async () => {
           found = await evaluate(cdp, expression);
           return found && found.width > 0;
-        }, "Semantic control");
+        }, `Semantic control: ${label}`);
       } catch (e) {
         console.log(
           JSON.stringify({

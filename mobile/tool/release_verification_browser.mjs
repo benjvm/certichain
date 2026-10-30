@@ -1,6 +1,7 @@
 // 8D: main.dart RELEASE, production semantics/adapters, real disposable backend.
 // Technical credentials, SQL, TLS keys and fixture setup remain on the host.
 import { createServer } from "node:https";
+import { localBrowserAuthReady } from "./local_browser_auth.mjs";
 import { spawnSync } from "node:child_process";
 import { createHash, randomUUID, X509Certificate } from "node:crypto";
 import {
@@ -237,6 +238,7 @@ try {
   };
   scan(build);
   checkpoint("release-build");
+  console.log(JSON.stringify(await localBrowserAuthReady(f.local, f.owner)));
   server = createServer(
     { key: readFileSync(key), cert: readFileSync(cert) },
     async (req, res) => {

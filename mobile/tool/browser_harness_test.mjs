@@ -1,4 +1,10 @@
 import { test } from "node:test";
+import { createServer } from "node:http";
+import { Buffer } from "node:buffer";
+import {
+  localBrowserAuthReady,
+  restFailureDiagnostic,
+} from "./local_browser_auth.mjs";
 import process from "node:process";
 import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -21,6 +27,186 @@ import {
   publicEndpoint,
   publicHeadersAreAnonymous,
 } from "./public_verification_requests.mjs";
+
+async function authReadinessServer(responses, run) {
+  const requests = [];
+  const user = {
+    id: "synthetic-id",
+    email: "local@example.invalid",
+    password: "synthetic-password",
+  };
+  const server = createServer(async (req, res) => {
+    const chunks = [];
+    for await (const chunk of req) chunks.push(chunk);
+    requests.push({
+      method: req.method,
+      url: req.url,
+      headers: req.headers,
+      body: Buffer.concat(chunks).toString(),
+    });
+    const response = responses[requests.length - 1] ?? [500, {}];
+    res.writeHead(response[0], {
+      "content-type": "application/json",
+      ...response[2],
+    });
+    res.end(JSON.stringify(response[1]));
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  try {
+    await run(
+      {
+        API_URL: `http://127.0.0.1:${server.address().port}`,
+        ANON_KEY: "synthetic-public-key",
+      },
+      user,
+      requests,
+    );
+  } finally {
+    server.closeAllConnections();
+    await new Promise((resolve) => server.close(resolve));
+  }
+}
+const readinessLogin = [200, {
+  access_token: "synthetic-jwt",
+  user: { id: "synthetic-id" },
+}];
+const readinessProfile = [200, [{ id: "synthetic-id" }]];
+const readinessFuture = [401, {
+  code: "PGRST303",
+  message: "JWT issued at future",
+}];
+
+test("post-build readiness uses password Auth once and an own-profile GET", async () => {
+  await authReadinessServer(
+    [readinessLogin, readinessProfile],
+    async (local, user, requests) => {
+      assert.deepEqual(await localBrowserAuthReady(local, user), {
+        stage: "browser-auth-readiness",
+        result: "PASS",
+        attempts: 1,
+      });
+      assert.equal(requests.length, 2);
+      assert.equal(requests[0].method, "POST");
+      assert.equal(requests[0].url, "/auth/v1/token?grant_type=password");
+      assert.deepEqual(JSON.parse(requests[0].body), {
+        email: user.email,
+        password: user.password,
+      });
+      assert.equal(requests[1].method, "GET");
+      assert.equal(
+        new URL(requests[1].url, local.API_URL).searchParams.get("id"),
+        `eq.${user.id}`,
+      );
+      assert.equal(requests[1].headers.authorization, "Bearer synthetic-jwt");
+      assert.equal(requests[1].headers.apikey, local.ANON_KEY);
+    },
+  );
+});
+
+test("only the exact transient future JWT rejection retries GET, with a hard limit", async (t) => {
+  t.mock.method(console, "log", () => {});
+  await authReadinessServer([
+    readinessLogin,
+    readinessFuture,
+    readinessFuture,
+    readinessProfile,
+  ], async (local, user, requests) => {
+    assert.equal((await localBrowserAuthReady(local, user)).attempts, 3);
+    assert.deepEqual(requests.map((r) => r.method), [
+      "POST",
+      "GET",
+      "GET",
+      "GET",
+    ]);
+  });
+  await authReadinessServer([
+    readinessLogin,
+    readinessFuture,
+    readinessFuture,
+    readinessFuture,
+  ], async (local, user, requests) => {
+    await assert.rejects(
+      localBrowserAuthReady(local, user),
+      /jwt-issued-at-future HTTP 401 PGRST303/,
+    );
+    assert.equal(requests.length, 4);
+  });
+});
+
+test("readiness never retries expired, malformed, forbidden, or unexpected responses", async (t) => {
+  t.mock.method(console, "log", () => {});
+  for (
+    const response of [
+      [401, { code: "PGRST303", message: "JWT expired" }],
+      [401, { code: "PGRST303", message: "JWT not yet valid" }],
+      [401, { code: "PGRST301", message: "JWT issued at future" }],
+      [403, { code: "42501", message: "JWT issued at future" }],
+      [500, { code: "PGRST303", message: "JWT issued at future" }],
+      [401, { code: "PGRST303", message: "private arbitrary text" }],
+      [401, null],
+      [307, {}, { location: "/unexpected-redirect" }],
+      [200, []],
+      [200, [{ id: "another-user" }]],
+    ]
+  ) {
+    await authReadinessServer(
+      [readinessLogin, response],
+      async (local, user, requests) => {
+        await assert.rejects(localBrowserAuthReady(local, user));
+        assert.equal(requests.length, 2);
+      },
+    );
+  }
+});
+
+test("failed or mismatched Auth is never retried and diagnostics do not expose upstream text", async (t) => {
+  const diagnostics = [];
+  t.mock.method(console, "log", (line) => diagnostics.push(line));
+  for (
+    const response of [[401, { message: "private arbitrary text" }], [200, {
+      access_token: "private-token",
+      user: { id: "another-user" },
+    }]]
+  ) {
+    await authReadinessServer([response], async (local, user, requests) => {
+      await assert.rejects(
+        localBrowserAuthReady(local, user),
+        /^Error: Browser Auth readiness: login failed$/,
+      );
+      assert.equal(requests.length, 1);
+    });
+  }
+  assert.deepEqual(
+    restFailureDiagnostic(401, {
+      code: "PGRST303",
+      message: "JWT issued at future",
+    }),
+    { status: 401, code: "PGRST303", reason: "jwt-issued-at-future" },
+  );
+  assert.deepEqual(
+    restFailureDiagnostic(401, {
+      code: "private-token",
+      message: "private arbitrary text",
+      details: "secret",
+    }),
+    { status: 401, code: "OTHER", reason: "other" },
+  );
+  assert.equal(
+    restFailureDiagnostic(401, { code: "PGRST303", message: "__proto__" })
+      .reason,
+    "other",
+  );
+  await assert.rejects(
+    localBrowserAuthReady({ API_URL: "https://example.invalid" }, {}),
+    /requires a local API/,
+  );
+  assert.ok(diagnostics.length > 0);
+  assert.ok(
+    diagnostics.every((line) =>
+      !/private|synthetic-password|synthetic-jwt/.test(line)
+    ),
+  );
+});
 
 test("v3 startup counts once and mixed v2/v3 delayed duplicate fails", async () => {
   const before = { v1: 0, v2: 0, v3: 0, comparison: 0 }, counts = { ...before };

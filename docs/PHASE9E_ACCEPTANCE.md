@@ -1,5 +1,63 @@
 # Aceptación del recorrido local — Fase 9E
 
+## Diagnóstico del fallo CI y readiness tras build — 30/10/2026
+
+Revisados por API los jobs y logs de
+[Blockchain verification client 39659007204](https://github.com/benjvm/certichain/actions/runs/39659007204),
+SHA `fe6581a47d1fccdbb1696fb39898fda5a4e678ff`. SQL/permisos/lint y las suites
+previas pasan; falla el viaje Web 9E al esperar `Espacio institucional`.
+Auth devuelve 200, las lecturas de `institution_members` y `certificates`
+devuelven 401/PGRST303, y `profiles` devuelve 200. El deadline es consecuencia
+de la lectura fallida: la UI ofrece reintentar membresías y no muestra el acceso
+institucional. El workflow
+[Database permissions 39659007298](https://github.com/benjvm/certichain/actions/runs/39659007298)
+del mismo SHA terminó correctamente.
+
+PGRST303 identifica validación/parsing de claims JWT, no un fallo de permisos SQL.
+La pausa de compilación seguida de rechazos iniciales y una lectura correcta
+es compatible con el
+[fallo de reloj inactivo de PostgREST](https://github.com/PostgREST/postgrest/issues/5196).
+**Hipótesis, no causa probada del run**: sus logs solo retenían el código,
+no la categoría concreta de validación. No se atribuye una versión PostgREST
+ni un mensaje específico al run histórico sin evidencia.
+
+`mobile/tool/local_browser_auth.mjs` comprueba Auth y lectura del perfil propio
+después de compilar y antes de arrancar Chrome. Login sintético único; JWT nuevo
+solo en memoria; SELECT con ese JWT y RLS normal. Únicamente el rechazo exacto
+401/PGRST303/`JWT issued at future` permite hasta tres GET, con esperas de
+500/1000 ms. Los demás errores, identidad incorrecta o rechazo persistente fallan.
+No reintenta login, mutaciones ni tráfico del navegador; no modifica relojes,
+claims, permisos o deadlines. Se comparte en 8D y 9D/9E/10. La comprobación no
+acredita una corrección de PostgREST ni disponibilidad alojada.
+
+El diagnóstico REST del viaje 9D/9E/10 conserva únicamente status, código y una
+categoría cerrada (future/not-yet-valid/expired/audience/parsing/other), nunca
+mensajes arbitrarios, cuerpos, tokens o claims. El control semántico que vence
+incluye ahora su etiqueta. Los workflows verifican formato del helper y ejecutan
+sus regresiones a través de `browser_harness_test.mjs`.
+
+Verificación focalizada con Node 24.14.0 y cámara=0: **21 PASS / 2 SKIP**
+(fixture Unix en Windows y cámara, esta con el motivo obligatorio). Se comprueban
+Auth único, identidad, cabecera JWT, límite de reintentos, denegaciones y
+sanitización. Deno 2.2.12 fmt de los cuatro módulos afectados, lint/check del
+helper, sintaxis Node y `git diff --check`: PASS. El lint adicional del archivo
+de tests conserva dos `require-await` preexistentes, fuera del cambio.
+
+Aceptación local completa con `run_phase9e.ps1`, exit 0: **978 pgTAP**, lint SQL
+sin errores, **58 checks HTTP/Anvil/restore y 180 aserciones Chrome release**.
+`browser-auth-readiness` pasó al primer intento; no se reprodujo el rechazo
+temporal durante esta pasada. `mobile/build/phase9e-evidence/{preflight,browser,result,full}.json`
+identifican HEAD/dirty y fecha; result evaluado `2026-10-30T16:01:42Z`.
+Cleanup de Anvil/Edge/restore y del stack/directorio desechables: PASS.
+Los primeros intentos locales se detuvieron por CLI distinta de 2.117.0 y porque
+el launcher npm de Windows usó Node 22 pese al PATH: se seleccionaron Node
+24.14.0 y CLI 2.117.0 temporales sin cambiar dependencias/locks del proyecto.
+Actionlint de los workflows afectados: PASS. No se ejecutó la aceptación
+8D o 10 por separado; se verificó el helper compartido y el recorrido 9E real.
+Cámara SKIP/NOT_RUN: «Omitidas por instrucción del usuario; no hay cámara física disponible».
+
+CI del cambio local: **NOT_OBSERVED**, sin commit/push ni rerun remoto.
+
 ## Base de fase 9 reconsultada — 15/10/2026
 
 main/HEAD revisados: `bb2a93c61950f258136bc88d4b9ad44b46848fc5`.

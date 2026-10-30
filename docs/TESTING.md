@@ -1,5 +1,19 @@
 # Estrategia de pruebas
 
+## Readiness JWT después de compilar Web — 30/10/2026
+
+[Diagnóstico CI 9E y límites](PHASE9E_ACCEPTANCE.md#diagnóstico-del-fallo-ci-y-readiness-tras-build--30102026).
+Los harnesses release 8D y 9D/9E/10 revalidan Auth y SELECT propio antes de Chrome.
+Solo el rechazo temporal exacto `401/PGRST303/JWT issued at future` permite
+repetir esa lectura hasta tres veces; no hay retries del navegador ni mutaciones.
+Los errores REST incluyen categorías JWT cerradas, sin mensajes upstream.
+Regresiones: `CERTICHAIN_TEST_CAMERA=0 node --test mobile/tool/browser_harness_test.mjs supabase/tests/edge_runtime_test.mjs`;
+Node 24.14.0, 21 PASS / 2 SKIP (Unix en Windows y cámara). Sin evidencia nueva de
+Actions hasta publicar y ejecutar el cambio. `run_phase9e.ps1` completo exit 0:
+978 pgTAP, 58 checks HTTP/Anvil/restore, 180 aserciones Web release; cleanup PASS.
+Readiness al primer intento; no se reprodujo el 401 temporal. Artefactos locales
+ignorados en `mobile/build/phase9e-evidence/`; no acredita pasadas 8D/10 separadas.
+
 ## Aceptación integrada 10E — 18/10/2026
 
 Registro único vigente en [PHASE10_ACCEPTANCE](PHASE10_ACCEPTANCE.md): matriz,
