@@ -1,5 +1,9 @@
 # CertiChain
 
+<p align="center">
+  <img src="docs/assets/CertiChainLogo.png" alt="CertiChain logo" width="500">
+</p>
+
 **Academic and professional certificates, with private documents and verifiable blockchain evidence.**
 
 CertiChain is a final-year software engineering project (TFG) that implements the certificate lifecycle: an approved institution issues a PDF, its holder accesses and shares a verification link or QR code, and anyone can check the certificate's current status. Institutions can revoke certificates through an authenticated, auditable workflow.
